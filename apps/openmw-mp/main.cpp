@@ -127,6 +127,9 @@ boost::program_options::variables_map launchOptions(int argc, char *argv[], File
     bpo::variables_map variables;
     bpo::options_description desc;
 
+    // OpenMW 0.48's ConfigurationManager::readConfiguration() expects the common options (config, replace, user-data)
+    cfgMgr.addCommonOptions(desc);
+
     desc.add_options()
             ("resources", bpo::value<Files::MaybeQuotedPath>()->default_value(Files::MaybeQuotedPath(), "resources"), "set resources directory")
             ("no-logs", bpo::value<bool>()->implicit_value(true)->default_value(false),
