@@ -14,7 +14,7 @@
     End of tes3mp addition
 */
 
-#include <components/esm/loadnpc.hpp>
+#include <components/esm3/loadnpc.hpp>
 
 #include "../mwworld/esmstore.hpp"
 

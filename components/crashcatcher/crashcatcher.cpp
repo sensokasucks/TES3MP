@@ -560,6 +560,13 @@ static bool is_debugger_present()
 #endif
 }
 
+/*
+    Start of tes3mp change (major)
+
+    The header defines an inline stub when USE_CRASH_CATCHER is 0 (TES3MP disables
+    the crash catcher on Linux), so only define the real function when enabled
+*/
+#if USE_CRASH_CATCHER
 void crashCatcherInstall(int argc, char **argv, const std::string &crashLogPath)
 {
     if ((argc == 2 && strcmp(argv[1], crash_switch) == 0) || !is_debugger_present())
@@ -573,3 +580,7 @@ void crashCatcherInstall(int argc, char **argv, const std::string &crashLogPath)
             Log(Debug::Info) << "Crash handler installed";
     }
 }
+#endif
+/*
+    End of tes3mp change (major)
+*/
