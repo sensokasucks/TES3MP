@@ -62,7 +62,7 @@ void MechanicsHelper::spawnLeveledCreatures(MWWorld::CellStore* cellStore)
     {
         MWWorld::Ptr ptr(&lref, cellStore);
 
-        std::string id = MWMechanics::getLevelledItem(ptr.get<ESM::CreatureLevList>()->mBase, true);
+        std::string id = MWMechanics::getLevelledItem(ptr.get<ESM::CreatureLevList>()->mBase, true, MWBase::Environment::get().getWorld()->getPrng());
 
         if (!id.empty())
         {
@@ -90,7 +90,7 @@ bool MechanicsHelper::isUsingRangedWeapon(const MWWorld::Ptr& ptr)
         MWWorld::ContainerStoreIterator weaponSlot = inventoryStore.getSlot(
             MWWorld::InventoryStore::Slot_CarriedRight);
 
-        if (weaponSlot != inventoryStore.end() && weaponSlot->getTypeName() == typeid(ESM::Weapon).name())
+        if (weaponSlot != inventoryStore.end() && weaponSlot->getType() == ESM::Weapon::sRecordId)
         {
             const ESM::Weapon* weaponRecord = weaponSlot->get<ESM::Weapon>()->mBase;
 
@@ -206,6 +206,28 @@ mwmp::Item MechanicsHelper::getItem(const MWWorld::Ptr& itemPtr, int count)
     item.soul = itemPtr.getCellRef().getSoul();
 
     return item;
+}
+
+mwmp::ActiveSpell MechanicsHelper::getActiveSpell(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
+{
+    mwmp::ActiveSpell activeSpell;
+    activeSpell.id = params.getId();
+    // Only consumables (potions, ingredients) stack in OpenMW 0.48; everything else merges by id, caster and slot
+    activeSpell.isStackingSpell = params.getType() == ESM::ActiveSpells::Type_Consumable;
+    activeSpell.timestampDay = params.getTimeStamp().getDay();
+    activeSpell.timestampHour = params.getTimeStamp().getHour();
+    activeSpell.params = params.toEsm();
+    return activeSpell;
+}
+
+ESM::ActiveSpells::ActiveSpellParams MechanicsHelper::getEsmActiveSpellParams(const mwmp::ActiveSpell& activeSpell, int casterActorId)
+{
+    ESM::ActiveSpells::ActiveSpellParams esmParams = activeSpell.params;
+    esmParams.mId = activeSpell.id;
+    esmParams.mCasterActorId = casterActorId;
+    esmParams.mItem.mIndex = 0;
+    esmParams.mItem.mContentFile = -1;
+    return esmParams;
 }
 
 mwmp::Target MechanicsHelper::getTarget(const MWWorld::Ptr& ptr)
@@ -439,7 +461,7 @@ void MechanicsHelper::processAttack(Attack attack, const MWWorld::Ptr& attacker)
                 }
             }
 
-            if (!weaponPtr.isEmpty() && weaponPtr.getTypeName() != typeid(ESM::Weapon).name())
+            if (!weaponPtr.isEmpty() && weaponPtr.getType() != ESM::Weapon::sRecordId)
                 weaponPtr = MWWorld::Ptr();
         }
 

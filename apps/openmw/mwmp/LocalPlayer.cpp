@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <components/esm3/esmwriter.hpp>
 #include <components/openmw-mp/TimedLog.hpp>
 #include <components/openmw-mp/Utils.hpp>
@@ -620,8 +622,8 @@ void LocalPlayer::updateAnimFlags(bool forceUpdate)
     static bool wasFlying = false;
     static bool hadTcl = false;
 
-    drawState = ptrPlayer.getClass().getNpcStats(ptrPlayer).getDrawState();
-    static char lastDrawState = ptrPlayer.getClass().getNpcStats(ptrPlayer).getDrawState();
+    drawState = static_cast<char>(ptrPlayer.getClass().getNpcStats(ptrPlayer).getDrawState());
+    static char lastDrawState = static_cast<char>(ptrPlayer.getClass().getNpcStats(ptrPlayer).getDrawState());
 
     if (wasRunning != isRunning ||
         wasSneaking != isSneaking || wasForceJumping != isForceJumping ||
@@ -722,7 +724,7 @@ void LocalPlayer::addSpellsActive()
         int casterActorId = MechanicsHelper::getActorId(activeSpell.caster);
 
         // Don't do a check for a spell's existence, because active effects from potions need to be applied here too
-        activeSpells.addSpell(activeSpell.id, activeSpell.isStackingSpell, activeSpell.params.mEffects, activeSpell.params.mDisplayName, casterActorId, timestamp, false);
+        activeSpells.addSpell(MechanicsHelper::getEsmActiveSpellParams(activeSpell, casterActorId), casterActorId, timestamp);
     }
 }
 
@@ -830,7 +832,7 @@ void LocalPlayer::removeSpellsActive()
         if (activeSpell.isStackingSpell)
         {
             MWWorld::TimeStamp timestamp = MWWorld::TimeStamp(activeSpell.timestampHour, activeSpell.timestampDay);
-            bool foundSpell = activeSpells.removeSpellByTimestamp(activeSpell.id, timestamp);
+            bool foundSpell = activeSpells.removeSpellByTimestamp(ptrPlayer, activeSpell.id, timestamp);
 
             if (!foundSpell)
             {
@@ -839,7 +841,7 @@ void LocalPlayer::removeSpellsActive()
         }
         else
         {
-            activeSpells.removeEffects(activeSpell.id);
+            activeSpells.removeSpellsById(ptrPlayer, activeSpell.id);
         }
     }
 }
@@ -882,7 +884,7 @@ void LocalPlayer::resurrect()
 
     // If this player had a weapon or spell readied when dying, they will still have it
     // readied but be unable to use it unless we clear it here
-    ptrPlayer.getClass().getNpcStats(ptrPlayer).setDrawState(MWMechanics::DrawState_Nothing);
+    ptrPlayer.getClass().getNpcStats(ptrPlayer).setDrawState(MWMechanics::DrawState::Nothing);
 
     // Record that the player has died since the last attempt was made to arrest them,
     // used to make guards lenient enough to attempt an arrest again
@@ -995,7 +997,7 @@ void LocalPlayer::setAttributes()
         // the modifier
         if (creatureStats.mAttributes[attributeIndex].mMod == 0 && ptrNpcStats->getAttribute(attributeIndex).getModifier() > 0)
         {
-            ptrNpcStats->getActiveSpells().purgeEffectByArg(ESM::MagicEffect::FortifyAttribute, attributeIndex);
+            ptrNpcStats->getActiveSpells().purgeEffectByArg(ptrPlayer, ESM::MagicEffect::FortifyAttribute, attributeIndex);
             MWBase::Environment::get().getMechanicsManager()->updateMagicEffects(ptrPlayer);
 
             // Is the modifier for this attribute still higher than 0? If so, unequip items that
@@ -1028,7 +1030,7 @@ void LocalPlayer::setSkills()
         // the modifier
         if (npcStats.mSkills[skillIndex].mMod == 0 && ptrNpcStats->getSkill(skillIndex).getModifier() > 0)
         {
-            ptrNpcStats->getActiveSpells().purgeEffectByArg(ESM::MagicEffect::FortifySkill, skillIndex);
+            ptrNpcStats->getActiveSpells().purgeEffectByArg(ptrPlayer, ESM::MagicEffect::FortifySkill, skillIndex);
             MWBase::Environment::get().getMechanicsManager()->updateMagicEffects(ptrPlayer);
 
             // Is the modifier for this skill still higher than 0? If so, unequip items that
@@ -1086,8 +1088,8 @@ void LocalPlayer::setPosition()
     {
         world->getPlayer().setTeleported(true);
 
-        world->moveObject(ptrPlayer, position.pos[0], position.pos[1], position.pos[2]);
-        world->rotateObject(ptrPlayer, position.rot[0], position.rot[1], position.rot[2]);
+        world->moveObject(ptrPlayer, position.asVec3());
+        world->rotateObject(ptrPlayer, position.asRotationVec3());
         world->setInertialForce(ptrPlayer, osg::Vec3f(0.f, 0.f, 0.f));
     }
 
@@ -1186,7 +1188,7 @@ void LocalPlayer::setEquipment()
 
         if (!currentItem.refId.empty())
         {
-            auto it = find_if(ptrInventory.begin(), ptrInventory.end(), [&currentItem](const MWWorld::Ptr &itemPtr) {
+            auto it = std::find_if(ptrInventory.begin(), ptrInventory.end(), [&currentItem](const MWWorld::Ptr &itemPtr) {
                 return Misc::StringUtils::ciEqual(itemPtr.getCellRef().getRefId(), currentItem.refId);
             });
 
@@ -1250,10 +1252,10 @@ void LocalPlayer::setSpellbook()
     // Clear spells in spellbook, while ignoring abilities, powers, etc.
     while (true)
     {
-        MWMechanics::Spells::TIterator iter = ptrSpells.begin();
+        auto iter = ptrSpells.begin();
         for (; iter != ptrSpells.end(); iter++)
         {
-            const ESM::Spell *spell = iter->first;
+            const ESM::Spell *spell = *iter;
             if (spell->mData.mType == ESM::Spell::ST_Spell)
             {
                 ptrSpells.remove(spell->mId);
@@ -1272,7 +1274,7 @@ void LocalPlayer::setSpellsActive()
 {
     MWWorld::Ptr ptrPlayer = getPlayerPtr();
     MWMechanics::ActiveSpells& activeSpells = ptrPlayer.getClass().getCreatureStats(ptrPlayer).getActiveSpells();
-    activeSpells.clear();
+    activeSpells.clear(ptrPlayer);
 
     // Proceed by adding spells active
     addSpellsActive();
@@ -1309,7 +1311,7 @@ void LocalPlayer::setQuickKeys()
         {
             MWWorld::InventoryStore &ptrInventory = ptrPlayer.getClass().getInventoryStore(ptrPlayer);
 
-            auto it = find_if(ptrInventory.begin(), ptrInventory.end(), [&quickKey](const MWWorld::Ptr &inventoryItem) {
+            auto it = std::find_if(ptrInventory.begin(), ptrInventory.end(), [&quickKey](const MWWorld::Ptr &inventoryItem) {
                 return Misc::StringUtils::ciEqual(inventoryItem.getCellRef().getRefId(), quickKey.itemId);
             });
 
@@ -1321,10 +1323,10 @@ void LocalPlayer::setQuickKeys()
             MWMechanics::Spells &ptrSpells = ptrPlayer.getClass().getCreatureStats(ptrPlayer).getSpells();
             bool hasSpell = false;
 
-            MWMechanics::Spells::TIterator iter = ptrSpells.begin();
+            auto iter = ptrSpells.begin();
             for (; iter != ptrSpells.end(); iter++)
             {
-                const ESM::Spell *spell = iter->first;
+                const ESM::Spell *spell = *iter;
                 if (Misc::StringUtils::ciEqual(spell->mId, quickKey.itemId))
                 {
                     hasSpell = true;
@@ -1581,8 +1583,8 @@ void LocalPlayer::sendSpellbook()
     // Send spells in spellbook, while ignoring abilities, powers, etc.
     for (const auto &spell : ptrSpells)
     {
-        if (spell.first->mData.mType == ESM::Spell::ST_Spell)
-            spellbookChanges.spells.push_back(*spell.first);
+        if (spell->mData.mType == ESM::Spell::ST_Spell)
+            spellbookChanges.spells.push_back(*spell);
     }
 
     spellbookChanges.action = SpellbookChanges::SET;
@@ -1615,12 +1617,11 @@ void LocalPlayer::sendSpellsActive()
     spellsActiveChanges.activeSpells.clear();
 
     // Send spells in spellbook, while ignoring abilities, powers, etc.
-    for (const auto& ptrSpell : activeSpells)
+    for (const auto& params : activeSpells)
     {
-        mwmp::ActiveSpell packetSpell;
-        packetSpell.id = ptrSpell.first;
-        packetSpell.params.mDisplayName = ptrSpell.second.mDisplayName;
-        packetSpell.params.mEffects = ptrSpell.second.mEffects;
+        mwmp::ActiveSpell packetSpell = MechanicsHelper::getActiveSpell(params);
+        MWWorld::Ptr caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.getCasterActorId());
+        packetSpell.caster = MechanicsHelper::getTarget(caster);
         spellsActiveChanges.activeSpells.push_back(packetSpell);
     }
 
@@ -1629,25 +1630,18 @@ void LocalPlayer::sendSpellsActive()
     getNetworking()->getPlayerPacket(ID_PLAYER_SPELLS_ACTIVE)->Send();
 }
 
-void LocalPlayer::sendSpellsActiveAddition(const std::string id, bool isStackingSpell, const MWMechanics::ActiveSpells::ActiveSpellParams& params)
+void LocalPlayer::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (id.find("$dynamic") != std::string::npos)
+    if (params.getId().find("$dynamic") != std::string::npos)
         return;
 
     spellsActiveChanges.activeSpells.clear();
 
+    MWWorld::Ptr caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.getCasterActorId());
 
-    MWWorld::Ptr caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.mCasterActorId);
-
-    mwmp::ActiveSpell spell;
-    spell.id = id;
-    spell.isStackingSpell = isStackingSpell;
+    mwmp::ActiveSpell spell = MechanicsHelper::getActiveSpell(params);
     spell.caster = MechanicsHelper::getTarget(caster);
-    spell.timestampDay = params.mTimeStamp.getDay();
-    spell.timestampHour = params.mTimeStamp.getHour();
-    spell.params.mEffects = params.mEffects;
-    spell.params.mDisplayName = params.mDisplayName;
     spellsActiveChanges.activeSpells.push_back(spell);
 
     LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending active spell addition with stacking %s, timestamp %i %f",
@@ -1658,19 +1652,15 @@ void LocalPlayer::sendSpellsActiveAddition(const std::string id, bool isStacking
     getNetworking()->getPlayerPacket(ID_PLAYER_SPELLS_ACTIVE)->Send();
 }
 
-void LocalPlayer::sendSpellsActiveRemoval(const std::string id, bool isStackingSpell, MWWorld::TimeStamp timestamp)
+void LocalPlayer::sendSpellsActiveRemoval(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (id.find("$dynamic") != std::string::npos)
+    if (params.getId().find("$dynamic") != std::string::npos)
         return;
 
     spellsActiveChanges.activeSpells.clear();
 
-    mwmp::ActiveSpell spell;
-    spell.id = id;
-    spell.isStackingSpell = isStackingSpell;
-    spell.timestampDay = timestamp.getDay();
-    spell.timestampHour = timestamp.getHour();
+    mwmp::ActiveSpell spell = MechanicsHelper::getActiveSpell(params);
     spellsActiveChanges.activeSpells.push_back(spell);
 
     LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending active spell removal with stacking %s, timestamp %i %f",
@@ -1859,7 +1849,7 @@ void LocalPlayer::sendSelectedSpell(const std::string& newSelectedSpellId)
     getNetworking()->getPlayerPacket(ID_PLAYER_MISCELLANEOUS)->Send();
 }
 
-void LocalPlayer::sendItemUse(const MWWorld::Ptr& itemPtr, bool itemMagicState, char currentDrawState)
+void LocalPlayer::sendItemUse(const MWWorld::Ptr& itemPtr, bool itemMagicState, MWMechanics::DrawState currentDrawState)
 {
     usedItem.refId = itemPtr.getCellRef().getRefId();
     usedItem.count = itemPtr.getRefData().getCount();
@@ -1868,7 +1858,7 @@ void LocalPlayer::sendItemUse(const MWWorld::Ptr& itemPtr, bool itemMagicState, 
     usedItem.soul = itemPtr.getCellRef().getSoul();
 
     usingItemMagic = itemMagicState;
-    itemUseDrawState = currentDrawState;
+    itemUseDrawState = static_cast<char>(currentDrawState);
 
     getNetworking()->getPlayerPacket(ID_PLAYER_ITEM_USE)->setPlayer(this);
     getNetworking()->getPlayerPacket(ID_PLAYER_ITEM_USE)->Send();

@@ -3,6 +3,7 @@
 
 #include <components/openmw-mp/Base/BasePlayer.hpp>
 #include "../mwmechanics/activespells.hpp"
+#include "../mwmechanics/drawstate.hpp"
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/timestamp.hpp"
 #include <RakNetTypes.h>
@@ -94,8 +95,8 @@ namespace mwmp
         void sendSpellbook();
         void sendSpellChange(std::string id, unsigned int action);
         void sendSpellsActive();
-        void sendSpellsActiveAddition(const std::string id, bool isStackingSpell, const MWMechanics::ActiveSpells::ActiveSpellParams& params);
-        void sendSpellsActiveRemoval(const std::string id, bool isStackingSpell, MWWorld::TimeStamp timestamp);
+        void sendSpellsActiveAddition(const MWMechanics::ActiveSpells::ActiveSpellParams& params);
+        void sendSpellsActiveRemoval(const MWMechanics::ActiveSpells::ActiveSpellParams& params);
         void sendCooldownChange(std::string id, int startTimestampDay, float startTimestampHour);
         void sendQuickKey(unsigned short slot, int type, const std::string& itemId = "");
         void sendJournalEntry(const std::string& quest, int index, const MWWorld::Ptr& actor);
@@ -108,7 +109,7 @@ namespace mwmp
         void sendWerewolfState(bool isWerewolf);
         void sendMarkLocation(const ESM::Cell& newMarkCell, const ESM::Position& newMarkPosition);
         void sendSelectedSpell(const std::string& newSelectedSpellId);
-        void sendItemUse(const MWWorld::Ptr& itemPtr, bool usingItemMagic = false, char currentDrawState = 0);
+        void sendItemUse(const MWWorld::Ptr& itemPtr, bool usingItemMagic = false, MWMechanics::DrawState currentDrawState = MWMechanics::DrawState::Nothing);
         void sendCellStates();
 
         void clearCellStates();

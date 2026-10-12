@@ -2967,7 +2967,7 @@ namespace MWWorld
         {
             const Scene::CellStoreCollection& activeCells = mWorldScene->getActiveCells();
             mwmp::CellController *cellController = mwmp::Main::get().getCellController();
-            mWorldScene->unloadCell(activeCells.find(cellController->getCellStore(cell)));
+            mWorldScene->unloadCell(cellController->getCellStore(cell));
         }
     }
     /*
@@ -2988,7 +2988,7 @@ namespace MWWorld
             // Ignore a placeholder interior that a player may currently be in
             if ((*it)->getCell()->isExterior() || !Misc::StringUtils::ciEqual((*it)->getCell()->getDescription(), RecordHelper::getPlaceholderInteriorCellName()))
             {
-                mWorldScene->unloadCell(it);
+                mWorldScene->unloadCell(*it);
             }
         }
     }
@@ -3458,7 +3458,7 @@ namespace MWWorld
                 to avoid framelistener errors
             */
             if (getStore().get<ESM::Spell>().search(selectedSpell) == 0)
-                return false;
+                return MWWorld::SpellCastState::Success;
             /*
                 End of tes3mp addition
             */
@@ -3470,7 +3470,7 @@ namespace MWWorld
                 without unilaterally deducting any magicka for them on this client
             */
             if (mwmp::PlayerList::isDedicatedPlayer(actor) || mwmp::Main::get().getCellController()->isDedicatedActor(actor))
-                return true;
+                return MWWorld::SpellCastState::Success;
             /*
                 End of tes3mp addition
             */

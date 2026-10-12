@@ -3013,7 +3013,6 @@ std::string CharacterController::getAttackType() const
     End of tes3mp addition
 */
 
-void CharacterController::setActive(int active)
 bool CharacterController::getAttackingOrSpell() const
 {
     return mPtr.getClass().getCreatureStats(mPtr).getAttackingOrSpell();

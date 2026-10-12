@@ -28,8 +28,8 @@ namespace mwmp
         void updateAttackOrCast();
 
         void sendEquipment();
-        void sendSpellsActiveAddition(const std::string id, bool isStackingSpell, const MWMechanics::ActiveSpells::ActiveSpellParams& params);
-        void sendSpellsActiveRemoval(const std::string id, bool isStackingSpell, MWWorld::TimeStamp timestamp);
+        void sendSpellsActiveAddition(const MWMechanics::ActiveSpells::ActiveSpellParams& params);
+        void sendSpellsActiveRemoval(const MWMechanics::ActiveSpells::ActiveSpellParams& params);
         void sendDeath(char newDeathState);
 
         MWWorld::Ptr getPtr();
@@ -51,7 +51,7 @@ namespace mwmp
         bool wasJumping;
         bool wasFlying;
 
-        MWMechanics::DrawState_ lastDrawState;
+        MWMechanics::DrawState lastDrawState;
 
         MWMechanics::DynamicStat<float> oldHealth;
         MWMechanics::DynamicStat<float> oldMagicka;

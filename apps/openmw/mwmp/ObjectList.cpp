@@ -531,21 +531,30 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                     LOG_APPEND(TimedLog::LOG_INFO, "-- adding active spell to master with id %s, effect %i, duration %f",
                         baseObject.summonSpellId.c_str(), baseObject.summonEffectId, baseObject.summonDuration);
 
-                    auto activeSpells = masterCreatureStats.getActiveSpells();
+                    MWMechanics::ActiveSpells& activeSpells = masterCreatureStats.getActiveSpells();
                     if (!activeSpells.isSpellActive(baseObject.summonSpellId))
-                        activeSpells.addSpell(baseObject.summonSpellId, false, activeEffects, "", masterCreatureStats.getActorId());
+                    {
+                        ESM::ActiveSpells::ActiveSpellParams esmParams;
+                        esmParams.mId = baseObject.summonSpellId;
+                        esmParams.mEffects = activeEffects;
+                        esmParams.mDisplayName = "";
+                        esmParams.mCasterActorId = masterCreatureStats.getActorId();
+                        esmParams.mType = ESM::ActiveSpells::Type_Temporary;
+                        esmParams.mWorsenings = -1;
+                        activeSpells.addSpell(esmParams, masterCreatureStats.getActorId(), MWBase::Environment::get().getWorld()->getTimeStamp());
+                    }
 
                     LOG_APPEND(TimedLog::LOG_INFO, "-- setting summoned creatureActorId for %i-%i to %i",
                         newPtr.getCellRef().getRefNum(), newPtr.getCellRef().getMpNum(), creatureActorId);
 
                     // Check if this creature is present in the summoner's summoned creature map
-                    std::map<ESM::SummonKey, int>& creatureMap = masterCreatureStats.getSummonedCreatureMap();
+                    std::multimap<int, int>& creatureMap = masterCreatureStats.getSummonedCreatureMap();
 
                     bool foundSummonedCreature = false;
 
-                    for (std::map<ESM::SummonKey, int>::iterator it = creatureMap.begin(); it != creatureMap.end(); )
+                    for (auto it = creatureMap.begin(); it != creatureMap.end(); )
                     {
-                        if (it->first.mEffectId == baseObject.summonEffectId && it->first.mSourceId == baseObject.summonSpellId)
+                        if (it->first == baseObject.summonEffectId)
                         {
                             foundSummonedCreature = true;
                             break;
@@ -561,8 +570,7 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                     // If not, add it to the summoned creature map
                     else
                     {
-                        ESM::SummonKey summonKey(baseObject.summonEffectId, baseObject.summonSpellId, -1);
-                        creatureMap.emplace(summonKey, creatureActorId);
+                        creatureMap.emplace(baseObject.summonEffectId, creatureActorId);
                     }
 
                     creatureStats.setFriendlyHits(0);
@@ -737,8 +745,7 @@ void ObjectList::moveObjects(MWWorld::CellStore* cellStore)
             LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Found %s %i-%i", ptrFound.getCellRef().getRefId().c_str(),
                                ptrFound.getCellRef().getRefNum(), ptrFound.getCellRef().getMpNum());
 
-            MWBase::Environment::get().getWorld()->moveObject(ptrFound, baseObject.position.pos[0], baseObject.position.pos[1],
-                                                              baseObject.position.pos[2]);
+            MWBase::Environment::get().getWorld()->moveObject(ptrFound, baseObject.position.asVec3());
         }
     }
 }
@@ -782,8 +789,7 @@ void ObjectList::rotateObjects(MWWorld::CellStore* cellStore)
             LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Found %s %i-%i", ptrFound.getCellRef().getRefId().c_str(),
                                ptrFound.getCellRef().getRefNum(), ptrFound.getCellRef().getMpNum());
 
-            MWBase::Environment::get().getWorld()->rotateObject(ptrFound,
-                                                                baseObject.position.rot[0], baseObject.position.rot[1], baseObject.position.rot[2], MWBase::RotationFlag_none);
+            MWBase::Environment::get().getWorld()->rotateObject(ptrFound, baseObject.position.asRotationVec3(), MWBase::RotationFlag_none);
         }
     }
 }

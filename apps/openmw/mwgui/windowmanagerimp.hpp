@@ -555,7 +555,6 @@ namespace MWGui
         Keep a pointer to the container window because of its usefulness
         in multiplayer for container sync
     */
-    ContainerWindow* mContainerWindow;
     /*
         End of tes3mp addition
     */

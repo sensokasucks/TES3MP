@@ -240,7 +240,11 @@ namespace MWMechanics
         timestamp.mDay = startDay;
         timestamp.mHour = startHour;
 
-        mUsedPowers[spell] = MWWorld::TimeStamp(timestamp);
+        auto it = std::find_if(mUsedPowers.begin(), mUsedPowers.end(), [&](auto& pair) { return pair.first == spell; });
+        if (it != mUsedPowers.end())
+            it->second = MWWorld::TimeStamp(timestamp);
+        else
+            mUsedPowers.emplace_back(spell, MWWorld::TimeStamp(timestamp));
     }
     /*
         End of tes3mp addition

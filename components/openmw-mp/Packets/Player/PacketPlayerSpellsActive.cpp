@@ -34,6 +34,8 @@ void PacketPlayerSpellsActive::Packet(RakNet::BitStream *newBitstream, bool send
         RW(activeSpell.timestampDay, send);
         RW(activeSpell.timestampHour, send);
         RW(activeSpell.params.mDisplayName, send, true);
+        RW(activeSpell.params.mType, send);
+        RW(activeSpell.params.mWorsenings, send);
 
         RW(activeSpell.caster.isPlayer, send);
 
@@ -73,6 +75,9 @@ void PacketPlayerSpellsActive::Packet(RakNet::BitStream *newBitstream, bool send
             RW(effect.mMagnitude, send);
             RW(effect.mDuration, send);
             RW(effect.mTimeLeft, send);
+            RW(effect.mMinMagnitude, send);
+            RW(effect.mMaxMagnitude, send);
+            RW(effect.mFlags, send);
         }
     }
 }

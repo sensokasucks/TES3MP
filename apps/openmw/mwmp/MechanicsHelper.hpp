@@ -4,6 +4,7 @@
 #include <components/openmw-mp/Base/BaseStructs.hpp>
 
 #include "../mwworld/containerstore.hpp"
+#include "../mwmechanics/activespells.hpp"
 
 #include <osg/Vec3f>
 
@@ -28,6 +29,9 @@ namespace MechanicsHelper
 
     mwmp::Item getItem(const MWWorld::Ptr& itemPtr, int count);
     mwmp::Target getTarget(const MWWorld::Ptr& ptr);
+
+    mwmp::ActiveSpell getActiveSpell(const MWMechanics::ActiveSpells::ActiveSpellParams& params);
+    ESM::ActiveSpells::ActiveSpellParams getEsmActiveSpellParams(const mwmp::ActiveSpell& activeSpell, int casterActorId);
     void clearTarget(mwmp::Target& target);
     bool isEmptyTarget(const mwmp::Target& target);
 

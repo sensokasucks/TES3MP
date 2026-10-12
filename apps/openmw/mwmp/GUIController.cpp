@@ -398,10 +398,10 @@ void mwmp::GUIController::setGlobalMapMarkerTooltip(MWGui::MapWindow *mapWindow,
 
 void mwmp::GUIController::updateGlobalMapMarkerTooltips(MWGui::MapWindow *mapWindow)
 {
-    for (const auto &widget : mapWindow->mGlobalMapMarkers)
+    for (const auto& [marker, ignore] : mapWindow->mGlobalMapMarkers)
     {
-        const int x = widget.first.first;
-        const int y = widget.first.second;
-        setGlobalMapMarkerTooltip(mapWindow, widget.second, x, y);
+        const int x = static_cast<int>(marker.position.x());
+        const int y = static_cast<int>(marker.position.y());
+        setGlobalMapMarkerTooltip(mapWindow, marker.widget, x, y);
     }
 }

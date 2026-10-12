@@ -138,7 +138,10 @@ namespace MWMechanics
     {
         // Effects received from other clients have already been through reflection, absorption and resistances there
         for (auto& effect : mEffects)
+        {
+            effect.mFlags &= ~(ESM::ActiveEffect::Flag_Applied | ESM::ActiveEffect::Flag_Remove);
             effect.mFlags |= ESM::ActiveEffect::Flag_Ignore_Resistances | ESM::ActiveEffect::Flag_Ignore_Reflect | ESM::ActiveEffect::Flag_Ignore_SpellAbsorption;
+        }
     }
     /*
         End of tes3mp addition
