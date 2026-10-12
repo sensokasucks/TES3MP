@@ -1,10 +1,8 @@
 #ifndef OPENMW_COMPONENTS_UNREFQUEUE_H
 #define OPENMW_COMPONENTS_UNREFQUEUE_H
 
-#include "workqueue.hpp"
-
-#include <osg/ref_ptr>
 #include <osg/Referenced>
+#include <osg/ref_ptr>
 
 #include <vector>
 

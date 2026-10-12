@@ -3,19 +3,66 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/esm/attr.hpp>
+
 namespace ESM
 {
-    int Race::MaleFemale::getValue (bool male) const
+    int32_t Race::RADTstruct::getAttribute(ESM::RefId attribute, bool male) const
     {
-        return male ? mMale : mFemale;
+        int index = ESM::Attribute::refIdToIndex(attribute);
+        if (index < 0)
+            return 0;
+        index *= 2;
+        if (!male)
+            index++;
+        return mAttributeValues[static_cast<size_t>(index)];
     }
 
-    float Race::MaleFemaleF::getValue (bool male) const
+    void Race::RADTstruct::setAttribute(ESM::RefId attribute, bool male, int32_t value)
     {
-        return male ? mMale : mFemale;
+        int index = ESM::Attribute::refIdToIndex(attribute);
+        if (index < 0)
+            return;
+        index *= 2;
+        if (!male)
+            index++;
+        mAttributeValues[static_cast<size_t>(index)] = value;
     }
 
-    void Race::load(ESMReader &esm, bool &isDeleted)
+    void Race::RADTstruct::load(ESMReader& esm)
+    {
+        esm.getSubHeader();
+        for (auto& bonus : mBonus)
+        {
+            esm.getT(bonus.mSkill);
+            esm.getT(bonus.mBonus);
+        }
+        esm.getT(mAttributeValues);
+        esm.getT(mMaleHeight);
+        esm.getT(mFemaleHeight);
+        esm.getT(mMaleWeight);
+        esm.getT(mFemaleWeight);
+        esm.getT(mFlags);
+    }
+
+    void Race::RADTstruct::save(ESMWriter& esm) const
+    {
+        esm.startSubRecord("RADT");
+        for (const auto& bonus : mBonus)
+        {
+            esm.writeT(bonus.mSkill);
+            esm.writeT(bonus.mBonus);
+        }
+        esm.writeT(mAttributeValues);
+        esm.writeT(mMaleHeight);
+        esm.writeT(mFemaleHeight);
+        esm.writeT(mMaleWeight);
+        esm.writeT(mFemaleWeight);
+        esm.writeT(mFlags);
+        esm.endRecord("RADT");
+    }
+
+    void Race::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -30,14 +77,14 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
                 case fourCC("RADT"):
-                    esm.getHTSized<140>(mData);
+                    mData.load(esm);
                     hasData = true;
                     break;
                 case fourCC("DESC"):
@@ -60,9 +107,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing RADT subrecord");
     }
-    void Race::save(ESMWriter &esm, bool isDeleted) const
+    void Race::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -71,7 +118,7 @@ namespace ESM
         }
 
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("RADT", mData, 140);
+        mData.save(esm);
         mPowers.save(esm);
         esm.writeHNOString("DESC", mDescription);
     }
@@ -84,17 +131,16 @@ namespace ESM
 
         mPowers.mList.clear();
 
-        for (int i=0; i<7; ++i)
+        for (auto& bonus : mData.mBonus)
         {
-            mData.mBonus[i].mSkill = -1;
-            mData.mBonus[i].mBonus = 0;
+            bonus.mSkill = -1;
+            bonus.mBonus = 0;
         }
 
-        for (int i=0; i<8; ++i)
-            mData.mAttributeValues[i].mMale = mData.mAttributeValues[i].mFemale = 1;
+        mData.mAttributeValues.fill(1);
 
-        mData.mHeight.mMale = mData.mHeight.mFemale = 1;
-        mData.mWeight.mMale = mData.mWeight.mFemale = 1;
+        mData.mMaleHeight = mData.mFemaleHeight = 1;
+        mData.mMaleWeight = mData.mFemaleWeight = 1;
 
         mData.mFlags = 0;
     }

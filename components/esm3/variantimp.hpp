@@ -1,8 +1,8 @@
 #ifndef OPENMW_ESM_VARIANTIMP_H
 #define OPENMW_ESM_VARIANTIMP_H
 
-#include <string>
 #include <functional>
+#include <string>
 
 #include "variant.hpp"
 
@@ -12,13 +12,13 @@ namespace ESM
 
     void readESMVariantValue(ESMReader& reader, Variant::Format format, VarType type, float& value);
 
-    void readESMVariantValue(ESMReader& reader, Variant::Format format, VarType type, int& value);
+    void readESMVariantValue(ESMReader& reader, Variant::Format format, VarType type, int32_t& value);
 
     void writeESMVariantValue(ESMWriter& writer, Variant::Format format, VarType type, const std::string& value);
 
     void writeESMVariantValue(ESMWriter& writer, Variant::Format format, VarType type, float value);
 
-    void writeESMVariantValue(ESMWriter& writer, Variant::Format format, VarType type, int value);
+    void writeESMVariantValue(ESMWriter& writer, Variant::Format format, VarType type, int32_t value);
 
     struct ReadESMVariantValue
     {
@@ -27,7 +27,11 @@ namespace ESM
         VarType mType;
 
         ReadESMVariantValue(ESMReader& reader, Variant::Format format, VarType type)
-            : mReader(reader), mFormat(format), mType(type) {}
+            : mReader(reader)
+            , mFormat(format)
+            , mType(type)
+        {
+        }
 
         void operator()(std::monostate) const {}
 
@@ -45,7 +49,11 @@ namespace ESM
         VarType mType;
 
         WriteESMVariantValue(ESMWriter& writer, Variant::Format format, VarType type)
-            : mWriter(writer), mFormat(format), mType(type) {}
+            : mWriter(writer)
+            , mFormat(format)
+            , mType(type)
+        {
+        }
 
         void operator()(std::monostate) const {}
 

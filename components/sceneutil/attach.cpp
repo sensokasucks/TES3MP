@@ -2,18 +2,17 @@
 
 #include <stdexcept>
 
-#include <osg/NodeVisitor>
-#include <osg/Group>
-#include <osg/Geometry>
 #include <osg/FrontFace>
-#include <osg/PositionAttitudeTransform>
+#include <osg/Geometry>
+#include <osg/Group>
 #include <osg/MatrixTransform>
+#include <osg/NodeVisitor>
+#include <osg/PositionAttitudeTransform>
 
-#include <components/debug/debuglog.hpp>
-#include <components/misc/stringops.hpp>
-
-#include <components/sceneutil/skeleton.hpp>
 #include <components/resource/scenemanager.hpp>
+#include <components/sceneutil/riggeometry.hpp>
+#include <components/sceneutil/riggeometryosgaextension.hpp>
+#include <components/sceneutil/skeleton.hpp>
 
 #include "visitor.hpp"
 
@@ -23,26 +22,16 @@ namespace SceneUtil
     class CopyRigVisitor : public osg::NodeVisitor
     {
     public:
-        CopyRigVisitor(osg::ref_ptr<osg::Group> parent, const std::string& filter)
+        CopyRigVisitor(osg::ref_ptr<osg::Group> parent, std::string_view filter)
             : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
-            , mParent(parent)
-            , mFilter(Misc::StringUtils::lowerCase(filter))
+            , mParent(std::move(parent))
+            , mFilter(filter)
         {
-            mFilter2 = "tri " + mFilter;
         }
 
-        void apply(osg::MatrixTransform& node) override
-        {
-            traverse(node);
-        }
-        void apply(osg::Node& node) override
-        {
-            traverse(node);
-        }
-        void apply(osg::Group& node) override
-        {
-            traverse(node);
-        }
+        void apply(osg::MatrixTransform& node) override { traverse(node); }
+        void apply(osg::Node& node) override { traverse(node); }
+        void apply(osg::Group& node) override { traverse(node); }
 
         void apply(osg::Drawable& drawable) override
         {
@@ -50,7 +39,13 @@ namespace SceneUtil
                 return;
 
             const osg::Node* node = &drawable;
-            for (auto it = getNodePath().rbegin()+1; it != getNodePath().rend(); ++it)
+            bool isRig = dynamic_cast<const SceneUtil::RigGeometry*>(node) != nullptr;
+            if (!isRig)
+                isRig = dynamic_cast<const SceneUtil::RigGeometryHolder*>(node) != nullptr;
+            if (!isRig)
+                return;
+
+            for (auto it = getNodePath().rbegin() + 1; it != getNodePath().rend(); ++it)
             {
                 const osg::Node* parent = *it;
                 if (!filterMatches(parent->getName()))
@@ -70,37 +65,54 @@ namespace SceneUtil
         }
 
     private:
-
-        bool filterMatches(const std::string& name) const
+        bool filterMatches(std::string_view name) const
         {
-            std::string lowerName = Misc::StringUtils::lowerCase(name);
-            return (lowerName.size() >= mFilter.size() && lowerName.compare(0, mFilter.size(), mFilter) == 0)
-                || (lowerName.size() >= mFilter2.size() && lowerName.compare(0, mFilter2.size(), mFilter2) == 0);
+            if (Misc::StringUtils::ciStartsWith(name, mFilter))
+                return true;
+            constexpr std::string_view prefix = "tri ";
+            if (Misc::StringUtils::ciStartsWith(name, prefix))
+                return Misc::StringUtils::ciStartsWith(name.substr(prefix.size()), mFilter);
+            return false;
         }
 
         using NodeSet = std::set<osg::ref_ptr<const osg::Node>>;
         NodeSet mToCopy;
 
         osg::ref_ptr<osg::Group> mParent;
-        std::string mFilter;
-        std::string mFilter2;
+        std::string_view mFilter;
     };
 
-    void mergeUserData(const osg::UserDataContainer* source, osg::Object* target)
+    namespace
     {
-        if (!source)
-            return;
-    
-        if (!target->getUserDataContainer())
-            target->setUserDataContainer(osg::clone(source, osg::CopyOp::SHALLOW_COPY));
-        else
+
+        void mergeUserData(const osg::UserDataContainer* source, osg::Object* target)
         {
-            for (unsigned int i=0; i<source->getNumUserObjects(); ++i)
-                target->getUserDataContainer()->addUserObject(osg::clone(source->getUserObject(i), osg::CopyOp::SHALLOW_COPY));
+            if (!source)
+                return;
+
+            if (!target->getUserDataContainer())
+                target->setUserDataContainer(osg::clone(source, osg::CopyOp::SHALLOW_COPY));
+            else
+            {
+                for (unsigned int i = 0; i < source->getNumUserObjects(); ++i)
+                    target->getUserDataContainer()->addUserObject(
+                        osg::clone(source->getUserObject(i), osg::CopyOp::SHALLOW_COPY));
+            }
+        }
+
+        osg::ref_ptr<osg::StateSet> makeFrontFaceStateSet()
+        {
+            osg::ref_ptr<osg::FrontFace> frontFace = new osg::FrontFace;
+            frontFace->setMode(osg::FrontFace::CLOCKWISE);
+
+            osg::ref_ptr<osg::StateSet> frontFaceStateSet = new osg::StateSet;
+            frontFaceStateSet->setAttributeAndModes(frontFace, osg::StateAttribute::ON);
+            return frontFaceStateSet;
         }
     }
 
-    osg::ref_ptr<osg::Node> attach(osg::ref_ptr<const osg::Node> toAttach, osg::Node *master, const std::string &filter, osg::Group* attachNode, Resource::SceneManager* sceneManager, const osg::Quat* attitude)
+    osg::ref_ptr<osg::Node> attach(osg::ref_ptr<const osg::Node> toAttach, osg::Node* master, std::string_view filter,
+        osg::Group* attachNode, Resource::SceneManager* sceneManager, const osg::Quat* attitude)
     {
         if (dynamic_cast<const SceneUtil::Skeleton*>(toAttach.get()))
         {
@@ -109,7 +121,8 @@ namespace SceneUtil
             CopyRigVisitor copyVisitor(handle, filter);
             const_cast<osg::Node*>(toAttach.get())->accept(copyVisitor);
             copyVisitor.doCopy(sceneManager);
-            // add a ref to the original template to hint to the cache that it is still being used and should be kept in cache.
+            // add a ref to the original template to hint to the cache that it is still being used and should be kept in
+            // cache.
             handle->getOrCreateUserDataContainer()->addUserObject(new Resource::TemplateRef(toAttach));
 
             if (handle->getNumChildren() == 1)
@@ -157,20 +170,15 @@ namespace SceneUtil
                 trans->setScale(osg::Vec3f(-1.f, 1.f, 1.f));
 
                 // Need to invert culling because of the negative scale
-                // Note: for absolute correctness we would need to check the current front face for every mesh then invert it
-                // However MW isn't doing this either, so don't. Assuming all meshes are using backface culling is more efficient.
-                static osg::ref_ptr<osg::StateSet> frontFaceStateSet;
-                if (!frontFaceStateSet)
-                {
-                    frontFaceStateSet = new osg::StateSet;
-                    osg::FrontFace* frontFace = new osg::FrontFace;
-                    frontFace->setMode(osg::FrontFace::CLOCKWISE);
-                    frontFaceStateSet->setAttributeAndModes(frontFace, osg::StateAttribute::ON);
-                }
+                // Note: for absolute correctness we would need to check the current front face for every mesh then
+                // invert it However MW isn't doing this either, so don't. Assuming all meshes are using backface
+                // culling is more efficient.
+                static const osg::ref_ptr<osg::StateSet> frontFaceStateSet = makeFrontFaceStateSet();
+
                 trans->setStateSet(frontFaceStateSet);
             }
 
-            if(attitude)
+            if (attitude)
             {
                 if (!trans)
                     trans = new osg::PositionAttitudeTransform;

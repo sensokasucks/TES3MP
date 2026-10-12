@@ -3,12 +3,11 @@
 
 #include <string>
 
-#include "npcstate.hpp"
-#include "cellid.hpp"
-#include "components/esm/defs.hpp"
+#include <components/esm/attr.hpp>
+#include <components/esm/position.hpp>
 
 #include "loadskil.hpp"
-#include "components/esm/attr.hpp"
+#include "npcstate.hpp"
 
 namespace ESM
 {
@@ -20,25 +19,24 @@ namespace ESM
     struct Player
     {
         NpcState mObject;
-        CellId mCellId;
+        RefId mCellId;
         float mLastKnownExteriorPosition[3];
         unsigned char mHasMark;
         bool mSetWerewolfAcrobatics;
         Position mMarkedPosition;
-        CellId mMarkedCell;
-        std::string mBirthsign;
+        RefId mMarkedCell;
+        ESM::RefId mBirthsign;
 
-        int mCurrentCrimeId;
-        int mPaidCrimeId;
+        int32_t mCurrentCrimeId;
+        int32_t mPaidCrimeId;
 
         float mSaveAttributes[Attribute::Length];
         float mSaveSkills[Skill::Length];
 
-        typedef std::map<std::string, std::string> PreviousItems; // previous equipped items, needed for bound spells
-        PreviousItems mPreviousItems;
+        std::map<ESM::RefId, ESM::RefId> mPreviousItems; // previous equipped items, needed for bound spells
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 }
 

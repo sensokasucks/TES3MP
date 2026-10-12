@@ -1,16 +1,31 @@
 #include "cellmarker.hpp"
 
+#include <string>
+
 #include <osg/AutoTransform>
+#include <osg/GL>
+#include <osg/Group>
 #include <osg/Material>
+#include <osg/StateAttribute>
+#include <osg/StateSet>
+#include <osg/Vec3f>
+#include <osg/Vec4f>
 #include <osgText/Text>
+#include <osgText/TextBase>
 
 #include <components/misc/constants.hpp>
 
-CSVRender::CellMarkerTag::CellMarkerTag(CellMarker *marker)
-: TagBase(Mask_CellMarker), mMarker(marker)
-{}
+#include <apps/opencs/model/world/cellcoordinates.hpp>
+#include <apps/opencs/view/render/mask.hpp>
+#include <apps/opencs/view/render/tagbase.hpp>
 
-CSVRender::CellMarker *CSVRender::CellMarkerTag::getCellMarker() const
+CSVRender::CellMarkerTag::CellMarkerTag(CellMarker* marker)
+    : TagBase(Mask_CellMarker)
+    , mMarker(marker)
+{
+}
+
+CSVRender::CellMarker* CSVRender::CellMarkerTag::getCellMarker() const
 {
     return mMarker;
 }
@@ -20,7 +35,7 @@ void CSVRender::CellMarker::buildMarker()
     const int characterSize = 20;
 
     // Set up attributes of marker text.
-    osg::ref_ptr<osgText::Text> markerText (new osgText::Text);
+    osg::ref_ptr<osgText::Text> markerText(new osgText::Text);
     markerText->setLayout(osgText::Text::LEFT_TO_RIGHT);
     markerText->setCharacterSize(characterSize);
     markerText->setAlignment(osgText::Text::CENTER_CENTER);
@@ -37,9 +52,7 @@ void CSVRender::CellMarker::buildMarker()
     }
 
     // Add text containing cell's coordinates.
-    std::string coordinatesText =
-        std::to_string(mCoordinates.getX()) + "," +
-        std::to_string(mCoordinates.getY());
+    std::string coordinatesText = std::to_string(mCoordinates.getX()) + "," + std::to_string(mCoordinates.getY());
     markerText->setText(coordinatesText);
 
     // Add text to marker node.
@@ -58,12 +71,10 @@ void CSVRender::CellMarker::positionMarker()
 }
 
 CSVRender::CellMarker::CellMarker(
-    osg::Group *cellNode,
-    const CSMWorld::CellCoordinates& coordinates,
-    const bool cellExists
-) : mCellNode(cellNode),
-    mCoordinates(coordinates),
-    mExists(cellExists)
+    osg::Group* cellNode, const CSMWorld::CellCoordinates& coordinates, const bool cellExists)
+    : mCellNode(cellNode)
+    , mCoordinates(coordinates)
+    , mExists(cellExists)
 {
     // Set up node for cell marker.
     mMarkerNode = new osg::AutoTransform();

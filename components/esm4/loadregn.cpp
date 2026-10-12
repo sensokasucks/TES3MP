@@ -26,38 +26,39 @@
 */
 #include "loadregn.hpp"
 
-#ifdef NDEBUG // FIXME: debuggigng only
-#undef NDEBUG
-#endif
-
-#include <cassert>
 #include <stdexcept>
-
-//#include <iostream> // FIXME: debug only
-//#include "formid.hpp"
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Region::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_RCLR: reader.get(mColour);        break;
-            case ESM4::SUB_WNAM: reader.getFormId(mWorldId); break;
-            case ESM4::SUB_ICON: reader.getZString(mShader); break;
-            case ESM4::SUB_RPLI: reader.get(mEdgeFalloff);   break;
-            case ESM4::SUB_RPLD:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("RCLR"):
+                reader.get(mColour);
+                break;
+            case ESM::fourCC("WNAM"):
+                reader.getFormId(mWorldId);
+                break;
+            case ESM::fourCC("ICON"):
+                reader.getZString(mShader);
+                break;
+            case ESM::fourCC("RPLI"):
+                reader.get(mEdgeFalloff);
+                break;
+            case ESM::fourCC("RPLD"):
             {
-                mRPLD.resize(subHdr.dataSize/sizeof(std::uint32_t));
+                mRPLD.resize(subHdr.dataSize / sizeof(std::uint32_t));
                 for (std::vector<std::uint32_t>::iterator it = mRPLD.begin(); it != mRPLD.end(); ++it)
                 {
                     reader.get(*it);
@@ -70,15 +71,19 @@ void ESM4::Region::load(ESM4::Reader& reader)
 
                 break;
             }
-            case ESM4::SUB_RDAT: reader.get(mData); break;
-            case ESM4::SUB_RDMP:
+            case ESM::fourCC("RDAT"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("RDMP"):
             {
-                assert(mData.type == RDAT_Map && "REGN unexpected data type");
-                reader.getLocalizedString(mMapName); break;
+                if (mData.type != RDAT_Map)
+                    throw std::runtime_error("REGN unexpected data type");
+                reader.getLocalizedString(mMapName);
+                break;
             }
             // FO3 only 2: DemoMegatonSound and DC01 (both 0 RDMD)
             // FONV none
-            case ESM4::SUB_RDMD: // music type; 0 default, 1 public, 2 dungeon
+            case ESM::fourCC("RDMD"): // music type; 0 default, 1 public, 2 dungeon
             {
 #if 0
                 int dummy;
@@ -89,19 +94,18 @@ void ESM4::Region::load(ESM4::Reader& reader)
 #endif
                 break;
             }
-            case ESM4::SUB_RDMO: // not seen in FO3/FONV?
+            case ESM::fourCC("RDMO"): // not seen in FO3/FONV?
             {
-                //std::cout << "REGN " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+                // std::cout << "REGN " << ESM::printName(subHdr.typeId) << " skipping..."
+                // << subHdr.dataSize << std::endl;
                 reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_RDSD: // Possibly the same as RDSA
+            case ESM::fourCC("RDSD"): // Possibly the same as RDSA
             {
-                //assert(mData.type == RDAT_Map && "REGN unexpected data type");
                 if (mData.type != RDAT_Sound)
-                    throw std::runtime_error("ESM4::REGN::load - unexpected data type " +
-                                              ESM::printName(subHdr.typeId));
+                    throw std::runtime_error(
+                        "ESM4::REGN::load - unexpected data type " + ESM::printName(subHdr.typeId));
 
                 std::size_t numSounds = subHdr.dataSize / sizeof(RegionSound);
                 mSounds.resize(numSounds);
@@ -110,44 +114,40 @@ void ESM4::Region::load(ESM4::Reader& reader)
 
                 break;
             }
-            case ESM4::SUB_RDGS: // Only in Oblivion? (ToddTestRegion1) // formId
-            case ESM4::SUB_RDSA:
-            case ESM4::SUB_RDWT: // formId
-            case ESM4::SUB_RDOT: // formId
-            case ESM4::SUB_RDID: // FONV
-            case ESM4::SUB_RDSB: // FONV
-            case ESM4::SUB_RDSI: // FONV
-            case ESM4::SUB_NVMI: // TES5
-            {
-                //RDAT skipping... following is a map
-                //RDMP skipping... map name
+            case ESM::fourCC("RDGS"): // Only in Oblivion? (ToddTestRegion1) // formId
+            case ESM::fourCC("RDSA"):
+            case ESM::fourCC("RDWT"): // formId
+            case ESM::fourCC("RDOT"): // formId
+            case ESM::fourCC("RDID"): // FONV
+            case ESM::fourCC("RDSB"): // FONV
+            case ESM::fourCC("RDSI"): // FONV
+            case ESM::fourCC("NVMI"): // TES5
+            case ESM::fourCC("ANAM"): // FO4
+            case ESM::fourCC("RLDM"): // FO4
+                // RDAT skipping... following is a map
+                // RDMP skipping... map name
                 //
-                //RDAT skipping... following is weather
-                //RDWT skipping... weather data
+                // RDAT skipping... following is weather
+                // RDWT skipping... weather data
                 //
-                //RDAT skipping... following is sound
-                //RDMD skipping... unknown, maybe music data
+                // RDAT skipping... following is sound
+                // RDMD skipping... unknown, maybe music data
                 //
-                //RDSD skipping... unknown, maybe sound data
+                // RDSD skipping... unknown, maybe sound data
                 //
-                //RDAT skipping... following is grass
-                //RDGS skipping... unknown, maybe grass
+                // RDAT skipping... following is grass
+                // RDGS skipping... unknown, maybe grass
 
-                //std::cout << "REGN " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
-                reader.skipSubRecordData(); // FIXME: process the subrecord rather than skip
+                reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::REGN::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Region::save(ESM4::Writer& writer) const
+// void ESM4::Region::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-void ESM4::Region::blank()
-{
-}
+void ESM4::Region::blank() {}

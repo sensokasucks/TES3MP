@@ -27,49 +27,84 @@
 #include "loadtxst.hpp"
 
 #include <stdexcept>
-#include <iostream> // FIXME: testing only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::TextureSet::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_TX00: reader.getZString(mDiffuse); break;
-            case ESM4::SUB_TX01: reader.getZString(mNormalMap); break;
-            case ESM4::SUB_TX02: reader.getZString(mEnvMask); break;
-            case ESM4::SUB_TX03: reader.getZString(mToneMap); break;
-            case ESM4::SUB_TX04: reader.getZString(mDetailMap); break;
-            case ESM4::SUB_TX05: reader.getZString(mEnvMap); break;
-            case ESM4::SUB_TX06: reader.getZString(mUnknown); break;
-            case ESM4::SUB_TX07: reader.getZString(mSpecular); break;
-            case ESM4::SUB_DNAM:
-            case ESM4::SUB_DODT:
-            case ESM4::SUB_OBND: // object bounds
-            {
-                //std::cout << "TXST " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FLTR"): // FO76
+                reader.getZString(mFilter);
+                break;
+            case ESM::fourCC("TX00"):
+                reader.getZString(mDiffuse);
+                break;
+            case ESM::fourCC("TX01"):
+                reader.getZString(mNormalMap);
+                break;
+            case ESM::fourCC("TX02"):
+                // This is a "wrinkle map" in FO4/76
+                reader.getZString(mEnvMask);
+                break;
+            case ESM::fourCC("TX03"):
+                // This is a glow map in FO4/76
+                reader.getZString(mToneMap);
+                break;
+            case ESM::fourCC("TX04"):
+                // This is a height map in FO4/76
+                reader.getZString(mDetailMap);
+                break;
+            case ESM::fourCC("TX05"):
+                reader.getZString(mEnvMap);
+                break;
+            case ESM::fourCC("TX06"):
+                reader.getZString(mMultiLayer);
+                break;
+            case ESM::fourCC("TX07"):
+                // This is a "smooth specular" map in FO4/76
+                reader.getZString(mSpecular);
+                break;
+            case ESM::fourCC("TX08"): // FO76
+                reader.getZString(mSpecular);
+                break;
+            case ESM::fourCC("TX09"): // FO76
+                reader.getZString(mLighting);
+                break;
+            case ESM::fourCC("TX10"): // FO76
+                reader.getZString(mFlow);
+                break;
+            case ESM::fourCC("DNAM"):
+                reader.get(mDataFlags);
+                break;
+            case ESM::fourCC("MNAM"):
+                reader.getZString(mMaterial);
+                break;
+            case ESM::fourCC("DODT"): // Decal data
+            case ESM::fourCC("OBND"): // object bounds
+            case ESM::fourCC("OPDS"): // Object placement defaults, FO76
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::TXST::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::TextureSet::save(ESM4::Writer& writer) const
+// void ESM4::TextureSet::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::TextureSet::blank()
+// void ESM4::TextureSet::blank()
 //{
-//}
+// }

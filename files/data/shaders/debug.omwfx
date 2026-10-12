@@ -1,7 +1,7 @@
 uniform_bool uDisplayDepth {
-    header = "#{BuiltInShaders:DebugHeaderDepth}";
+    header = "#{OMWShaders:DebugHeaderDepth}";
     default = true;
-    display_name = "#{BuiltInShaders:DisplayDepthName}";
+    display_name = "#{OMWShaders:DisplayDepthName}";
 }
 
 uniform_float uDepthFactor {
@@ -9,14 +9,19 @@ uniform_float uDepthFactor {
     min = 0.01;
     max = 20.0;
     default = 1.0;
-    display_name = "#{BuiltInShaders:DisplayDepthFactorName}";
-    description = "#{BuiltInShaders:DisplayDepthFactorDescription}";
+    display_name = "#{OMWShaders:DisplayDepthFactorName}";
+    description = "#{OMWShaders:DisplayDepthFactorDescription}";
 }
 
 uniform_bool uDisplayNormals {
-    header = "#{BuiltInShaders:DebugHeaderNormals}";
+    header = "#{OMWShaders:DebugHeaderNormals}";
     default = true;
-    display_name = "#{BuiltInShaders:DisplayNormalsName}";
+    display_name = "#{OMWShaders:DisplayNormalsName}";
+}
+
+uniform_bool uNormalsInWorldSpace {
+    default = false;
+    display_name = "#{OMWShaders:NormalsInWorldSpace}";
 }
 
 fragment main {
@@ -30,15 +35,19 @@ fragment main {
         if (uDisplayDepth)
             omw_FragColor = vec4(vec3(omw_GetLinearDepth(omw_TexCoord) / omw.far * uDepthFactor), 1.0);
 #if OMW_NORMALS
-        if (uDisplayNormals && (!uDisplayDepth || omw_TexCoord.x < 0.5))
-            omw_FragColor.rgb = omw_GetNormals(omw_TexCoord);
+        if (uDisplayNormals && (!uDisplayDepth || omw_TexCoord.x < 0.5)) {
+            if (uNormalsInWorldSpace)
+                omw_FragColor.rgb = omw_GetNormalsWorldSpace(omw_TexCoord) * 0.5 + 0.5;
+            else
+                omw_FragColor.rgb = omw_GetNormals(omw_TexCoord) * 0.5 + 0.5;
+        }
 #endif
     }
 }
 
 technique {
     passes = main;
-    description = "#{BuiltInShaders:DebugDescription}";
+    description = "#{OMWShaders:DebugDescription}";
     author = "OpenMW";
     version = "1.0";
     pass_normals = true;

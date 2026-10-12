@@ -33,37 +33,45 @@
 
 void ESM4::AnimObject::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel);    break;
-            case ESM4::SUB_BNAM: reader.getZString(mUnloadEvent); break;
-            case ESM4::SUB_DATA: reader.getFormId(mIdleAnim);  break;
-            case ESM4::SUB_MODB: reader.get(mBoundRadius);     break;
-            case ESM4::SUB_MODT: // TES5 only
-            case ESM4::SUB_MODS: // TES5 only
-            {
-                //std::cout << "ANIO " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("BNAM"):
+                reader.getZString(mUnloadEvent);
+                break;
+            case ESM::fourCC("DATA"):
+                reader.getFormId(mIdleAnim);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::ANIO::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::AnimObject::save(ESM4::Writer& writer) const
+// void ESM4::AnimObject::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::AnimObject::blank()
+// void ESM4::AnimObject::blank()
 //{
-//}
+// }

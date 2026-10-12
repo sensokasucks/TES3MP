@@ -3,10 +3,16 @@
 
 #include <QTableView>
 
+#include <vector>
+
 #include "../../model/world/columnbase.hpp"
 
+class QDragEnterEvent;
+class QDragMoveEvent;
+class QDropEvent;
+class QModelIndex;
+class QObject;
 class QWidget;
-class QAction;
 
 namespace CSMDoc
 {
@@ -24,33 +30,35 @@ namespace CSVWorld
     {
         Q_OBJECT
 
-        protected:
-            CSMDoc::Document& mDocument;
-            bool mEditLock;
+    protected:
+        CSMDoc::Document& mDocument;
+        bool mEditLock;
 
-        public:
-            DragRecordTable(CSMDoc::Document& document, QWidget* parent = nullptr);
+    public:
+        DragRecordTable(CSMDoc::Document& document, QWidget* parent = nullptr);
 
-            virtual std::vector<CSMWorld::UniversalId> getDraggedRecords() const = 0;
+        virtual std::vector<CSMWorld::UniversalId> getDraggedRecords() const = 0;
 
-            void setEditLock(bool locked);
+        void setEditLock(bool locked);
 
-        protected:
-            void startDragFromTable(const DragRecordTable& table);
+    protected:
+        void startDragFromTable(const DragRecordTable& table, const QModelIndex& index);
 
-            void dragEnterEvent(QDragEnterEvent *event) override;
+        void dragEnterEvent(QDragEnterEvent* event) override;
 
-            void dragMoveEvent(QDragMoveEvent *event) override;
+        void dragMoveEvent(QDragMoveEvent* event) override;
 
-            void dropEvent(QDropEvent *event) override;
+        void dropEvent(QDropEvent* event) override;
 
-        private:
-            CSMWorld::ColumnBase::Display getIndexDisplayType(const QModelIndex &index) const;
+        int sizeHintForColumn(int column) const override;
 
-        signals:
-            void moveRecordsFromSameTable(QDropEvent *event);
+    private:
+        CSMWorld::ColumnBase::Display getIndexDisplayType(const QModelIndex& index) const;
+
+    signals:
+        void moveRecordsFromSameTable(QDropEvent* event);
+        void createNewInfoRecord(const std::string& id);
     };
 }
 
 #endif
-

@@ -1,22 +1,24 @@
 #ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVMESHCACHEITEM_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVMESHCACHEITEM_H
 
-#include "sharednavmesh.hpp"
-#include "tileposition.hpp"
-#include "navmeshtilescache.hpp"
 #include "navmeshdata.hpp"
+#include "navmeshtilescache.hpp"
+#include "tileposition.hpp"
 #include "version.hpp"
 
-#include <components/misc/guarded.hpp>
+#include <DetourNavMesh.h>
+#include <DetourNavMeshQuery.h>
 
-#include <map>
 #include <iosfwd>
+#include <map>
 #include <set>
 
 struct dtMeshTile;
 
 namespace DetourNavigator
 {
+    struct Settings;
+
     enum class UpdateNavMeshStatus : unsigned
     {
         ignored = 0,
@@ -43,7 +45,9 @@ namespace DetourNavigator
         UpdateNavMeshStatusBuilder() = default;
 
         explicit UpdateNavMeshStatusBuilder(UpdateNavMeshStatus value)
-            : mResult(value) {}
+            : mResult(value)
+        {
+        }
 
         UpdateNavMeshStatusBuilder removed(bool value)
         {
@@ -81,10 +85,7 @@ namespace DetourNavigator
             return *this;
         }
 
-        UpdateNavMeshStatus getResult() const
-        {
-            return mResult;
-        }
+        UpdateNavMeshStatus getResult() const { return mResult; }
 
     private:
         UpdateNavMeshStatus mResult = UpdateNavMeshStatus::ignored;
@@ -105,21 +106,16 @@ namespace DetourNavigator
     class NavMeshCacheItem
     {
     public:
-        NavMeshCacheItem(const NavMeshPtr& impl, std::size_t generation)
-            : mImpl(impl)
-            , mVersion {generation, 0}
-        {
-        }
+        explicit NavMeshCacheItem(std::size_t generation, const Settings& settings);
 
-        const dtNavMesh& getImpl() const
-        {
-            return *mImpl;
-        }
+        const dtNavMesh& getImpl() const { return mImpl; }
+
+        dtNavMeshQuery& getQuery() { return mQuery; }
 
         const Version& getVersion() const { return mVersion; }
 
-        UpdateNavMeshStatus updateTile(const TilePosition& position, NavMeshTilesCache::Value&& cached,
-                                       NavMeshData&& navMeshData);
+        UpdateNavMeshStatus updateTile(
+            const TilePosition& position, NavMeshTilesCache::Value&& cached, NavMeshData&& navMeshData);
 
         UpdateNavMeshStatus removeTile(const TilePosition& position);
 
@@ -131,8 +127,17 @@ namespace DetourNavigator
         void forEachUsedTile(Function&& function) const
         {
             for (const auto& [position, tile] : mUsedTiles)
-                if (const dtMeshTile* meshTile = getTile(*mImpl, position))
+                if (const dtMeshTile* meshTile = getTile(mImpl, position))
                     function(position, tile.mVersion, *meshTile);
+        }
+
+        template <class Function>
+        void forEachTilePosition(Function&& function) const
+        {
+            for (const auto& [position, tile] : mUsedTiles)
+                function(position);
+            for (const TilePosition& position : mEmptyTiles)
+                function(position);
         }
 
     private:
@@ -143,14 +148,12 @@ namespace DetourNavigator
             NavMeshData mData;
         };
 
-        NavMeshPtr mImpl;
         Version mVersion;
+        dtNavMesh mImpl;
+        dtNavMeshQuery mQuery;
         std::map<TilePosition, Tile> mUsedTiles;
         std::set<TilePosition> mEmptyTiles;
     };
-
-    using GuardedNavMeshCacheItem = Misc::ScopeGuarded<NavMeshCacheItem>;
-    using SharedNavMeshCacheItem = std::shared_ptr<GuardedNavMeshCacheItem>;
 }
 
 #endif

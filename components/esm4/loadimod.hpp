@@ -32,7 +32,8 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -41,15 +42,35 @@ namespace ESM4
 
     struct ItemMod
     {
-        FormId mFormId;       // from the header
+        struct Data
+        {
+            std::uint32_t mValue{ 0 };
+            float mWeight{ 0.f };
+        };
+
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
+        std::string mFullName;
+        std::string mModel;
+        std::string mText;
+        std::string mIcon;
+        std::string mMiniIcon;
+
+        ESM::FormId mScriptId;
+        ESM::FormId mPickUpSound;
+        ESM::FormId mDropSound;
+
+        float mBoundRadius;
+
+        Data mData;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_IMOD4;
     };
 }
 

@@ -26,17 +26,13 @@
 */
 #include "loadland.hpp"
 
-#ifdef NDEBUG // FIXME: debuggigng only
-#undef NDEBUG
-#endif
-
-#include <cassert>
+#include <cstdint>
 #include <stdexcept>
 
-#include <iostream> // FIXME: debug only
+#include <components/debug/debuglog.hpp>
 
 #include "reader.hpp"
-//#include "writer.hpp"
+// #include "writer.hpp"
 
 //             overlap north
 //
@@ -55,33 +51,32 @@
 //
 void ESM4::Land::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
     mDataTypes = 0;
-
+    mCell = reader.currCell();
     TxtLayer layer;
     std::int8_t currentAddQuad = -1; // for VTXT following ATXT
 
-    //std::map<FormId, int> uniqueTextures; // FIXME: for temp testing only
+    // std::map<FormId, int> uniqueTextures; // FIXME: for temp testing only
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_DATA:
+            case ESM::fourCC("DATA"):
             {
                 reader.get(mLandFlags);
                 break;
             }
-            case ESM4::SUB_VNML: // vertex normals, 33x33x(1+1+1) = 3267
+            case ESM::fourCC("VNML"): // vertex normals, 33x33x(1+1+1) = 3267
             {
                 reader.get(mVertNorm);
                 mDataTypes |= LAND_VNML;
                 break;
             }
-            case ESM4::SUB_VHGT: // vertex height gradient, 4+33x33+3 = 4+1089+3 = 1096
+            case ESM::fourCC("VHGT"): // vertex height gradient, 4+33x33+3 = 4+1089+3 = 1096
             {
 #if 0
                 reader.get(mHeightMap.heightOffset);
@@ -93,18 +88,19 @@ void ESM4::Land::load(ESM4::Reader& reader)
                 mDataTypes |= LAND_VHGT;
                 break;
             }
-            case ESM4::SUB_VCLR: // vertex colours, 24bit RGB, 33x33x(1+1+1) = 3267
+            case ESM::fourCC("VCLR"): // vertex colours, 24bit RGB, 33x33x(1+1+1) = 3267
             {
                 reader.get(mVertColr);
                 mDataTypes |= LAND_VCLR;
                 break;
             }
-            case ESM4::SUA_BTXT:
+            case ESM::fourCC("BTXT"):
             {
                 BTXT base;
                 if (reader.getExact(base))
                 {
-                    assert(base.quadrant < 4 && "base texture quadrant index error");
+                    if (base.quadrant >= 4)
+                        throw std::runtime_error("base texture quadrant index error");
 
                     reader.adjustFormId(base.formId);
                     mTextures[base.quadrant].base = std::move(base);
@@ -116,17 +112,18 @@ void ESM4::Land::load(ESM4::Reader& reader)
                 }
                 break;
             }
-            case ESM4::SUB_ATXT:
+            case ESM::fourCC("ATXT"):
             {
                 if (currentAddQuad != -1)
                 {
                     // FIXME: sometimes there are no VTXT following an ATXT?  Just add a dummy one for now
-                    std::cout << "ESM4::Land VTXT empty layer " << (int)layer.texture.layerIndex << std::endl;
+                    Log(Debug::Verbose) << "ESM4::Land VTXT empty layer " << layer.texture.layerIndex;
                     mTextures[currentAddQuad].layers.push_back(layer);
                 }
                 reader.get(layer.texture);
                 reader.adjustFormId(layer.texture.formId);
-                assert(layer.texture.quadrant < 4 && "additional texture quadrant index error");
+                if (layer.texture.quadrant >= 4)
+                    throw std::runtime_error("additional texture quadrant index error");
 #if 0
                 FormId txt = layer.texture.formId;
                 std::map<FormId, int>::iterator lb = uniqueTextures.lower_bound(txt);
@@ -147,56 +144,56 @@ void ESM4::Land::load(ESM4::Reader& reader)
                 currentAddQuad = layer.texture.quadrant;
                 break;
             }
-            case ESM4::SUB_VTXT:
+            case ESM::fourCC("VTXT"):
             {
-                assert(currentAddQuad != -1 && "VTXT without ATXT found");
+                if (currentAddQuad == -1)
+                    throw std::runtime_error("VTXT without ATXT found");
 
-                int count = (int)reader.subRecordHeader().dataSize / sizeof(ESM4::Land::VTXT);
-                assert((reader.subRecordHeader().dataSize % sizeof(ESM4::Land::VTXT)) == 0
-                        && "ESM4::LAND VTXT data size error");
+                const std::uint16_t count = reader.subRecordHeader().dataSize / sizeof(ESM4::Land::VTXT);
+                if ((reader.subRecordHeader().dataSize % sizeof(ESM4::Land::VTXT)) != 0)
+                    throw std::runtime_error("ESM4::LAND VTXT data size error");
 
                 if (count)
                 {
                     layer.data.resize(count);
                     std::vector<ESM4::Land::VTXT>::iterator it = layer.data.begin();
-                    for (;it != layer.data.end(); ++it)
+                    for (; it != layer.data.end(); ++it)
                     {
                         reader.get(*it);
                         // FIXME: debug only
-                        //std::cout << "pos: " << std::dec << (int)(*it).position << std::endl;
+                        // std::cout << "pos: " << std::dec << (int)(*it).position << std::endl;
                     }
                 }
                 mTextures[currentAddQuad].layers.push_back(layer);
 
                 // Assumed that the layers are added in the correct sequence
                 // FIXME: Knights.esp doesn't seem to observe this - investigate more
-                //assert(layer.texture.layerIndex == mTextures[currentAddQuad].layers.size()-1
-                        //&& "additional texture layer index error");
+                // assert(layer.texture.layerIndex == mTextures[currentAddQuad].layers.size()-1
+                //&& "additional texture layer index error");
 
                 currentAddQuad = -1;
                 layer.data.clear();
                 // FIXME: debug only
-                //std::cout << "VTXT: count " << std::dec << count << std::endl;
+                // std::cout << "VTXT: count " << std::dec << count << std::endl;
                 break;
             }
-            case ESM4::SUB_VTEX: // only in Oblivion?
+            case ESM::fourCC("VTEX"): // only in Oblivion?
             {
-                int count = (int)reader.subRecordHeader().dataSize / sizeof(FormId);
-                assert((reader.subRecordHeader().dataSize % sizeof(FormId)) == 0
-                        && "ESM4::LAND VTEX data size error");
+                const std::uint16_t count = reader.subRecordHeader().dataSize / sizeof(ESM::FormId32);
+                if ((reader.subRecordHeader().dataSize % sizeof(ESM::FormId32)) != 0)
+                    throw std::runtime_error("ESM4::LAND VTEX data size error");
 
                 if (count)
                 {
                     mIds.resize(count);
-                    for (std::vector<FormId>::iterator it = mIds.begin(); it != mIds.end(); ++it)
-                    {
-                        reader.getFormId(*it);
-                        // FIXME: debug only
-                        //std::cout << "VTEX: " << std::hex << *it << std::endl;
-                    }
+                    for (ESM::FormId& id : mIds)
+                        reader.getFormId(id);
                 }
                 break;
             }
+            case ESM::fourCC("MPCD"): // FO4
+                reader.skipSubRecordData();
+                break;
             default:
                 throw std::runtime_error("ESM4::LAND::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
@@ -205,7 +202,8 @@ void ESM4::Land::load(ESM4::Reader& reader)
     if (currentAddQuad != -1)
     {
         // FIXME: not sure if it happens here as well
-        std::cout << "ESM4::Land VTXT empty layer " << (int)layer.texture.layerIndex << " quad " << (int)layer.texture.quadrant << std::endl;
+        Log(Debug::Verbose) << "ESM4::Land VTXT empty layer " << layer.texture.layerIndex << " quad "
+                            << static_cast<unsigned>(layer.texture.quadrant);
         mTextures[currentAddQuad].layers.push_back(layer);
     }
 
@@ -214,27 +212,27 @@ void ESM4::Land::load(ESM4::Reader& reader)
     {
         if (mTextures[i].base.formId == 0)
         {
-            //std::cout << "ESM4::LAND " << ESM4::formIdToString(mFormId) << " missing base, quad " << i << std::endl;
-            //std::cout << "layers " << mTextures[i].layers.size() << std::endl;
-            // NOTE: can't set the default here since FO3/FONV may have different defaults
-            //mTextures[i].base.formId = 0x000008C0; // TerrainHDDirt01.dds
+            // std::cout << "ESM4::LAND " << ESM4::formIdToString(mFormId) << " missing base, quad " << i << std::endl;
+            // std::cout << "layers " << mTextures[i].layers.size() << std::endl;
+            //  NOTE: can't set the default here since FO3/FONV may have different defaults
+            // mTextures[i].base.formId = 0x000008C0; // TerrainHDDirt01.dds
             missing = true;
         }
-        //else
+        // else
         //{
-        //    std::cout << "ESM4::LAND " << ESM4::formIdToString(mFormId) << " base, quad " << i << std::endl;
-        //    std::cout << "layers " << mTextures[i].layers.size() << std::endl;
-        //}
+        //     std::cout << "ESM4::LAND " << ESM4::formIdToString(mFormId) << " base, quad " << i << std::endl;
+        //     std::cout << "layers " << mTextures[i].layers.size() << std::endl;
+        // }
     }
     // at least one of the quadrants do not have a base texture, return without setting the flag
     if (!missing)
         mDataTypes |= LAND_VTEX;
 }
 
-//void ESM4::Land::save(ESM4::Writer& writer) const
+// void ESM4::Land::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Land::blank()
+// void ESM4::Land::blank()
 //{
-//}
+// }

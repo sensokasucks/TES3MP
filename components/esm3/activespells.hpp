@@ -3,9 +3,11 @@
 
 #include "cellref.hpp"
 #include "components/esm/defs.hpp"
-#include "effectlist.hpp"
+#include "components/esm/refid.hpp"
+#include "timestamp.hpp"
 
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace ESM
@@ -27,47 +29,77 @@ namespace ESM
             Flag_Ignore_SpellAbsorption = 1 << 4
         };
 
-        int mEffectId;
+        int32_t mEffectId;
         float mMagnitude;
         float mMinMagnitude;
         float mMaxMagnitude;
-        int mArg; // skill or attribute
+        std::variant<RefId, int> mArg; // skill, attribute, or summon
         float mDuration;
         float mTimeLeft;
-        int mEffectIndex;
-        int mFlags;
+        int32_t mEffectIndex;
+        int32_t mFlags;
+
+        RefId getSkillOrAttribute() const;
+        int getActorId() const;
     };
 
     // format 0, saved games only
     struct ActiveSpells
     {
-        enum EffectType
+        enum Flags : uint32_t
         {
-            Type_Temporary,
-            Type_Ability,
-            Type_Enchantment,
-            Type_Permanent,
-            Type_Consumable
+            Flag_Temporary = 1 << 0, //!< Effect will end automatically once its duration ends.
+            Flag_Equipment = 1 << 1, //!< Effect will end automatically if item is unequipped.
+            Flag_SpellStore = 1 << 2, //!< Effect will end automatically if removed from the actor's spell store.
+            Flag_AffectsBaseValues = 1 << 3, //!< Effects will affect base values instead of current values.
+            Flag_Stackable
+            = 1 << 4, //!< Effect can stack. If this flag is not set, spells from the same caster and item cannot stack.
+            Flag_Lua
+            = 1 << 5, //!< Effect was added via Lua. Should not do any vfx/sound as this is handled by Lua scripts.
         };
 
         struct ActiveSpellParams
         {
-            std::string mId;
+            RefId mActiveSpellId;
+            RefId mSourceSpellId;
             std::vector<ActiveEffect> mEffects;
             std::string mDisplayName;
-            int mCasterActorId;
+            int32_t mCasterActorId;
             RefNum mItem;
-            EffectType mType;
-            int mWorsenings;
+            Flags mFlags;
+            int32_t mWorsenings;
             TimeStamp mNextWorsening;
         };
 
         std::vector<ActiveSpellParams> mSpells;
         std::vector<ActiveSpellParams> mQueue;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
+
+    namespace Compatibility
+    {
+        namespace ActiveSpells
+        {
+            enum EffectType
+            {
+                Type_Temporary,
+                Type_Ability,
+                Type_Enchantment,
+                Type_Permanent,
+                Type_Consumable,
+            };
+
+            using Flags = ESM::ActiveSpells::Flags;
+            constexpr Flags Type_Temporary_Flags = Flags::Flag_Temporary;
+            constexpr Flags Type_Consumable_Flags = static_cast<Flags>(Flags::Flag_Temporary | Flags::Flag_Stackable);
+            constexpr Flags Type_Permanent_Flags = Flags::Flag_SpellStore;
+            constexpr Flags Type_Ability_Flags
+                = static_cast<Flags>(Flags::Flag_SpellStore | Flags::Flag_AffectsBaseValues);
+            constexpr Flags Type_Enchantment_Flags = Flags::Flag_Equipment;
+        }
+    }
 }
 
 #endif

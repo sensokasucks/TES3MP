@@ -27,10 +27,12 @@
 #ifndef ESM4_HDPT_H
 #define ESM4_HDPT_H
 
-#include <cstdint>
 #include <array>
+#include <cstdint>
+#include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -39,24 +41,48 @@ namespace ESM4
 
     struct HeadPart
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
+        std::uint64_t mExtraFlags2;
 
         std::string mEditorId;
         std::string mFullName;
         std::string mModel;
 
         std::uint8_t mData;
+        std::uint32_t mType;
 
-        FormId mAdditionalPart;
+        enum Type : std::uint32_t
+        {
+            Type_Misc = 0,
+            Type_Face = 1,
+            Type_Eyes = 2,
+            Type_Hair = 3,
+            Type_FacialHair = 4,
+            Type_Scar = 5,
+            Type_Eyebrows = 6,
+            // FO4+
+            Type_Meatcaps = 7,
+            Type_Teeth = 8,
+            Type_HeadRear = 9,
+            // Starfield
+            // 10 and 11 are unknown
+            Type_LeftEye = 12,
+            Type_Eyelashes = 13,
+        };
+
+        std::vector<ESM::FormId> mExtraParts;
 
         std::array<std::string, 3> mTriFile;
-        FormId mBaseTexture;
+        ESM::FormId mBaseTexture;
+        ESM::FormId mColor;
+        std::vector<ESM::FormId> mValidRaces;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_HDPT4;
     };
 }
 

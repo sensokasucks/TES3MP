@@ -29,10 +29,11 @@
 #ifndef ESM4_PWAT_H
 #define ESM4_PWAT_H
 
-#include <string>
 #include <cstdint>
+#include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -41,15 +42,16 @@ namespace ESM4
 
     struct PlaceableWater
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_PWAT4;
     };
 }
 

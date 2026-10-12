@@ -1,10 +1,10 @@
 #ifndef WINDOWS_CRASHCATCHER_HPP
 #define WINDOWS_CRASHCATCHER_HPP
 
-#include <string>
+#include <filesystem>
 
-#include <components/windows.hpp>
 #include <components/crashcatcher/crashcatcher.hpp>
+#include <components/misc/windows.hpp>
 
 namespace Crash
 {
@@ -21,26 +21,24 @@ namespace Crash
     // the main openmw process in task manager.
 
     static constexpr const int CrashCatcherTimeout = 2500;
+    static constexpr const int CrashCatcherThawTimeout = 250;
 
     struct CrashSHM;
 
     class CrashCatcher final
     {
     public:
-        static CrashCatcher* instance()
-        {
-            return sInstance;
-        }
+        static CrashCatcher* instance() { return sInstance; }
 
-        CrashCatcher(int argc, char** argv, const std::string& dumpPath, const std::string& crashDumpName, const std::string& freezeDumpName);
+        CrashCatcher(int argc, char** argv, const std::filesystem::path& dumpPath,
+            const std::filesystem::path& crashDumpName, const std::filesystem::path& freezeDumpName);
         ~CrashCatcher();
 
-        void updateDumpPath(const std::string& dumpPath);
+        void updateDumpPath(const std::filesystem::path& dumpPath);
 
-        void updateDumpNames(const std::string& crashDumpName, const std::string& freezeDumpName);
+        void updateDumpNames(const std::filesystem::path& crashDumpName, const std::filesystem::path& freezeDumpName);
 
     private:
-
         static CrashCatcher* sInstance;
 
         //  mapped SHM area
@@ -64,9 +62,11 @@ namespace Crash
 
         void shmUnlock();
 
-        void startMonitorProcess(const std::string& dumpPath, const std::string& crashDumpName, const std::string& freezeDumpName);
+        void startMonitorProcess(const std::filesystem::path& dumpPath, const std::filesystem::path& crashDumpName,
+            const std::filesystem::path& freezeDumpName);
 
         void waitMonitor();
+        bool waitMonitorNoThrow();
 
         void signalMonitor();
 
@@ -75,7 +75,6 @@ namespace Crash
         void handleVectoredException(PEXCEPTION_POINTERS info);
 
     public:
-
         static LONG WINAPI vectoredExceptionHandler(PEXCEPTION_POINTERS info);
     };
 

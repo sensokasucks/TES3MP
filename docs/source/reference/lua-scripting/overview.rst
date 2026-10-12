@@ -1,13 +1,18 @@
 Overview of Lua scripting
 #########################
 
+.. include:: version.rst
+
 Language and sandboxing
 =======================
 
-OpenMW supports scripts written in Lua 5.1 with some extensions (see below) from Lua 5.2.
+OpenMW supports scripts written in Lua 5.1 with some extensions (see below) from Lua 5.2 and Lua 5.3.
 There are no plans to switch to any newer version of the language, because newer versions are not supported by LuaJIT.
 
-Here are starting points for learning Lua:
+.. note::
+  There are also experimental declarations available for Teal, a typed dialect of Lua. see :ref:`Teal` for more details.
+
+Here are some starting points for learning Lua:
 
 - `Programing in Lua <https://www.lua.org/pil/contents.html>`__ (first edition, aimed at Lua 5.0)
 - `Lua 5.1 Reference Manual <https://www.lua.org/manual/5.1/>`__
@@ -35,6 +40,10 @@ Supported Lua 5.2 features:
 - ``__pairs`` and ``__ipairs`` metamethods;
 - Function ``table.unpack`` (alias to Lua 5.1 ``unpack``).
 
+Supported Lua 5.3 features:
+
+- All functions in the `UTF-8 Library <https://www.lua.org/manual/5.3/manual.html#6.5>`__
+
 Loading libraries with ``require('library_name')`` is allowed, but limited. It works this way:
 
 1. If `library_name` is one of the standard libraries, then return the library.
@@ -61,6 +70,9 @@ Cell
 Global scripts
     Lua scripts that are not attached to any game object and are always active. Global scripts can not be started or stopped during a game session. Lists of global scripts are defined by `omwscripts` files, which should be :ref:`registered <Lua scripting>` in `openmw.cfg`.
 
+Menu scripts
+    Lua scripts that are ran regardless of a game being loaded. They can be used to add features to the main menu and manage save files.
+
 Local scripts
     Lua scripts that are attached to some game object. A local script is active only if the object it is attached to is in an active cell. There are no limitations to the number of local scripts on one object. Local scripts can be attached to (or detached from) any object at any moment by a global script. In some cases inactive local scripts still can run code (for example during saving and loading), but while inactive they can not see nearby objects.
 
@@ -85,7 +97,7 @@ Let's write a simple example of a `Player script`:
 
 .. code-block:: Lua
 
-    -- Save to my_lua_mod/example/player.lua
+    -- Save to my_lua_mod/scripts/example/player.lua
 
     local ui = require('openmw.ui')
 
@@ -107,7 +119,7 @@ The options are:
 1. Create text file "my_lua_mod.omwscripts" with the following line:
 ::
 
-    PLAYER: example/player.lua
+    PLAYER: scripts/example/player.lua
 
 2. (not implemented yet) Add the script in OpenMW CS on "Lua scripts" view and save as "my_lua_mod.omwaddon".
 
@@ -122,6 +134,19 @@ Enable it in ``openmw.cfg`` the same way as any other mod:
 Now every time the player presses "X" on a keyboard, a message is shown.
 
 
+Lua scripts naming policy
+=========================
+
+Technically scripts can be placed anywhere in the virtual file system, but we recommend to follow the naming policy and choose one of:
+
+- ``scripts/<ModName>/<ScriptName>.lua``: general case.
+- ``scripts/<AuthorName>/<ModName>/<ScriptName>.lua``: if "ModName" is short and can potentially collide with other mods.
+- ``scripts/<ModName>.lua``: if it is a simple mod that consists of a single script, the script can be placed in ``scripts/`` without subdirs.
+
+``scripts/omw/`` is reserved for built-in scripts, don't use it in mods. Overriding built-in scripts is not recommended, prefer to adjust their behaviour via :ref:`Interfaces of built-in scripts` instead.
+
+See also naming policy of :ref:`Localisation Files`.
+
 Format of ``.omwscripts``
 =========================
 
@@ -129,20 +154,20 @@ Format of ``.omwscripts``
 
     # Lines starting with '#' are comments
 
-    GLOBAL: my_mod/some_global_script.lua
+    GLOBAL: scripts/my_mod/some_global_script.lua
 
     # Script that will be automatically attached to the player
-    PLAYER: my_mod/player.lua
+    PLAYER: scripts/my_mod/player.lua
 
     # Local script that will be automatically attached to every NPC and every creature in the game
-    NPC, CREATURE: my_mod/some_other_script.lua
+    NPC, CREATURE: scripts/my_mod/some_other_script.lua
 
     # Local script that can be attached to any object by a global script
-    CUSTOM: my_mod/something.lua
+    CUSTOM: scripts/my_mod/something.lua
 
     # Local script that will be automatically attached to any Container AND can be
     # attached to any other object by a global script.
-    CONTAINER, CUSTOM: my_mod/container.lua
+    CONTAINER, CUSTOM: scripts/my_mod/container.lua
 
 Each script is described by one line:
 ``<flags>: <path to .lua file in virtual file system>``.
@@ -151,6 +176,7 @@ The order of lines determines the script load order (i.e. script priorities).
 Possible flags are:
 
 - ``GLOBAL`` - a global script; always active, can not be stopped;
+- ``MENU`` - a menu script; always active, even before a game is loaded
 - ``CUSTOM`` - dynamic local script that can be started or stopped by a global script;
 - ``PLAYER`` - an auto started player script;
 - ``ACTIVATOR`` - a local script that will be automatically attached to any activator;
@@ -190,6 +216,7 @@ To enter the Lua mode run one of the commands:
 - ``lua player`` or ``luap`` - enter player context
 - ``lua global`` or ``luag`` - enter global context
 - ``lua selected`` or ``luas`` - enter local context on the selected object
+- ``lua menu`` or ``luam`` - enter menu context
 
 Script structure
 ================
@@ -437,27 +464,10 @@ Using the interface:
 
 The order in which the scripts are started is important. So if one mod should override an interface provided by another mod, make sure that load order (i.e. the sequence of `lua-scripts=...` in `openmw.cfg`) is correct.
 
-**Interfaces of built-in scripts**
+Interfaces of built-in scripts
+------------------------------
 
-.. list-table::
-  :widths: 20 20 60
-
-  * - Interface
-    - Can be used
-    - Description
-  * - :ref:`AI <Interface AI>`
-    - by local scripts
-    - Control basic AI of NPCs and creatures.
-  * - :ref:`Camera <Interface Camera>`
-    - by player scripts
-    - | Allows to alter behavior of the built-in camera script
-      | without overriding the script completely.
-  * - :ref:`Settings <Interface Settings>`
-    - by player and global scripts
-    - Save, display and track changes of setting values.
-  * - :ref:`MWUI <Interface MWUI>`
-    - by player scripts
-    - Morrowind-style UI templates.
+.. include:: tables/interfaces.rst
 
 Event system
 ============
@@ -468,6 +478,12 @@ This is another kind of script-to-script interactions. The differences:
 - Events are delivered with a small delay (in single player the delay is always one frame).
 - Event handlers can not return any data to the sender.
 - Event handlers have a single argument `eventData` (must be :ref:`serializable <Serializable data>`)
+
+There are a few methods for sending events:
+
+- `core.sendGlobalEvent <openmw_core.html##(sendGlobalEvent)>`_ to send events to global scripts
+- `GameObject:sendEvent <openmw_core.html##(GameObject).sendEvent>`_ to send events to local scripts attached to a game object
+- `types.Player.sendMenuEvent <openmw_types.html##(Player).sendMenuEvent>`_ to send events to menu scripts of the given player
 
 Events are the main way of interacting between local and global scripts.
 They are not recommended for interactions between two global scripts, because in this case interfaces are more convenient.
@@ -609,7 +625,7 @@ Also in `openmw_aux`_ is the helper function ``runRepeatedly``, it is implemente
     local core = require('openmw.core')
     local time = require('openmw_aux.time')
 
-    -- call `doSomething()` at the end of every game day. 
+    -- call `doSomething()` at the end of every game day.
     -- the second argument (`time.day`) is the interval.
     -- the periodical evaluation can be stopped at any moment by calling `stopFn()`
     local timeBeforeMidnight = time.day - core.getGameTime() % time.day

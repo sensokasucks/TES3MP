@@ -1,5 +1,7 @@
 #include "unrefqueue.hpp"
 
+#include <components/sceneutil/workqueue.hpp>
+
 namespace SceneUtil
 {
     namespace
@@ -9,7 +11,9 @@ namespace SceneUtil
             std::vector<osg::ref_ptr<osg::Referenced>> mObjects;
 
             explicit ClearVector(std::vector<osg::ref_ptr<osg::Referenced>>&& objects)
-                : mObjects(std::move(objects)) {}
+                : mObjects(std::move(objects))
+            {
+            }
 
             void doWork() override { mObjects.clear(); }
         };

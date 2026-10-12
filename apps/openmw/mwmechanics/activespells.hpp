@@ -10,10 +10,9 @@
 
 #include <components/esm3/activespells.hpp>
 
-#include "../mwworld/timestamp.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwworld/timestamp.hpp"
 
-#include "magiceffects.hpp"
 #include "spellcasting.hpp"
 
 namespace ESM
@@ -30,20 +29,19 @@ namespace MWMechanics
     /// effects.
     class ActiveSpells
     {
-        public:
-
-            using ActiveEffect = ESM::ActiveEffect;
-            class ActiveSpellParams
-            {
-                    std::string mId;
-                    std::vector<ActiveEffect> mEffects;
-                    std::string mDisplayName;
-                    int mCasterActorId;
-                    int mSlot;
-                    ESM::ActiveSpells::EffectType mType;
-                    int mWorsenings;
-                    MWWorld::TimeStamp mNextWorsening;
-
+    public:
+        using ActiveEffect = ESM::ActiveEffect;
+        class ActiveSpellParams
+        {
+            ESM::RefId mActiveSpellId;
+            ESM::RefId mSourceSpellId;
+            std::vector<ActiveEffect> mEffects;
+            std::string mDisplayName;
+            int mCasterActorId;
+            ESM::RefNum mItem;
+            ESM::ActiveSpells::Flags mFlags;
+            int mWorsenings;
+            MWWorld::TimeStamp mNextWorsening;
                     /*
                         Start of tes3mp addition
 
@@ -57,80 +55,95 @@ namespace MWMechanics
                         End of tes3mp addition
                     */
 
-                    ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params);
+            MWWorld::Ptr mSource;
 
-                    ActiveSpellParams(const ESM::Spell* spell, const MWWorld::Ptr& actor, bool ignoreResistances = false);
+            ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params);
 
-                    ActiveSpellParams(const MWWorld::ConstPtr& item, const ESM::Enchantment* enchantment, int slotIndex, const MWWorld::Ptr& actor);
+            ActiveSpellParams(const ESM::Spell* spell, const MWWorld::Ptr& actor, bool ignoreResistances = false);
 
-                    ActiveSpellParams(const ActiveSpellParams& params, const MWWorld::Ptr& actor);
+            ActiveSpellParams(
+                const MWWorld::ConstPtr& item, const ESM::Enchantment* enchantment, const MWWorld::Ptr& actor);
 
-                    friend class ActiveSpells;
-                public:
-                    ActiveSpellParams(const CastSpell& cast, const MWWorld::Ptr& caster);
+            ActiveSpellParams(const ActiveSpellParams& params, const MWWorld::Ptr& actor);
 
-                    /*
-                        Start of tes3mp addition
 
-                        Make it possible to create ActiveSpellParams from the ones received in a packet, to convert
-                        them back for packets, and to get their timestamp
-                    */
-                    ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp);
 
-                    ESM::ActiveSpells::ActiveSpellParams toEsm() const;
+            friend class ActiveSpells;
 
-                    MWWorld::TimeStamp getTimeStamp() const { return mTimeStamp; }
+        public:
+            ActiveSpellParams(
+                const MWWorld::Ptr& caster, const ESM::RefId& id, std::string_view sourceName, ESM::RefNum item);
 
-                    int getSlot() const { return mSlot; }
-                    /*
-                        End of tes3mp addition
-                    */
+            /*
+                Start of tes3mp addition
 
-                    const std::string& getId() const { return mId; }
+                Make it possible to create ActiveSpellParams from the ones received in a packet, to convert
+                them back for packets, and to get their timestamp
+            */
+            ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp);
 
-                    const std::vector<ActiveEffect>& getEffects() const { return mEffects; }
-                    std::vector<ActiveEffect>& getEffects() { return mEffects; }
+            ESM::ActiveSpells::ActiveSpellParams toEsm() const;
 
-                    ESM::ActiveSpells::EffectType getType() const { return mType; }
+            MWWorld::TimeStamp getTimeStamp() const { return mTimeStamp; }
+            /*
+                End of tes3mp addition
+            */
 
-                    int getCasterActorId() const { return mCasterActorId; }
+            ESM::RefId getActiveSpellId() const { return mActiveSpellId; }
+            void setActiveSpellId(ESM::RefId id) { mActiveSpellId = id; }
 
-                    int getWorsenings() const { return mWorsenings; }
+            const ESM::RefId& getSourceSpellId() const { return mSourceSpellId; }
 
-                    const std::string& getDisplayName() const { return mDisplayName; }
+            const std::vector<ActiveEffect>& getEffects() const { return mEffects; }
+            std::vector<ActiveEffect>& getEffects() { return mEffects; }
 
-                    // Increments worsenings count and sets the next timestamp
-                    void worsen();
+            int getCasterActorId() const { return mCasterActorId; }
 
-                    bool shouldWorsen() const;
+            int getWorsenings() const { return mWorsenings; }
 
-                    void resetWorsenings();
-            };
+            const std::string& getDisplayName() const { return mDisplayName; }
 
-            typedef std::list<ActiveSpellParams>::const_iterator TIterator;
+            ESM::RefNum getItem() const { return mItem; }
+            ESM::RefId getEnchantment() const;
 
-            void readState (const ESM::ActiveSpells& state);
-            void writeState (ESM::ActiveSpells& state) const;
+            const ESM::Spell* getSpell() const;
+            bool hasFlag(ESM::ActiveSpells::Flags flags) const;
+            void setFlag(ESM::ActiveSpells::Flags flags);
 
-            TIterator begin() const;
+            // Increments worsenings count and sets the next timestamp
+            void worsen();
 
-            TIterator end() const;
+            bool shouldWorsen() const;
 
-            void update(const MWWorld::Ptr& ptr, float duration);
+            void resetWorsenings();
+        };
 
-        private:
-            using ParamsPredicate = std::function<bool(const ActiveSpellParams&)>;
-            using EffectPredicate = std::function<bool(const ActiveSpellParams&, const ESM::ActiveEffect&)>;
-            using Predicate = std::variant<ParamsPredicate, EffectPredicate>;
+        typedef std::list<ActiveSpellParams> Collection;
+        typedef Collection::const_iterator TIterator;
 
-            struct IterationGuard
-            {
-                ActiveSpells& mActiveSpells;
+        void readState(const ESM::ActiveSpells& state);
+        void writeState(ESM::ActiveSpells& state) const;
 
-                IterationGuard(ActiveSpells& spells);
-                ~IterationGuard();
-            };
+        TIterator begin() const;
 
+        TIterator end() const;
+
+        TIterator getActiveSpellById(const ESM::RefId& id);
+
+        void update(const MWWorld::Ptr& ptr, float duration);
+
+    private:
+        using ParamsPredicate = std::function<bool(const ActiveSpellParams&)>;
+        using EffectPredicate = std::function<bool(const ActiveSpellParams&, const ESM::ActiveEffect&)>;
+        using Predicate = std::variant<ParamsPredicate, EffectPredicate>;
+
+        struct IterationGuard
+        {
+            ActiveSpells& mActiveSpells;
+
+            IterationGuard(ActiveSpells& spells);
+            ~IterationGuard();
+        };
             /*
                 Start of tes3mp addition
 
@@ -155,29 +168,29 @@ namespace MWMechanics
                 End of tes3mp addition
             */
 
-            std::list<ActiveSpellParams> mSpells;
-            std::vector<ActiveSpellParams> mQueue;
-            std::queue<Predicate> mPurges;
-            bool mIterating;
 
-            void addToSpells(const MWWorld::Ptr& ptr, const ActiveSpellParams& spell);
+        std::list<ActiveSpellParams> mSpells;
+        std::vector<ActiveSpellParams> mQueue;
+        std::queue<Predicate> mPurges;
+        bool mIterating;
 
-            bool applyPurges(const MWWorld::Ptr& ptr, std::list<ActiveSpellParams>::iterator* currentSpell = nullptr, std::vector<ActiveEffect>::iterator* currentEffect = nullptr);
+        void addToSpells(const MWWorld::Ptr& ptr, const ActiveSpellParams& spell);
 
-        public:
+        bool applyPurges(const MWWorld::Ptr& ptr, std::list<ActiveSpellParams>::iterator* currentSpell = nullptr,
+            std::vector<ActiveEffect>::iterator* currentEffect = nullptr);
 
-            ActiveSpells();
+    public:
+        ActiveSpells();
 
-            /// Add lasting effects
-            ///
-            /// \brief addSpell
-            /// \param id ID for stacking purposes.
-            ///
-            void addSpell (const ActiveSpellParams& params);
+        /// Add lasting effects
+        ///
+        /// \brief addSpell
+        /// \param id ID for stacking purposes.
+        ///
+        void addSpell(const ActiveSpellParams& params);
 
-            /// Bypasses resistances
-            void addSpell(const ESM::Spell* spell, const MWWorld::Ptr& actor);
-
+        /// Bypasses resistances
+        void addSpell(const ESM::Spell* spell, const MWWorld::Ptr& actor);
             /*
                 Start of tes3mp addition
 
@@ -189,8 +202,11 @@ namespace MWMechanics
                 End of tes3mp addition
             */
 
-            /// Removes the active effects from this spell/potion/.. with \a id
-            void removeEffects (const MWWorld::Ptr& ptr, std::string_view id);
+
+        /// Removes the active effects from this spell/potion/.. with \a id
+        void removeEffectsBySourceSpellId(const MWWorld::Ptr& ptr, const ESM::RefId& id);
+        /// Removes the active effects of a specific active spell
+        void removeEffectsByActiveSpellId(const MWWorld::Ptr& ptr, const ESM::RefId& id);
 
             /*
                 Start of tes3mp addition
@@ -209,15 +225,14 @@ namespace MWMechanics
                 End of tes3mp addition
             */
 
-            /// Remove all active effects with this effect id
-            void purgeEffect (const MWWorld::Ptr& ptr, short effectId);
+        /// Remove all active effects with this effect id
+        void purgeEffect(const MWWorld::Ptr& ptr, int effectId, ESM::RefId effectArg = {});
 
-            void purge(EffectPredicate predicate, const MWWorld::Ptr& ptr);
-            void purge(ParamsPredicate predicate, const MWWorld::Ptr& ptr);
+        void purge(EffectPredicate predicate, const MWWorld::Ptr& ptr);
+        void purge(ParamsPredicate predicate, const MWWorld::Ptr& ptr);
 
-            /// Remove all effects that were cast by \a casterActorId
-            void purge (const MWWorld::Ptr& ptr, int casterActorId);
-
+        /// Remove all effects that were cast by \a casterActorId
+        void purge(const MWWorld::Ptr& ptr, int casterActorId);
             /*
                 Start of tes3mp addition
 
@@ -238,14 +253,18 @@ namespace MWMechanics
                 End of tes3mp addition
             */
 
-            /// Remove all spells
-            void clear(const MWWorld::Ptr& ptr);
 
-            bool isSpellActive (std::string_view id) const;
-            ///< case insensitive
+        /// Remove all spells
+        void clear(const MWWorld::Ptr& ptr);
 
-            void skipWorsenings(double hours);
+        /// True if a spell associated with this id is active
+        /// \note For enchantments, this is the id of the enchanted item, not the enchantment itself
+        bool isSpellActive(const ESM::RefId& id) const;
 
+        /// True if the enchantment is active
+        bool isEnchantmentActive(const ESM::RefId& id) const;
+
+        void skipWorsenings(double hours);
             /*
                 Start of tes3mp addition
 
@@ -257,7 +276,8 @@ namespace MWMechanics
                 End of tes3mp addition
             */
 
-            void unloadActor(const MWWorld::Ptr& ptr);
+
+        void unloadActor(const MWWorld::Ptr& ptr);
     };
 }
 

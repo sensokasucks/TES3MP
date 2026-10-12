@@ -29,45 +29,38 @@
 #include "loadpwat.hpp"
 
 #include <stdexcept>
-#include <iostream> // FIXME: for debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::PlaceableWater::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_OBND:
-            case ESM4::SUB_MODL:
-            case ESM4::SUB_DNAM:
-            {
-                //std::cout << "PWAT " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("OBND"):
+            case ESM::fourCC("MODL"):
+            case ESM::fourCC("DNAM"):
                 reader.skipSubRecordData();
                 break;
-            }
             default:
-                std::cout << "PWAT " << ESM::printName(subHdr.typeId) << " skipping..."
-                          << subHdr.dataSize << std::endl;
-                reader.skipSubRecordData();
-                //throw std::runtime_error("ESM4::PWAT::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
+                throw std::runtime_error("ESM4::PWAT::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::PlaceableWater::save(ESM4::Writer& writer) const
+// void ESM4::PlaceableWater::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::PlaceableWater::blank()
+// void ESM4::PlaceableWater::blank()
 //{
-//}
+// }

@@ -30,7 +30,8 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -39,7 +40,7 @@ namespace ESM4
 
     struct MediaSet
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -56,12 +57,12 @@ namespace ESM4
         // 0x08 night outer, 0x10 night middle, 0x20 night inner
         std::uint8_t mEnabled; // for location
 
-        float mBoundaryDayOuter;    // %
-        float mBoundaryDayMiddle;   // %
-        float mBoundaryDayInner;    // %
-        float mBoundaryNightOuter;  // %
+        float mBoundaryDayOuter; // %
+        float mBoundaryDayMiddle; // %
+        float mBoundaryDayInner; // %
+        float mBoundaryNightOuter; // %
         float mBoundaryNightMiddle; // %
-        float mBoundaryNightInner;  // %
+        float mBoundaryNightInner; // %
 
         // start at 2 to reduce confusion
         std::string mSet2; // NAM2
@@ -83,13 +84,14 @@ namespace ESM4
         float mTime3;
         float mTime4;
 
-        FormId mSoundIntro; // HNAM
-        FormId mSoundOutro; // INAM
+        ESM::FormId mSoundIntro; // HNAM
+        ESM::FormId mSoundOutro; // INAM
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_MSET4;
     };
 }
 

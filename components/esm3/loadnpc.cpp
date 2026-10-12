@@ -3,9 +3,35 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void NPC::load(ESMReader &esm, bool &isDeleted)
+    namespace
+    {
+        struct NPDTstruct12
+        {
+            NPC::NPDTstruct52& mStruct;
+        };
+    }
+
+    template <Misc::SameAsWithoutCvref<NPC::NPDTstruct52> T>
+    void decompose(T&& v, const auto& f)
+    {
+        char padding1 = 0;
+        char padding2 = 0;
+        f(v.mLevel, v.mAttributes, v.mSkills, padding1, v.mHealth, v.mMana, v.mFatigue, v.mDisposition, v.mReputation,
+            v.mRank, padding2, v.mGold);
+    }
+
+    template <Misc::SameAsWithoutCvref<NPDTstruct12> T>
+    void decompose(T&& v, const auto& f)
+    {
+        char padding[] = { 0, 0, 0 };
+        f(v.mStruct.mLevel, v.mStruct.mDisposition, v.mStruct.mReputation, v.mStruct.mRank, padding, v.mStruct.mGold);
+    }
+
+    void NPC::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -26,7 +52,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -36,53 +62,49 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("RNAM"):
-                    mRace = esm.getHString();
+                    mRace = esm.getRefId();
                     break;
                 case fourCC("CNAM"):
-                    mClass = esm.getHString();
+                    mClass = esm.getRefId();
                     break;
                 case fourCC("ANAM"):
-                    mFaction = esm.getHString();
+                    mFaction = esm.getRefId();
                     break;
                 case fourCC("BNAM"):
-                    mHead = esm.getHString();
+                    mHead = esm.getRefId();
                     break;
                 case fourCC("KNAM"):
-                    mHair = esm.getHString();
+                    mHair = esm.getRefId();
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("NPDT"):
                     hasNpdt = true;
                     esm.getSubHeader();
-                    if (esm.getSubSize() == 52)
+                    if (esm.getSubSize() == getCompositeSize(mNpdt))
                     {
                         mNpdtType = NPC_DEFAULT;
-                        esm.getExact(&mNpdt, 52);
-                    }
-                    else if (esm.getSubSize() == 12)
-                    {
-                        //Reading into temporary NPDTstruct12 object
-                        NPDTstruct12 npdt12;
-                        mNpdtType = NPC_WITH_AUTOCALCULATED_STATS;
-                        esm.getExact(&npdt12, 12);
-
-                        //Clearing the mNdpt struct to initialize all values
-                        blankNpdt();
-                        //Swiching to an internal representation
-                        mNpdt.mLevel = npdt12.mLevel;
-                        mNpdt.mDisposition = npdt12.mDisposition;
-                        mNpdt.mReputation = npdt12.mReputation;
-                        mNpdt.mRank = npdt12.mRank;
-                        mNpdt.mGold = npdt12.mGold;
+                        esm.getComposite(mNpdt);
                     }
                     else
-                        esm.fail("NPC_NPDT must be 12 or 52 bytes long");
+                    {
+                        NPDTstruct12 data{ mNpdt };
+                        if (esm.getSubSize() == getCompositeSize(data))
+                        {
+                            mNpdtType = NPC_WITH_AUTOCALCULATED_STATS;
+
+                            // Clearing the mNdpt struct to initialize all values
+                            blankNpdt();
+                            esm.getComposite(data);
+                        }
+                        else
+                            esm.fail("NPC_NPDT must be 12 or 52 bytes long");
+                    }
                     break;
                 case fourCC("FLAG"):
                     hasFlags = true;
-                    int flags;
+                    int32_t flags;
                     esm.getHT(flags);
                     mFlags = flags & 0xFF;
                     mBloodType = ((flags >> 8) & 0xFF) >> 2;
@@ -94,7 +116,7 @@ namespace ESM
                     mInventory.add(esm);
                     break;
                 case fourCC("AIDT"):
-                    esm.getHExact(&mAiData, sizeof(mAiData));
+                    esm.getSubComposite(mAiData);
                     break;
                 case fourCC("DODT"):
                 case fourCC("DNAM"):
@@ -125,9 +147,9 @@ namespace ESM
         if (!hasFlags && !isDeleted)
             esm.fail("Missing FLAG subrecord");
     }
-    void NPC::save(ESMWriter &esm, bool isDeleted) const
+    void NPC::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -137,49 +159,43 @@ namespace ESM
 
         esm.writeHNOCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNCString("RNAM", mRace);
-        esm.writeHNCString("CNAM", mClass);
-        esm.writeHNCString("ANAM", mFaction);
-        esm.writeHNCString("BNAM", mHead);
-        esm.writeHNCString("KNAM", mHair);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeHNCRefId("RNAM", mRace);
+        esm.writeHNCRefId("CNAM", mClass);
+        esm.writeHNCRefId("ANAM", mFaction);
+        esm.writeHNCRefId("BNAM", mHead);
+        esm.writeHNCRefId("KNAM", mHair);
+        esm.writeHNOCRefId("SCRI", mScript);
 
         if (mNpdtType == NPC_DEFAULT)
         {
-            esm.writeHNT("NPDT", mNpdt, 52);
+            esm.writeNamedComposite("NPDT", mNpdt);
         }
         else if (mNpdtType == NPC_WITH_AUTOCALCULATED_STATS)
         {
-            NPDTstruct12 npdt12;
-            npdt12.mLevel = mNpdt.mLevel;
-            npdt12.mDisposition = mNpdt.mDisposition;
-            npdt12.mReputation = mNpdt.mReputation;
-            npdt12.mRank = mNpdt.mRank;
-            npdt12.mUnknown1 = 0;
-            npdt12.mUnknown2 = 0;
-            npdt12.mUnknown3 = 0;
-            npdt12.mGold = mNpdt.mGold;
-            esm.writeHNT("NPDT", npdt12, 12);
+            esm.writeNamedComposite("NPDT", NPDTstruct12{ const_cast<NPDTstruct52&>(mNpdt) });
         }
 
         esm.writeHNT("FLAG", ((mBloodType << 10) + mFlags));
 
         mInventory.save(esm);
         mSpells.save(esm);
-        esm.writeHNT("AIDT", mAiData, sizeof(mAiData));
+        esm.writeNamedComposite("AIDT", mAiData);
 
         mTransport.save(esm);
 
         mAiPackage.save(esm);
     }
 
-    bool NPC::isMale() const {
+    bool NPC::isMale() const
+    {
         return (mFlags & Female) == 0;
     }
 
-    void NPC::setIsMale(bool value) {
+    void NPC::setIsMale(bool value)
+    {
         mFlags |= Female;
-        if (value) {
+        if (value)
+        {
             mFlags ^= Female;
         }
     }
@@ -199,26 +215,23 @@ namespace ESM
         mAiPackage.mList.clear();
         mName.clear();
         mModel.clear();
-        mRace.clear();
-        mClass.clear();
-        mFaction.clear();
-        mScript.clear();
-        mHair.clear();
-        mHead.clear();
+        mRace = ESM::RefId();
+        mClass = ESM::RefId();
+        mFaction = ESM::RefId();
+        mScript = ESM::RefId();
+        mHair = ESM::RefId();
+        mHead = ESM::RefId();
     }
 
     void NPC::blankNpdt()
     {
         mNpdt.mLevel = 0;
-        mNpdt.mStrength = mNpdt.mIntelligence = mNpdt.mWillpower = mNpdt.mAgility =
-            mNpdt.mSpeed = mNpdt.mEndurance = mNpdt.mPersonality = mNpdt.mLuck = 0;
-        for (int i=0; i< Skill::Length; ++i) mNpdt.mSkills[i] = 0;
+        mNpdt.mAttributes.fill(0);
+        mNpdt.mSkills.fill(0);
         mNpdt.mReputation = 0;
         mNpdt.mHealth = mNpdt.mMana = mNpdt.mFatigue = 0;
         mNpdt.mDisposition = 0;
-        mNpdt.mUnknown1 = 0;
         mNpdt.mRank = 0;
-        mNpdt.mUnknown2 = 0;
         mNpdt.mGold = 0;
     }
 

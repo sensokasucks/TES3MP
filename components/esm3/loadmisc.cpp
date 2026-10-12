@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Miscellaneous::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Miscellaneous::MCDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mFlags);
+    }
+
+    void Miscellaneous::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -28,11 +36,11 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("MCDT"):
-                    esm.getHTSized<12>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
@@ -53,9 +61,9 @@ namespace ESM
             esm.fail("Missing MCDT subrecord");
     }
 
-    void Miscellaneous::save(ESMWriter &esm, bool isDeleted) const
+    void Miscellaneous::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -65,8 +73,8 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("MCDT", mData, 12);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeNamedComposite("MCDT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
     }
 
@@ -75,10 +83,10 @@ namespace ESM
         mRecordFlags = 0;
         mData.mWeight = 0;
         mData.mValue = 0;
-        mData.mIsKey = 0;
+        mData.mFlags = 0;
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
     }
 }

@@ -1,7 +1,7 @@
 #ifndef WINDOWS_CRASHSHM_HPP
 #define WINDOWS_CRASHSHM_HPP
 
-#include <components/windows.hpp>
+#include <components/misc/windows.hpp>
 
 namespace Crash
 {
@@ -21,6 +21,17 @@ namespace Crash
         };
 
         Event mEvent;
+
+        enum class Status
+        {
+            Uninitialised,
+            Monitoring,
+            Dumping,
+            DumpedSuccessfully,
+            FailedDumping
+        };
+
+        Status mMonitorStatus;
 
         struct Startup
         {

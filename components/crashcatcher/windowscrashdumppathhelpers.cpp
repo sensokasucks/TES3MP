@@ -1,13 +1,20 @@
 #include "windowscrashdumppathhelpers.hpp"
 
-#include <boost/filesystem/path.hpp>
+#include <components/misc/strings/conversion.hpp>
 
-std::string Crash::getCrashDumpPath(const CrashSHM& crashShm)
+namespace Crash
 {
-    return (boost::filesystem::path(crashShm.mStartup.mDumpDirectoryPath) / crashShm.mStartup.mCrashDumpFileName).string();
-}
+    std::filesystem::path getCrashDumpPath(const CrashSHM& crashShm)
+    {
+        return (std::filesystem::path(Misc::StringUtils::stringToU8String(crashShm.mStartup.mDumpDirectoryPath))
+            / Misc::StringUtils::stringToU8String(crashShm.mStartup.mCrashDumpFileName))
+            .make_preferred();
+    }
 
-std::string Crash::getFreezeDumpPath(const CrashSHM& crashShm)
-{
-    return (boost::filesystem::path(crashShm.mStartup.mDumpDirectoryPath) / crashShm.mStartup.mFreezeDumpFileName).string();
+    std::filesystem::path getFreezeDumpPath(const CrashSHM& crashShm)
+    {
+        return (std::filesystem::path(Misc::StringUtils::stringToU8String(crashShm.mStartup.mDumpDirectoryPath))
+            / Misc::StringUtils::stringToU8String(crashShm.mStartup.mFreezeDumpFileName))
+            .make_preferred();
+    }
 }

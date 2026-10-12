@@ -7,14 +7,6 @@ free -m
 # Silence a git warning
 git config --global advice.detachedHead false
 
-BUILD_UNITTESTS=OFF
-BUILD_BENCHMARKS=OFF
-
-if [[ "${BUILD_TESTS_ONLY}" ]]; then
-    BUILD_UNITTESTS=ON
-    BUILD_BENCHMARKS=ON
-fi
-
 # setup our basic cmake build options
 declare -a CMAKE_CONF_OPTS=(
     -DCMAKE_C_COMPILER="${CC:-/usr/bin/cc}"
@@ -22,10 +14,10 @@ declare -a CMAKE_CONF_OPTS=(
     -DCMAKE_C_COMPILER_LAUNCHER=ccache
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
     -DCMAKE_INSTALL_PREFIX=install
-    -DBUILD_SHARED_LIBS=OFF
+    -DBUILD_SHARED_LIBS="${BUILD_SHARED_LIBS:-OFF}"
     -DUSE_SYSTEM_TINYXML=ON
     -DOPENMW_USE_SYSTEM_RECASTNAVIGATION=ON
-    -DOPENMW_CXX_FLAGS="-Werror -Werror=implicit-fallthrough"  # flags specific to OpenMW project
+    -DOPENMW_CXX_FLAGS="${OPENMW_CXX_FLAGS}"  # flags specific to OpenMW project
     -DRakNet_LIBRARY_RELEASE=~/CrabNet/lib/libRakNetLibStatic.a
     -DRakNet_LIBRARY_DEBUG=~/CrabNet/lib/libRakNetLibStatic.a
 )
@@ -48,10 +40,13 @@ fi
 
 if [[ $CI_CLANG_TIDY ]]; then
     CMAKE_CONF_OPTS+=(
-          -DCMAKE_CXX_CLANG_TIDY="clang-tidy;--warnings-as-errors=*"
+        -DCMAKE_CXX_CLANG_TIDY=clang-tidy
+        -DBUILD_COMPONENTS_TESTS=ON
+        -DBUILD_OPENMW_TESTS=ON
+        -DBUILD_OPENCS_TESTS=ON
+        -DBUILD_BENCHMARKS=ON
     )
 fi
-
 
 if [[ "${CMAKE_BUILD_TYPE}" ]]; then
     CMAKE_CONF_OPTS+=(
@@ -77,13 +72,13 @@ fi
 
 mkdir -p build
 cd build
-
 # Set up compilers
 if [ ! -z "${MATRIX_CC}" ]; then
     eval "${MATRIX_CC}"
 fi
 
 export RAKNET_ROOT=~/CrabNet
+
 
 if [[ "${BUILD_TESTS_ONLY}" ]]; then
 
@@ -111,8 +106,25 @@ if [[ "${BUILD_TESTS_ONLY}" ]]; then
         -DBUILD_NAVMESHTOOL=OFF \
         -DBUILD_BULLETOBJECTTOOL=OFF \
         -DBUILD_NIFTEST=OFF \
-        -DBUILD_UNITTESTS=${BUILD_UNITTESTS} \
-        -DBUILD_BENCHMARKS=${BUILD_BENCHMARKS} \
+        -DBUILD_COMPONENTS_TESTS=ON \
+        -DBUILD_OPENMW_TESTS=ON \
+        -DBUILD_OPENCS_TESTS=ON \
+        -DBUILD_BENCHMARKS=ON \
+        ..
+elif [[ "${BUILD_OPENMW_ONLY}" ]]; then
+    ${ANALYZE} cmake \
+        "${CMAKE_CONF_OPTS[@]}" \
+        -DBUILD_OPENMW=ON \
+        -DBUILD_BSATOOL=OFF \
+        -DBUILD_ESMTOOL=OFF \
+        -DBUILD_LAUNCHER=OFF \
+        -DBUILD_MWINIIMPORTER=OFF \
+        -DBUILD_ESSIMPORTER=OFF \
+        -DBUILD_OPENCS=OFF \
+        -DBUILD_WIZARD=OFF \
+        -DBUILD_NAVMESHTOOL=OFF \
+        -DBUILD_BULLETOBJECTTOOL=OFF \
+        -DBUILD_NIFTEST=OFF \
         ..
 else
     ${ANALYZE} cmake \

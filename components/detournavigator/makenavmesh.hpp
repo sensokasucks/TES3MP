@@ -1,17 +1,10 @@
 #ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_MAKENAVMESH_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_MAKENAVMESH_H
 
-#include "offmeshconnectionsmanager.hpp"
-#include "navmeshcacheitem.hpp"
+#include "recastmesh.hpp"
 #include "tileposition.hpp"
-#include "sharednavmesh.hpp"
-#include "navmeshtilescache.hpp"
-#include "offmeshconnection.hpp"
-#include "navmeshdb.hpp"
 
-#include <components/misc/guarded.hpp>
-
-#include <osg/Vec3f>
+#include <components/esm/refid.hpp>
 
 #include <memory>
 #include <vector>
@@ -21,10 +14,12 @@ struct rcConfig;
 
 namespace DetourNavigator
 {
-    class RecastMesh;
     struct Settings;
     struct PreparedNavMeshData;
     struct NavMeshData;
+    struct OffMeshConnection;
+    struct AgentBounds;
+    struct RecastSettings;
 
     inline float getLength(const osg::Vec2i& value)
     {
@@ -44,20 +39,20 @@ namespace DetourNavigator
 
     inline bool isEmpty(const RecastMesh& recastMesh)
     {
-        return recastMesh.getMesh().getIndices().empty()
-                && recastMesh.getWater().empty()
-                && recastMesh.getHeightfields().empty()
-                && recastMesh.getFlatHeightfields().empty();
+        return recastMesh.getMesh().getIndices().empty() && recastMesh.getWater().empty()
+            && recastMesh.getHeightfields().empty() && recastMesh.getFlatHeightfields().empty();
     }
 
-    std::unique_ptr<PreparedNavMeshData> prepareNavMeshTileData(const RecastMesh& recastMesh,
+    std::unique_ptr<PreparedNavMeshData> prepareNavMeshTileData(const RecastMesh& recastMesh, ESM::RefId worldspace,
         const TilePosition& tilePosition, const AgentBounds& agentBounds, const RecastSettings& settings);
 
     NavMeshData makeNavMeshTileData(const PreparedNavMeshData& data,
         const std::vector<OffMeshConnection>& offMeshConnections, const AgentBounds& agentBounds,
         const TilePosition& tile, const RecastSettings& settings);
 
-    NavMeshPtr makeEmptyNavMesh(const Settings& settings);
+    void initEmptyNavMesh(const Settings& settings, dtNavMesh& navMesh);
+
+    bool isSupportedAgentBounds(const RecastSettings& settings, const AgentBounds& agentBounds);
 }
 
 #endif

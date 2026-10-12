@@ -14,16 +14,6 @@ MISSINGTOOLS=0
 command -v 7z >/dev/null 2>&1 || { echo "Error: 7z (7zip) is not on the path."; MISSINGTOOLS=1; }
 command -v cmake >/dev/null 2>&1 || { echo "Error: cmake (CMake) is not on the path."; MISSINGTOOLS=1; }
 
-MISSINGPYTHON=0
-if ! command -v python >/dev/null 2>&1; then
-	echo "Warning: Python is not on the path, automatic Qt installation impossible."
-	MISSINGPYTHON=1
-elif ! python --version >/dev/null 2>&1; then
-	echo "Warning: Python is (probably) fake stub Python that comes bundled with newer versions of Windows, automatic Qt installation impossible."
-	echo "If you think you have Python installed, try changing the order of your PATH environment variable in Advanced System Settings."
-	MISSINGPYTHON=1
-fi
-
 if [ $MISSINGTOOLS -ne 0 ]; then
 	wrappedExit 1
 fi
@@ -54,7 +44,6 @@ function unixPathAsWindows {
 	fi
 }
 
-APPVEYOR=${APPVEYOR:-}
 CI=${CI:-}
 STEP=${STEP:-}
 
@@ -72,10 +61,8 @@ PDBS=""
 PLATFORM=""
 CONFIGURATIONS=()
 TEST_FRAMEWORK=""
-GOOGLE_INSTALL_ROOT=""
 INSTALL_PREFIX="."
 BUILD_BENCHMARKS=""
-OSG_MULTIVIEW_BUILD=""
 USE_WERROR=""
 USE_CLANG_TIDY=""
 
@@ -143,9 +130,6 @@ while [ $# -gt 0 ]; do
 
 			b )
 				BUILD_BENCHMARKS=true ;;
-
-			M )
-				OSG_MULTIVIEW_BUILD=true ;;
 
 			E )
 				USE_WERROR=true ;;
@@ -221,16 +205,8 @@ if [ -z $VERBOSE ]; then
 	STRIP="> /dev/null 2>&1"
 fi
 
-if [ -z $APPVEYOR ]; then
-	echo "Running prebuild outside of Appveyor."
-
-	DIR=$(windowsPathAsUnix "${BASH_SOURCE[0]}")
-	cd $(dirname "$DIR")/..
-else
-	echo "Running prebuild in Appveyor."
-
-	cd "$APPVEYOR_BUILD_FOLDER"
-fi
+DIR=$(windowsPathAsUnix "${BASH_SOURCE[0]}")
+cd $(dirname "$DIR")/..
 
 run_cmd() {
 	CMD="$1"
@@ -241,13 +217,7 @@ run_cmd() {
 		eval $CMD $@ > output.log 2>&1 || RET=$?
 
 		if [ $RET -ne 0 ]; then
-			if [ -z $APPVEYOR ]; then
-				echo "Command $CMD failed, output can be found in $(real_pwd)/output.log"
-			else
-				echo
-				echo "Command $CMD failed;"
-				cat output.log
-			fi
+			echo "Command $CMD failed, output can be found in $(real_pwd)/output.log"
 		else
 			rm output.log
 		fi
@@ -304,6 +274,20 @@ download() {
 	fi
 }
 
+MANIFEST_FILE=""
+download_from_manifest() {
+	if [ $# -ne 1 ]; then
+		echo "Invalid parameters to download_from_manifest."
+		return 1
+	fi
+	{ read -r URL && read -r HASH FILE; } < $1
+	if [ -z $SKIP_DOWNLOAD ]; then
+		download "${FILE:?}" "${URL:?}" "${FILE:?}"
+	fi
+	echo "${HASH:?}  ${FILE:?}" | sha512sum --check
+	MANIFEST_FILE="${FILE:?}"
+}
+
 real_pwd() {
 	if type cygpath >/dev/null 2>&1; then
 		cygpath -am "$PWD"
@@ -357,6 +341,26 @@ add_qt_style_dlls() {
 	QT_STYLES[$CONFIG]="${QT_STYLES[$CONFIG]} $@"
 }
 
+declare -A QT_IMAGEFORMATS
+QT_IMAGEFORMATS["Release"]=""
+QT_IMAGEFORMATS["Debug"]=""
+QT_IMAGEFORMATS["RelWithDebInfo"]=""
+add_qt_image_dlls() {
+	local CONFIG=$1
+	shift
+	QT_IMAGEFORMATS[$CONFIG]="${QT_IMAGEFORMATS[$CONFIG]} $@"
+}
+
+declare -A QT_ICONENGINES
+QT_ICONENGINES["Release"]=""
+QT_ICONENGINES["Debug"]=""
+QT_ICONENGINES["RelWithDebInfo"]=""
+add_qt_icon_dlls() {
+	local CONFIG=$1
+	shift
+	QT_ICONENGINES[$CONFIG]="${QT_ICONENGINES[$CONFIG]} $@"
+}
+
 if [ -z $PLATFORM ]; then
 	PLATFORM="$(uname -m)"
 fi
@@ -368,38 +372,20 @@ fi
 case $VS_VERSION in
 	17|17.0|2022 )
 		GENERATOR="Visual Studio 17 2022"
-		TOOLSET="vc143"
+		MSVC_TOOLSET="vc143"
 		MSVC_REAL_VER="17"
-		MSVC_VER="14.3"
 		MSVC_DISPLAY_YEAR="2022"
 
-		OSG_MSVC_YEAR="2019"
-		MYGUI_MSVC_YEAR="2019"
-		LUA_MSVC_YEAR="2019"
 		QT_MSVC_YEAR="2019"
-		BULLET_MSVC_YEAR="2015"
-
-		BOOST_VER="1.80.0"
-		BOOST_VER_URL="1_80_0"
-		BOOST_VER_SDK="108000"
 		;;
 
 	16|16.0|2019 )
 		GENERATOR="Visual Studio 16 2019"
-		TOOLSET="vc142"
+		MSVC_TOOLSET="vc142"
 		MSVC_REAL_VER="16"
-		MSVC_VER="14.2"
 		MSVC_DISPLAY_YEAR="2019"
 
-		OSG_MSVC_YEAR="2019"
-		MYGUI_MSVC_YEAR="2019"
-		LUA_MSVC_YEAR="2019"
 		QT_MSVC_YEAR="2019"
-		BULLET_MSVC_YEAR="2015"
-
-		BOOST_VER="1.80.0"
-		BOOST_VER_URL="1_80_0"
-		BOOST_VER_SDK="108000"
 		;;
 
 	15|15.0|2017 )
@@ -534,36 +520,37 @@ if [ -n "$SINGLE_CONFIG" ]; then
 	add_cmake_opts "-DCMAKE_BUILD_TYPE=${CONFIGURATIONS[0]}"
 fi
 
-if ! [ -z $UNITY_BUILD ]; then
+if [[ -n "$UNITY_BUILD" ]]; then
 	add_cmake_opts "-DOPENMW_UNITY_BUILD=True"
 fi
 
-if ! [ -z $USE_CCACHE ]; then
-	add_cmake_opts "-DCMAKE_C_COMPILER_LAUNCHER=ccache  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+if [ -n "$USE_CCACHE" ]; then
+	if [ -n "$NMAKE" ] || [ -n "$NINJA" ]; then
+		add_cmake_opts "-DCMAKE_C_COMPILER_LAUNCHER=ccache  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DPRECOMPILE_HEADERS_WITH_MSVC=OFF"
+	else
+		echo "Ignoring -C (CCache) as it is incompatible with Visual Studio CMake generators"
+	fi
 fi
 
 # turn on LTO by default
 add_cmake_opts "-DOPENMW_LTO_BUILD=True"
 
-if ! [ -z "$USE_WERROR" ]; then
+if [[ -n "$USE_WERROR" ]]; then
   add_cmake_opts "-DOPENMW_MSVC_WERROR=ON"
 fi
 
-if ! [ -z "$USE_CLANG_TIDY" ]; then
+if [[ -n "$USE_CLANG_TIDY" ]]; then
   add_cmake_opts "-DCMAKE_CXX_CLANG_TIDY=\"clang-tidy --warnings-as-errors=*\""
 fi
 
-ICU_VER="70_1"
+QT_VER='6.6.3'
+AQT_VERSION='v3.1.15'
 
-OSG_ARCHIVE_NAME="OSGoS 3.6.5"
-OSG_ARCHIVE="OSGoS-3.6.5-123-g68c5c573d-msvc${OSG_MSVC_YEAR}-win${BITS}"
-OSG_ARCHIVE_REPO_URL="https://gitlab.com/OpenMW/openmw-deps/-/raw/main"
-if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
-    OSG_ARCHIVE_NAME="OSG-3.6-multiview"
-    OSG_ARCHIVE="OSG-3.6-multiview-d2ee5aa8-msvc${OSG_MSVC_YEAR}-win${BITS}"
-    OSG_ARCHIVE_REPO_URL="https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview"
-fi
-
+VCPKG_TAG="2024-11-10"
+VCPKG_PATH="vcpkg-x64-${VS_VERSION:?}-${VCPKG_TAG:?}"
+VCPKG_PDB_PATH="vcpkg-x64-${VS_VERSION:?}-pdb-${VCPKG_TAG:?}"
+VCPKG_MANIFEST="${VCPKG_PATH:?}.txt"
+VCPKG_PDB_MANIFEST="${VCPKG_PDB_PATH:?}.txt"
 
 echo
 echo "==================================="
@@ -571,7 +558,6 @@ echo "Starting prebuild on MSVC${MSVC_DISPLAY_YEAR} WIN${BITS}"
 echo "==================================="
 echo
 
-# cd OpenMW/AppVeyor-test
 mkdir -p deps
 cd deps
 
@@ -581,71 +567,17 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	echo "Downloading dependency packages."
 	echo
 
-	# Boost
-	if [ -z $APPVEYOR ]; then
-		download "Boost ${BOOST_VER}" \
-			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/boost_${BOOST_VER_URL}-msvc-${MSVC_VER}-${BITS}.exe" \
-			"boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe"
+	DEPS_BASE_URL="https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows"
+
+	download "${VCPKG_MANIFEST:?}" \
+		"${DEPS_BASE_URL}/${VCPKG_MANIFEST:?}" \
+		"${VCPKG_MANIFEST:?}"
+
+	if [ -n "${VCPKG_PDB_MANIFEST:?}" ]; then
+		download "${VCPKG_PDB_PATH:?}" \
+			"${DEPS_BASE_URL}/${VCPKG_PDB_MANIFEST:?}" \
+			"${VCPKG_PDB_MANIFEST:?}"
 	fi
-
-	# Bullet
-	download "Bullet 2.89" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z" \
-		"Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z"
-
-	# FFmpeg
-	download "FFmpeg 4.2.2" \
-	  "https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/ffmpeg-4.2.2-win${BITS}.zip" \
-		"ffmpeg-4.2.2-win${BITS}.zip" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/ffmpeg-4.2.2-dev-win${BITS}.zip" \
-		"ffmpeg-4.2.2-dev-win${BITS}.zip"
-
-	# MyGUI
-	download "MyGUI 3.4.1" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z" \
-		"MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z"
-
-	if [ -n "$PDBS" ]; then
-		download "MyGUI symbols" \
-			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z" \
-			"MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z"
-	fi
-
-	# OpenAL
-	download "OpenAL-Soft 1.23.0" \
-	  "https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OpenAL-Soft-1.23.0.zip" \
-		"OpenAL-Soft-1.23.0.zip"
-
-	# OSGoS
-	download "${OSG_ARCHIVE_NAME}" \
-		"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}.7z" \
-		"${OSG_ARCHIVE}.7z"
-
-	if [ -n "$PDBS" ]; then
-		download "${OSG_ARCHIVE_NAME} symbols" \
-			"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}-sym.7z" \
-			"${OSG_ARCHIVE}-sym.7z"
-	fi
-
-	# SDL2
-	download "SDL 2.24.0" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/SDL2-devel-2.24.0-VC.zip" \
-		"SDL2-devel-2.24.0-VC.zip"
-
-	# LZ4
-	download "LZ4 1.9.2" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/lz4_win${BITS}_v1_9_2.7z" \
-		"lz4_win${BITS}_v1_9_2.7z"
-
-	# LuaJIT
-	download "LuaJIT 2.1.0-beta3" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z" \
-		"LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z"
-
-    # ICU
-    download "ICU ${ICU_VER/_/.}"\
-        "https://github.com/unicode-org/icu/releases/download/release-${ICU_VER/_/-}/icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip" \
-        "icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip"
 fi
 
 cd .. #/..
@@ -681,196 +613,50 @@ echo "Extracting dependencies, this might take a while..."
 echo "---------------------------------------------------"
 echo
 
-
-# Boost
-if [ -z $APPVEYOR ]; then
-	printf "Boost ${BOOST_VER}... "
-else
-	printf "Boost ${BOOST_VER} AppVeyor... "
-fi
+cd $DEPS
+echo
+printf "vcpkg packages ${VCPKG_TAG:?}... "
 {
-	if [ -z $APPVEYOR ]; then
-		cd $DEPS_INSTALL
-
-		BOOST_SDK="$(real_pwd)/Boost"
-
-		# Boost's installer is still based on ms-dos API that doesn't support larger than 260 char path names
-		# We work around this by installing to root of the current working drive and then move it to our deps
-		# get the current working drive's root, we'll install to that temporarily
-		CWD_DRIVE_ROOT="$(powershell -command '(get-location).Drive.Root')Boost_temp"
-		CWD_DRIVE_ROOT_BASH=$(windowsPathAsUnix "$CWD_DRIVE_ROOT")
-		if [ -d CWD_DRIVE_ROOT_BASH ]; then
-			printf "Cannot continue, ${CWD_DRIVE_ROOT_BASH} aka ${CWD_DRIVE_ROOT} already exists. Please remove before re-running. ";
-			wrappedExit 1;
-		fi
-
-		if [ -d ${BOOST_SDK} ] && grep "BOOST_VERSION ${BOOST_VER_SDK}" Boost/boost/version.hpp > /dev/null; then
-			printf "Exists. "
-		elif [ -z $SKIP_EXTRACT ]; then
-			rm -rf Boost
-			CI_EXTRA_INNO_OPTIONS=""
-			[ -n "$CI" ] && CI_EXTRA_INNO_OPTIONS="//SUPPRESSMSGBOXES //LOG='boost_install.log'"
-			"${DEPS}/boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe" //DIR="${CWD_DRIVE_ROOT}" //VERYSILENT //NORESTART ${CI_EXTRA_INNO_OPTIONS}
-			mv "${CWD_DRIVE_ROOT_BASH}" "${BOOST_SDK}"
-		fi
-		add_cmake_opts -DBOOST_ROOT="$BOOST_SDK" \
-			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}"
-		add_cmake_opts -DBoost_COMPILER="-${TOOLSET}"
-		echo Done.
+	if [[ -d "${VCPKG_PATH:?}" ]]; then
+		printf "Exists. "
 	else
-		# Appveyor has all the boost we need already
-		BOOST_SDK="c:/Libraries/boost_${BOOST_VER_URL}"
+		download_from_manifest "${VCPKG_MANIFEST:?}"
+		eval 7z x -y -o"${VCPKG_PATH:?}" "${MANIFEST_FILE:?}" ${STRIP}
+	fi
+	if [ -n "${PDBS}" ]; then
+		if [[ -d "${VCPKG_PDB_PATH:?}" ]]; then
+			printf "PDB exists. "
+		else
+			download_from_manifest "${VCPKG_PDB_MANIFEST:?}"
+			eval 7z x -y -o"${VCPKG_PDB_PATH:?}" "${MANIFEST_FILE:?}" ${STRIP}
+		fi
+	fi
 
-		add_cmake_opts -DBOOST_ROOT="$BOOST_SDK" \
-			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}.1"
-		add_cmake_opts -DBoost_COMPILER="-${TOOLSET}"
+	add_cmake_opts -DCMAKE_TOOLCHAIN_FILE="$(real_pwd)/${VCPKG_PATH:?}/scripts/buildsystems/vcpkg.cmake"
+	add_cmake_opts -DLuaJit_INCLUDE_DIR="$(real_pwd)/${VCPKG_PATH:?}/installed/x64-windows/include/luajit"
+	add_cmake_opts -DLuaJit_LIBRARY="$(real_pwd)/${VCPKG_PATH:?}/installed/x64-windows/lib/lua51.lib"
 
-		echo Done.
-	fi
-}
-cd $DEPS
-echo
-# Bullet
-printf "Bullet 2.89... "
-{
-	cd $DEPS_INSTALL
-	if [ -d Bullet ]; then
-		printf -- "Exists. (No version checking) "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf Bullet
-		eval 7z x -y "${DEPS}/Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z" $STRIP
-		mv "Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double" Bullet
-	fi
-	add_cmake_opts -DBULLET_ROOT="$(real_pwd)/Bullet"
-	echo Done.
-}
-cd $DEPS
-echo
-# FFmpeg
-printf "FFmpeg 4.2.2... "
-{
-	cd $DEPS_INSTALL
-	if [ -d FFmpeg ] && grep "4.2.2" FFmpeg/README.txt > /dev/null; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf FFmpeg
-		eval 7z x -y "${DEPS}/ffmpeg-4.2.2-win${BITS}.zip" $STRIP
-		eval 7z x -y "${DEPS}/ffmpeg-4.2.2-dev-win${BITS}.zip" $STRIP
-		mv "ffmpeg-4.2.2-win${BITS}-shared" FFmpeg
-		cp -r "ffmpeg-4.2.2-win${BITS}-dev/"* FFmpeg/
-		rm -rf "ffmpeg-4.2.2-win${BITS}-dev"
-	fi
-	export FFMPEG_HOME="$(real_pwd)/FFmpeg"
-	for config in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $config "$(pwd)/FFmpeg/bin/"{avcodec-58,avformat-58,avutil-56,swresample-3,swscale-5}.dll
-	done
-	if [ $BITS -eq 32 ]; then
-		add_cmake_opts "-DCMAKE_EXE_LINKER_FLAGS=\"/machine:X86 /safeseh:no\""
-	fi
-	echo Done.
-}
-cd $DEPS
-echo
-# MyGUI
-printf "MyGUI 3.4.1... "
-{
-	cd $DEPS_INSTALL
-	if [ -d MyGUI ] && \
-		grep "MYGUI_VERSION_MAJOR 3" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null && \
-		grep "MYGUI_VERSION_MINOR 4" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null && \
-		grep "MYGUI_VERSION_PATCH 1" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null
-	then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf MyGUI
-		eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}" MyGUI
-	fi
-	export MYGUI_HOME="$(real_pwd)/MyGUI"
 	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-		if [ $CONFIGURATION == "Debug" ]; then
-			SUFFIX="_d"
-			MYGUI_CONFIGURATION="Debug"
+		if [[ ${CONFIGURATION:?} == "Debug" ]]; then
+			VCPKG_DLL_BIN="$(pwd)/${VCPKG_PATH:?}/installed/x64-windows/debug/bin"
+
+			add_runtime_dlls ${CONFIGURATION:?} "${VCPKG_DLL_BIN:?}/Debug/MyGUIEngine_d.dll"
 		else
-			SUFFIX=""
-			MYGUI_CONFIGURATION="RelWithDebInfo"
-		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/MyGUI/bin/${MYGUI_CONFIGURATION}/MyGUIEngine${SUFFIX}.dll"
-	done
-	echo Done.
-}
-cd $DEPS
-echo
-# OpenAL
-printf "OpenAL-Soft 1.23.0... "
-{
-	if [ -d openal-soft-1.23.0-bin ]; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf openal-soft-1.23.0-bin
-		eval 7z x -y OpenAL-Soft-1.23.0.zip $STRIP
-	fi
-	OPENAL_SDK="$(real_pwd)/openal-soft-1.23.0-bin"
-	add_cmake_opts -DOPENAL_INCLUDE_DIR="${OPENAL_SDK}/include/AL" \
-		-DOPENAL_LIBRARY="${OPENAL_SDK}/libs/Win${BITS}/OpenAL32.lib"
-	for config in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $config "$(pwd)/openal-soft-1.23.0-bin/bin/WIN${BITS}/soft_oal.dll:OpenAL32.dll"
-	done
-	echo Done.
-}
-cd $DEPS
-echo
-# OSGoS
-printf "${OSG_ARCHIVE_NAME}... "
-{
-	cd $DEPS_INSTALL
-	if [ -d OSG ] && \
-		grep "OPENSCENEGRAPH_MAJOR_VERSION    3" OSG/include/osg/Version > /dev/null && \
-		grep "OPENSCENEGRAPH_MINOR_VERSION    6" OSG/include/osg/Version > /dev/null && \
-		grep "OPENSCENEGRAPH_PATCH_VERSION    5" OSG/include/osg/Version > /dev/null
-	then
-	printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf OSG
-		eval 7z x -y "${DEPS}/${OSG_ARCHIVE}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/${OSG_ARCHIVE}-sym.7z" $STRIP
-		mv "${OSG_ARCHIVE}" OSG
-	fi
-	OSG_SDK="$(real_pwd)/OSG"
-	add_cmake_opts -DOSG_DIR="$OSG_SDK"
-	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-		if [ $CONFIGURATION == "Debug" ]; then
-			SUFFIX="d"
-			SUFFIX_UPCASE="D"
-		else
-			SUFFIX=""
-			SUFFIX_UPCASE=""
+			VCPKG_DLL_BIN="$(pwd)/${VCPKG_PATH:?}/installed/x64-windows/bin"
+
+			add_runtime_dlls ${CONFIGURATION:?} "${VCPKG_DLL_BIN:?}/Release/MyGUIEngine.dll"
 		fi
 
-		if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
-			add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{ot21-OpenThreads,zlib,libpng16}${SUFFIX}.dll \
-				"$(pwd)/OSG/bin/osg162-osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
-		else
-			add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,icuuc58,libpng16,zlib}${SUFFIX}.dll \
-				"$(pwd)/OSG/bin/libxml2"${SUFFIX_UPCASE}.dll \
-				"$(pwd)/OSG/bin/osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
-			add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/icudt58.dll"
-			if [ $CONFIGURATION == "Debug" ]; then
-				add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{boost_filesystem-vc141-mt-gd-1_63,boost_system-vc141-mt-gd-1_63,collada-dom2.4-dp-vc141-mt-d}.dll
-			else
-				add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{boost_filesystem-vc141-mt-1_63,boost_system-vc141-mt-1_63,collada-dom2.4-dp-vc141-mt}.dll
-			fi
-		fi
-		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dae,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
-		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
+		add_osg_dlls ${CONFIGURATION:?} "${VCPKG_DLL_BIN:?}/osgPlugins-3.6.5/*.dll"
+		add_runtime_dlls ${CONFIGURATION:?} "${VCPKG_DLL_BIN:?}/*.dll"
 	done
+
 	echo Done.
 }
+
 cd $DEPS
 echo
-# Qt
-printf "Qt 5.15.2... "
+printf "Qt ${QT_VER}... "
 {
 	if [ $BITS -eq 64 ]; then
 		SUFFIX="_64"
@@ -880,37 +666,17 @@ printf "Qt 5.15.2... "
 
 	cd $DEPS_INSTALL
 
-	qt_version="5.15.2"
 
-	QT_SDK="$(real_pwd)/Qt/${qt_version}/msvc${QT_MSVC_YEAR}${SUFFIX}"
+	QT_SDK="$(real_pwd)/Qt/${QT_VER}/msvc${QT_MSVC_YEAR}${SUFFIX}"
 
-	if [ -d "Qt/${qt_version}" ]; then
+	if [ -d "Qt/${QT_VER}" ]; then
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
-		if [ $MISSINGPYTHON -ne 0 ]; then
-			echo "Can't be automatically installed without Python."
-			wrappedExit 1
-		fi
-
 		pushd "$DEPS" > /dev/null
-		if ! [ -d 'aqt-venv' ]; then
-			echo "  Creating Virtualenv for aqt..."
-			run_cmd python -m venv aqt-venv
-		fi
-		if [ -d 'aqt-venv/bin' ]; then
-			VENV_BIN_DIR='bin'
-		elif [ -d 'aqt-venv/Scripts' ]; then
-			VENV_BIN_DIR='Scripts'
-		else
-			echo "Error: Failed to create virtualenv in expected location."
-			wrappedExit 1
-		fi
-
-		# check version
-		aqt-venv/${VENV_BIN_DIR}/pip list | grep 'aqtinstall\s*1.1.3' || [ $? -ne 0 ]
-		if [ $? -eq 0 ]; then
-			echo "  Installing aqt wheel into virtualenv..."
-			run_cmd "aqt-venv/${VENV_BIN_DIR}/pip" install aqtinstall==1.1.3
+		if ! [ -f "aqt_x64-${AQT_VERSION}.exe" ]; then
+			download "aqt ${AQT_VERSION}"\
+				"https://github.com/miurahr/aqtinstall/releases/download/${AQT_VERSION}/aqt_x64.exe" \
+				"aqt_x64-${AQT_VERSION}.exe"
 		fi
 		popd > /dev/null
 
@@ -919,7 +685,7 @@ printf "Qt 5.15.2... "
 		mkdir Qt
 		cd Qt
 
-		run_cmd "${DEPS}/aqt-venv/${VENV_BIN_DIR}/aqt" install $qt_version windows desktop "win${BITS}_msvc${QT_MSVC_YEAR}${SUFFIX}"
+		run_cmd "${DEPS}/aqt_x64-${AQT_VERSION}.exe" install-qt windows desktop ${QT_VER} "win${BITS}_msvc${QT_MSVC_YEAR}${SUFFIX}"
 
 		printf "  Cleaning up extraneous data... "
 		rm -rf Qt/{aqtinstall.log,Tools}
@@ -927,108 +693,39 @@ printf "Qt 5.15.2... "
 		echo Done.
 	fi
 
+	QT_MAJOR_VER=$(echo "${QT_VER}" | awk -F '[.]' '{printf "%d", $1}')
+	QT_MINOR_VER=$(echo "${QT_VER}" | awk -F '[.]' '{printf "%d", $2}')
+
 	cd $QT_SDK
-	add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
-		-DCMAKE_PREFIX_PATH="$QT_SDK"
 	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
 		if [ $CONFIGURATION == "Debug" ]; then
 			DLLSUFFIX="d"
 		else
 			DLLSUFFIX=""
 		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/bin/Qt5"{Core,Gui,Network,OpenGL,Widgets}${DLLSUFFIX}.dll
-		add_qt_platform_dlls $CONFIGURATION "$(pwd)/plugins/platforms/qwindows${DLLSUFFIX}.dll"
-		add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
-	done
-	echo Done.
-}
-cd $DEPS
-echo
-# SDL2
-printf "SDL 2.24.0... "
-{
-	if [ -d SDL2-2.24.0 ]; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf SDL2-2.24.0
-		eval 7z x -y SDL2-devel-2.24.0-VC.zip $STRIP
-	fi
-	export SDL2DIR="$(real_pwd)/SDL2-2.24.0"
-	for config in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $config "$(pwd)/SDL2-2.24.0/lib/x${ARCHSUFFIX}/SDL2.dll"
-	done
-	echo Done.
-}
-cd $DEPS
-echo
-# LZ4
-printf "LZ4 1.9.2... "
-{
-	if [ -d LZ4_1.9.2 ]; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf LZ4_1.9.2
-		eval 7z x -y lz4_win${BITS}_v1_9_2.7z -o$(real_pwd)/LZ4_1.9.2 $STRIP
-	fi
-	export LZ4DIR="$(real_pwd)/LZ4_1.9.2"
-	add_cmake_opts -DLZ4_INCLUDE_DIR="${LZ4DIR}/include" \
-		-DLZ4_LIBRARY="${LZ4DIR}/lib/liblz4.lib"
-	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-		if [ $CONFIGURATION == "Debug" ]; then
-			LZ4_CONFIGURATION="Debug"
+
+		if [ "${QT_MAJOR_VER}" -eq 6 ]; then
+			add_runtime_dlls $CONFIGURATION "$(pwd)/bin/Qt${QT_MAJOR_VER}"{Core,Gui,Network,OpenGL,OpenGLWidgets,Widgets,Svg}${DLLSUFFIX}.dll
+
+			# Since Qt 6.7.0 plugin is called "qmodernwindowsstyle"
+			if [ "${QT_MINOR_VER}" -ge 7 ]; then
+				add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qmodernwindowsstyle${DLLSUFFIX}.dll"
+			else
+				add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
+			fi
 		else
-			SUFFIX=""
-			LZ4_CONFIGURATION="Release"
+			add_runtime_dlls $CONFIGURATION "$(pwd)/bin/Qt${QT_MAJOR_VER}"{Core,Gui,Network,OpenGL,Widgets,Svg}${DLLSUFFIX}.dll
+			add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
 		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/LZ4_1.9.2/bin/${LZ4_CONFIGURATION}/liblz4.dll"
-	done
-	echo Done.
-}
-cd $DEPS
-echo
-# LuaJIT 2.1.0-beta3
-printf "LuaJIT 2.1.0-beta3... "
-{
-	if [ -d LuaJIT ]; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf LuaJIT
-		eval 7z x -y LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z -o$(real_pwd)/LuaJIT $STRIP
-	fi
-	export LUAJIT_DIR="$(real_pwd)/LuaJIT"
-	add_cmake_opts -DLuaJit_INCLUDE_DIR="${LUAJIT_DIR}/include" \
-		-DLuaJit_LIBRARY="${LUAJIT_DIR}/lib/lua51.lib"
-	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $CONFIGURATION "$(pwd)/LuaJIT/bin/lua51.dll"
+
+		add_qt_platform_dlls $CONFIGURATION "$(pwd)/plugins/platforms/qwindows${DLLSUFFIX}.dll"
+		add_qt_image_dlls $CONFIGURATION "$(pwd)/plugins/imageformats/qsvg${DLLSUFFIX}.dll"
+		add_qt_icon_dlls $CONFIGURATION "$(pwd)/plugins/iconengines/qsvgicon${DLLSUFFIX}.dll"
 	done
 	echo Done.
 }
 
-cd $DEPS
-echo
-# ICU
-printf "ICU ${ICU_VER/_/.}... "
-{
-	if [ -d ICU-${ICU_VER} ]; then
-		printf "Exists. "
-	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf ICU-${ICU_VER}
-		eval 7z x -y icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip -o$(real_pwd)/ICU-${ICU_VER} $STRIP
-	fi
-	ICU_ROOT="$(real_pwd)/ICU-${ICU_VER}"
-	add_cmake_opts -DICU_ROOT="${ICU_ROOT}" \
-		-DICU_INCLUDE_DIR="${ICU_ROOT}/include" \
-		-DICU_I18N_LIBRARY="${ICU_ROOT}/lib${BITS}/icuin.lib " \
-		-DICU_UC_LIBRARY="${ICU_ROOT}/lib${BITS}/icuuc.lib " \
-		-DICU_DEBUG=ON
-
-	for config in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icudt${ICU_VER/_*/}.dll"
-		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icuin${ICU_VER/_*/}.dll"
-		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icuuc${ICU_VER/_*/}.dll"
-	done
-	echo Done.
-}
+add_cmake_opts -DCMAKE_PREFIX_PATH="\"${QT_SDK}\""
 
 echo
 cd $DEPS_INSTALL/..
@@ -1114,6 +811,20 @@ fi
 			cp "$DLL" "${DLL_PREFIX}styles"
 		done
 		echo
+		echo "- Qt Image Format DLLs..."
+		mkdir -p ${DLL_PREFIX}imageformats
+		for DLL in ${QT_IMAGEFORMATS[$CONFIGURATION]}; do
+			echo "    $(basename $DLL)"
+			cp "$DLL" "${DLL_PREFIX}imageformats"
+		done
+		echo
+		echo "- Qt Icon Engine DLLs..."
+		mkdir -p ${DLL_PREFIX}iconengines
+		for DLL in ${QT_ICONENGINES[$CONFIGURATION]}; do
+			echo "    $(basename $DLL)"
+			cp "$DLL" "${DLL_PREFIX}iconengines"
+		done
+		echo
 	done
 #fi
 
@@ -1122,7 +833,9 @@ if [ "${BUILD_BENCHMARKS}" ]; then
 fi
 
 if [ -n "${TEST_FRAMEWORK}" ]; then
-	add_cmake_opts -DBUILD_UNITTESTS=ON
+	add_cmake_opts -DBUILD_COMPONENTS_TESTS=ON
+	add_cmake_opts -DBUILD_OPENCS_TESTS=ON
+	add_cmake_opts -DBUILD_OPENMW_TESTS=ON
 fi
 
 if [ -n "$ACTIVATE_MSVC" ]; then

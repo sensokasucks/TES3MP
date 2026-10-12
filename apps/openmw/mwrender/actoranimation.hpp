@@ -5,6 +5,8 @@
 
 #include <osg/ref_ptr>
 
+#include <components/vfs/pathutil.hpp>
+
 #include "../mwworld/containerstore.hpp"
 
 #include "animation.hpp"
@@ -28,10 +30,11 @@ namespace SceneUtil
 namespace MWRender
 {
 
-class ActorAnimation : public Animation, public MWWorld::ContainerStoreListener
-{
+    class ActorAnimation : public Animation, public MWWorld::ContainerStoreListener
+    {
     public:
-        ActorAnimation(const MWWorld::Ptr &ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem);
+        ActorAnimation(
+            const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem);
         virtual ~ActorAnimation();
 
         void itemAdded(const MWWorld::ConstPtr& item, int count) override;
@@ -43,20 +46,19 @@ class ActorAnimation : public Animation, public MWWorld::ContainerStoreListener
         void removeFromScene() override;
 
     protected:
-        osg::Group* getBoneByName(const std::string& boneName) const;
-        virtual void updateHolsteredWeapon(bool showHolsteredWeapons);
-        virtual void updateHolsteredShield(bool showCarriedLeft);
-        virtual void updateQuiver();
+        osg::Group* getBoneByName(std::string_view boneName) const;
+        void updateHolsteredWeapon(bool showHolsteredWeapons);
+        void updateHolsteredShield(bool showCarriedLeft);
+        void updateQuiver();
         std::string getShieldMesh(const MWWorld::ConstPtr& shield, bool female) const;
         virtual std::string getSheathedShieldMesh(const MWWorld::ConstPtr& shield) const;
-        virtual std::string getHolsteredWeaponBoneName(const MWWorld::ConstPtr& weapon);
-        virtual PartHolderPtr attachMesh(const std::string& model, const std::string& bonename, bool enchantedGlow, osg::Vec4f* glowColor);
-        virtual PartHolderPtr attachMesh(const std::string& model, const std::string& bonename)
-        {
-            osg::Vec4f stubColor = osg::Vec4f(0,0,0,0);
-            return attachMesh(model, bonename, false, &stubColor);
-        };
-        osg::ref_ptr<osg::Node> attach(const std::string& model, const std::string& bonename, const std::string& bonefilter, bool isLight);
+        std::string_view getHolsteredWeaponBoneName(const MWWorld::ConstPtr& weapon);
+
+        PartHolderPtr attachMesh(
+            VFS::Path::NormalizedView model, std::string_view bonename, const osg::Vec4f* glowColor = nullptr);
+
+        osg::ref_ptr<osg::Node> attach(
+            VFS::Path::NormalizedView model, std::string_view bonename, std::string_view bonefilter, bool isLight);
 
         PartHolderPtr mScabbard;
         PartHolderPtr mHolsteredShield;
@@ -67,9 +69,9 @@ class ActorAnimation : public Animation, public MWWorld::ContainerStoreListener
         void resetControllers(osg::Node* node);
         void removeFromSceneImpl();
 
-        typedef std::map<MWWorld::ConstPtr, osg::ref_ptr<SceneUtil::LightSource> > ItemLightMap;
+        typedef std::map<MWWorld::ConstPtr, osg::ref_ptr<SceneUtil::LightSource>> ItemLightMap;
         ItemLightMap mItemLights;
-};
+    };
 
 }
 

@@ -33,45 +33,73 @@
 
 void ESM4::Flora::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getLocalizedString(mFullName); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel); break;
-            case ESM4::SUB_SCRI: reader.getFormId(mScriptId);     break;
-            case ESM4::SUB_PFIG: reader.getFormId(mIngredient); break;
-            case ESM4::SUB_PFPC: reader.get(mPercentHarvest);   break;
-            case ESM4::SUB_SNAM: reader.getFormId(mSound);      break;
-            case ESM4::SUB_MODB: reader.get(mBoundRadius);  break;
-            case ESM4::SUB_MODT:
-            case ESM4::SUB_MODS:
-            case ESM4::SUB_FNAM:
-            case ESM4::SUB_OBND:
-            case ESM4::SUB_PNAM:
-            case ESM4::SUB_RNAM:
-            case ESM4::SUB_VMAD:
-            {
-                //std::cout << "FLOR " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("SCRI"):
+                reader.getFormId(mScriptId);
+                break;
+            case ESM::fourCC("PFIG"):
+                reader.getFormId(mIngredient);
+                break;
+            case ESM::fourCC("PFPC"):
+                reader.get(mPercentHarvest);
+                break;
+            case ESM::fourCC("SNAM"):
+                reader.getFormId(mSound);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("FNAM"):
+            case ESM::fourCC("OBND"):
+            case ESM::fourCC("KSIZ"):
+            case ESM::fourCC("KWDA"):
+            case ESM::fourCC("PNAM"):
+            case ESM::fourCC("RNAM"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("DAMC"): // Destructible
+            case ESM::fourCC("DEST"):
+            case ESM::fourCC("DMDC"):
+            case ESM::fourCC("DMDL"):
+            case ESM::fourCC("DMDT"):
+            case ESM::fourCC("DMDS"):
+            case ESM::fourCC("DSTA"):
+            case ESM::fourCC("DSTD"):
+            case ESM::fourCC("DSTF"): // Destructible end
+            case ESM::fourCC("PRPS"): // FO4
+            case ESM::fourCC("PTRN"): // FO4
+            case ESM::fourCC("ATTX"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::FLOR::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Flora::save(ESM4::Writer& writer) const
+// void ESM4::Flora::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Flora::blank()
+// void ESM4::Flora::blank()
 //{
-//}
+// }

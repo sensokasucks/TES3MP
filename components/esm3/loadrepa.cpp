@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Repair::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Repair::Data> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mUses, v.mQuality);
+    }
+
+    void Repair::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -28,11 +36,11 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("RIDT"):
-                    esm.getHTSized<16>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
@@ -53,9 +61,9 @@ namespace ESM
             esm.fail("Missing RIDT subrecord");
     }
 
-    void Repair::save(ESMWriter &esm, bool isDeleted) const
+    void Repair::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -66,8 +74,8 @@ namespace ESM
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
 
-        esm.writeHNT("RIDT", mData, 16);
-        esm.writeHNOString("SCRI", mScript);
+        esm.writeNamedComposite("RIDT", mData);
+        esm.writeHNORefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
     }
 
@@ -81,6 +89,6 @@ namespace ESM
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
     }
 }

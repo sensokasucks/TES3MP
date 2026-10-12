@@ -4,10 +4,13 @@
 #include <string>
 #include <vector>
 
+#include <components/esm/luascripts.hpp>
+#include <components/esm/position.hpp>
+#include <components/esm3/formatversion.hpp>
+
+#include "animationstate.hpp"
 #include "cellref.hpp"
 #include "locals.hpp"
-#include "components/esm/luascripts.hpp"
-#include "animationstate.hpp"
 
 namespace ESM
 {
@@ -30,29 +33,31 @@ namespace ESM
         Locals mLocals;
         LuaScripts mLuaScripts;
         unsigned char mEnabled;
-        int mCount;
         Position mPosition;
-        unsigned int mFlags;
+        uint32_t mFlags;
 
         // Is there any class-specific state following the ObjectState
         bool mHasCustomState;
 
-        unsigned int mVersion;
+        FormatVersion mVersion = DefaultFormatVersion;
 
         AnimationState mAnimationState;
 
         ObjectState()
-        : mHasLocals(0), mEnabled(0), mCount(0)
-        , mFlags(0), mHasCustomState(true), mVersion(0)
-        {}
+            : mHasLocals(0)
+            , mEnabled(0)
+            , mFlags(0)
+            , mHasCustomState(true)
+        {
+        }
 
         /// @note Does not load the CellRef ID, it should already be loaded before calling this method
-        virtual void load (ESMReader &esm);
+        virtual void load(ESMReader& esm);
 
-        virtual void save (ESMWriter &esm, bool inInventory = false) const;
+        virtual void save(ESMWriter& esm, bool inInventory = false) const;
 
-        virtual /// Initialize to default state
-        void blank();
+        /// Initialize to default state
+        virtual void blank();
 
         virtual ~ObjectState();
 

@@ -30,7 +30,8 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -41,13 +42,13 @@ namespace ESM4
     {
         enum Flags
         {
-            Flag_OblivionGate  = 0x01,
+            Flag_OblivionGate = 0x01,
             Flag_AutomaticDoor = 0x02,
-            Flag_Hidden        = 0x04,
-            Flag_MinimalUse    = 0x08
+            Flag_Hidden = 0x04,
+            Flag_MinimalUse = 0x08
         };
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -57,16 +58,17 @@ namespace ESM4
         float mBoundRadius;
 
         std::uint8_t mDoorFlags;
-        FormId mScriptId;
-        FormId mOpenSound;  // SNDR for TES5, SOUN for others
-        FormId mCloseSound; // SNDR for TES5, SOUN for others
-        FormId mLoopSound;
-        FormId mRandomTeleport;
+        ESM::FormId mScriptId;
+        ESM::FormId mOpenSound; // SNDR for TES5, SOUN for others
+        ESM::FormId mCloseSound; // SNDR for TES5, SOUN for others
+        ESM::FormId mLoopSound;
+        ESM::FormId mRandomTeleport;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_DOOR4;
     };
 }
 

@@ -1,11 +1,11 @@
 #ifndef MGUI_Inventory_H
 #define MGUI_Inventory_H
 
-#include "windowpinnablebase.hpp"
 #include "mode.hpp"
+#include "windowpinnablebase.hpp"
 
-#include "../mwworld/ptr.hpp"
 #include "../mwrender/characterpreview.hpp"
+#include "../mwworld/ptr.hpp"
 
 namespace osg
 {
@@ -32,111 +32,113 @@ namespace MWGui
 
     class InventoryWindow : public WindowPinnableBase
     {
-        public:
-            InventoryWindow(DragAndDrop* dragAndDrop, osg::Group* parent, Resource::ResourceSystem* resourceSystem);
+    public:
+        InventoryWindow(DragAndDrop* dragAndDrop, osg::Group* parent, Resource::ResourceSystem* resourceSystem);
 
-            void onOpen() override;
+        void onOpen() override;
 
-            /// start trading, disables item drag&drop
-            void setTrading(bool trading);
+        /// start trading, disables item drag&drop
+        void setTrading(bool trading);
 
-            void onFrame(float dt) override;
+        void onFrame(float dt) override;
 
-            void pickUpObject (MWWorld::Ptr object);
+        void pickUpObject(MWWorld::Ptr object);
 
-            MWWorld::Ptr getAvatarSelectedItem(int x, int y);
+        MWWorld::Ptr getAvatarSelectedItem(int x, int y);
 
-            void rebuildAvatar();
+        void rebuildAvatar();
 
-            SortFilterItemModel* getSortFilterModel();
-            TradeItemModel* getTradeModel();
-            ItemModel* getModel();
+        SortFilterItemModel* getSortFilterModel();
+        TradeItemModel* getTradeModel();
+        ItemModel* getModel();
 
-            void updateItemView();
+        void updateItemView();
 
-            void updatePlayer();
+        void updatePlayer();
 
-            void clear() override;
+        void clear() override;
 
-            void useItem(const MWWorld::Ptr& ptr, bool force=false);
+        void useItem(const MWWorld::Ptr& ptr, bool force = false);
 
-            void setGuiMode(GuiMode mode);
+        void setGuiMode(GuiMode mode);
 
-            /// Cycle to previous/next weapon
-            void cycle(bool next);
+        /// Cycle to previous/next weapon
+        void cycle(bool next);
 
-        protected:
-            void onTitleDoubleClicked() override;
+        std::string_view getWindowIdForLua() const override { return "Inventory"; }
 
-        private:
-            DragAndDrop* mDragAndDrop;
+    protected:
+        void onTitleDoubleClicked() override;
 
-            int mSelectedItem;
+    private:
+        DragAndDrop* mDragAndDrop;
 
-            MWWorld::Ptr mPtr;
+        int mSelectedItem;
+        std::optional<int> mEquippedStackableCount;
 
-            MWGui::ItemView* mItemView;
-            SortFilterItemModel* mSortModel;
-            TradeItemModel* mTradeModel;
+        MWWorld::Ptr mPtr;
 
-            MyGUI::Widget* mAvatar;
-            MyGUI::ImageBox* mAvatarImage;
-            MyGUI::TextBox* mArmorRating;
-            Widgets::MWDynamicStat* mEncumbranceBar;
+        MWGui::ItemView* mItemView;
+        SortFilterItemModel* mSortModel;
+        TradeItemModel* mTradeModel;
 
-            MyGUI::Widget* mLeftPane;
-            MyGUI::Widget* mRightPane;
+        MyGUI::Widget* mAvatar;
+        MyGUI::ImageBox* mAvatarImage;
+        MyGUI::TextBox* mArmorRating;
+        Widgets::MWDynamicStat* mEncumbranceBar;
 
-            MyGUI::Button* mFilterAll;
-            MyGUI::Button* mFilterWeapon;
-            MyGUI::Button* mFilterApparel;
-            MyGUI::Button* mFilterMagic;
-            MyGUI::Button* mFilterMisc;
-            
-            MyGUI::EditBox* mFilterEdit;
+        MyGUI::Widget* mLeftPane;
+        MyGUI::Widget* mRightPane;
 
-            GuiMode mGuiMode;
+        MyGUI::Button* mFilterAll;
+        MyGUI::Button* mFilterWeapon;
+        MyGUI::Button* mFilterApparel;
+        MyGUI::Button* mFilterMagic;
+        MyGUI::Button* mFilterMisc;
 
-            int mLastXSize;
-            int mLastYSize;
+        MyGUI::EditBox* mFilterEdit;
 
-            std::unique_ptr<MyGUI::ITexture> mPreviewTexture;
-            std::unique_ptr<MWRender::InventoryPreview> mPreview;
+        GuiMode mGuiMode;
 
-            bool mTrading;
-            float mUpdateTimer;
+        int mLastXSize;
+        int mLastYSize;
 
-            void toggleMaximized();
+        std::unique_ptr<MyGUI::ITexture> mPreviewTexture;
+        std::unique_ptr<MWRender::InventoryPreview> mPreview;
 
-            void onItemSelected(int index);
-            void onItemSelectedFromSourceModel(int index);
+        bool mTrading;
+        float mUpdateTimer;
 
-            void onBackgroundSelected();
+        void toggleMaximized();
 
-            std::string getModeSetting() const;
+        void onItemSelected(int index);
+        void onItemSelectedFromSourceModel(int index);
 
-            void sellItem(MyGUI::Widget* sender, int count);
-            void dragItem(MyGUI::Widget* sender, int count);
+        void onBackgroundSelected();
 
-            void onWindowResize(MyGUI::Window* _sender);
-            void onFilterChanged(MyGUI::Widget* _sender);
-            void onNameFilterChanged(MyGUI::EditBox* _sender);
-            void onAvatarClicked(MyGUI::Widget* _sender);
-            void onPinToggled() override;
+        void sellItem(MyGUI::Widget* sender, int count);
+        void dragItem(MyGUI::Widget* sender, int count);
 
-            void updateEncumbranceBar();
-            void notifyContentChanged();
-            void dirtyPreview();
-            void updatePreviewSize();
-            void updateArmorRating();
+        void onWindowResize(MyGUI::Window* _sender);
+        void onFilterChanged(MyGUI::Widget* _sender);
+        void onNameFilterChanged(MyGUI::EditBox* _sender);
+        void onAvatarClicked(MyGUI::Widget* _sender);
+        void onPinToggled() override;
 
-            MyGUI::IntSize getPreviewViewportSize() const;
-            osg::Vec2f mapPreviewWindowToViewport(int x, int y) const;
+        void updateEncumbranceBar();
+        void notifyContentChanged();
+        void dirtyPreview();
+        void updatePreviewSize();
+        void updateArmorRating();
 
-            void adjustPanes();
+        MyGUI::IntSize getPreviewViewportSize() const;
+        osg::Vec2f mapPreviewWindowToViewport(int x, int y) const;
 
-            /// Unequips count items from mSelectedItem, if it is equipped, and then updates mSelectedItem in case the items were re-stacked
-            void ensureSelectedItemUnequipped(int count);
+        void adjustPanes();
+
+        /// Unequips count items from mSelectedItem, if it is equipped, and then updates mSelectedItem in case the items
+        /// were re-stacked
+        void ensureSelectedItemUnequipped(int count);
     };
 }
 

@@ -29,8 +29,10 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -39,42 +41,52 @@ namespace ESM4
 
     struct Ammunition
     {
-        struct Data // FIXME: TES5 projectile, damage (float)
+        struct Data
         {
-            float         speed;
-            std::uint32_t flags;
-            std::uint32_t value;   // gold
-            float         weight;
-            std::uint16_t damage;
-            std::uint8_t  clipRounds; // only in FO3/FONV
-
-            Data() : speed(0.f), flags(0), value(0), weight(0.f), damage(0), clipRounds(0) {}
+            float mSpeed{ 0.f };
+            std::uint32_t mFlags{ 0u };
+            std::uint32_t mValue{ 0u };
+            float mWeight{ 0.f };
+            float mDamage{ 0.f };
+            std::uint8_t mClipRounds{ 0u };
+            std::uint32_t mProjPerShot{ 0u };
+            ESM::FormId mProjectile;
+            ESM::FormId mConsumedAmmo;
+            float mConsumedPercentage{ 0.f };
+            std::uint32_t mHealth{ 0u };
         };
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
         std::string mFullName;
+        std::string mShortName;
+        std::string mAbbrev;
         std::string mModel;
         std::string mText;
         std::string mIcon; // inventory
         std::string mMiniIcon; // inventory
 
-        FormId mPickUpSound;
-        FormId mDropSound;
+        ESM::FormId mPickUpSound;
+        ESM::FormId mDropSound;
 
         float mBoundRadius;
 
         std::uint16_t mEnchantmentPoints;
-        FormId mEnchantment;
+        ESM::FormId mEnchantment;
+
+        std::vector<ESM::FormId> mAmmoEffects;
+
+        ESM::FormId mScript;
 
         Data mData;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_AMMO4;
     };
 }
 

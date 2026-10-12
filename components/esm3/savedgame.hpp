@@ -1,10 +1,11 @@
 #ifndef OPENMW_ESM_SAVEDGAME_H
 #define OPENMW_ESM_SAVEDGAME_H
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
 
 namespace ESM
 {
@@ -17,26 +18,30 @@ namespace ESM
     {
         constexpr static RecNameInts sRecordId = REC_SAVE;
 
-        static int sCurrentFormat;
-
         std::vector<std::string> mContentFiles;
         std::string mPlayerName;
-        int mPlayerLevel;
+        int32_t mPlayerLevel;
 
         // ID of class
-        std::string mPlayerClassId;
+        ESM::RefId mPlayerClassId;
         // Name of the class. When using a custom class, the ID is not really meaningful prior
         // to loading the savegame, so the name is stored separately.
         std::string mPlayerClassName;
-
-        std::string mPlayerCell;
+        // Name of the cell. Note that this is not an ID.
+        std::string mPlayerCellName;
         EpochTimeStamp mInGameTime;
         double mTimePlayed;
         std::string mDescription;
         std::vector<char> mScreenshot; // raw jpg-encoded data
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        int32_t mCurrentDay = 0;
+        float mCurrentHealth = 0;
+        float mMaximumHealth = 0;
+
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
+
+        std::vector<std::string_view> getMissingContentFiles(const std::vector<std::string>& allContentFiles) const;
     };
 }
 

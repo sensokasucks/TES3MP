@@ -2,9 +2,9 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/compression.hpp>
+#include <components/misc/strings/format.hpp>
 #include <components/sqlite3/db.hpp>
 #include <components/sqlite3/request.hpp>
-#include <components/misc/stringops.hpp>
 
 #include <DetourAlloc.h>
 
@@ -158,26 +158,28 @@ namespace DetourNavigator
     {
         switch (value)
         {
-            case ShapeType::Collision: return stream << "collision";
-            case ShapeType::Avoid: return stream << "avoid";
+            case ShapeType::Collision:
+                return stream << "collision";
+            case ShapeType::Avoid:
+                return stream << "avoid";
         }
         return stream << "unknown shape type (" << static_cast<std::underlying_type_t<ShapeType>>(value) << ")";
     }
 
     NavMeshDb::NavMeshDb(std::string_view path, std::uint64_t maxFileSize)
         : mDb(Sqlite3::makeDb(path, schema))
-        , mGetMaxTileId(*mDb, DbQueries::GetMaxTileId {})
-        , mFindTile(*mDb, DbQueries::FindTile {})
-        , mGetTileData(*mDb, DbQueries::GetTileData {})
-        , mInsertTile(*mDb, DbQueries::InsertTile {})
-        , mUpdateTile(*mDb, DbQueries::UpdateTile {})
-        , mDeleteTilesAt(*mDb, DbQueries::DeleteTilesAt {})
-        , mDeleteTilesAtExcept(*mDb, DbQueries::DeleteTilesAtExcept {})
-        , mDeleteTilesOutsideRange(*mDb, DbQueries::DeleteTilesOutsideRange {})
-        , mGetMaxShapeId(*mDb, DbQueries::GetMaxShapeId {})
-        , mFindShapeId(*mDb, DbQueries::FindShapeId {})
-        , mInsertShape(*mDb, DbQueries::InsertShape {})
-        , mVacuum(*mDb, DbQueries::Vacuum {})
+        , mGetMaxTileId(*mDb, DbQueries::GetMaxTileId{})
+        , mFindTile(*mDb, DbQueries::FindTile{})
+        , mGetTileData(*mDb, DbQueries::GetTileData{})
+        , mInsertTile(*mDb, DbQueries::InsertTile{})
+        , mUpdateTile(*mDb, DbQueries::UpdateTile{})
+        , mDeleteTilesAt(*mDb, DbQueries::DeleteTilesAt{})
+        , mDeleteTilesAtExcept(*mDb, DbQueries::DeleteTilesAtExcept{})
+        , mDeleteTilesOutsideRange(*mDb, DbQueries::DeleteTilesOutsideRange{})
+        , mGetMaxShapeId(*mDb, DbQueries::GetMaxShapeId{})
+        , mFindShapeId(*mDb, DbQueries::FindShapeId{})
+        , mInsertShape(*mDb, DbQueries::InsertShape{})
+        , mVacuum(*mDb, DbQueries::Vacuum{})
     {
         const std::uint64_t dbPageSize = getPageSize(*mDb);
         if (dbPageSize == 0)
@@ -192,40 +194,41 @@ namespace DetourNavigator
 
     TileId NavMeshDb::getMaxTileId()
     {
-        TileId tileId {0};
+        TileId tileId{ 0 };
         request(*mDb, mGetMaxTileId, &tileId, 1);
         return tileId;
     }
 
-    std::optional<Tile> NavMeshDb::findTile(std::string_view worldspace,
-        const TilePosition& tilePosition, const std::vector<std::byte>& input)
+    std::optional<Tile> NavMeshDb::findTile(
+        ESM::RefId worldspace, const TilePosition& tilePosition, const std::vector<std::byte>& input)
     {
         Tile result;
         auto row = std::tie(result.mTileId, result.mVersion);
         const std::vector<std::byte> compressedInput = Misc::compress(input);
-        if (&row == request(*mDb, mFindTile, &row, 1, worldspace, tilePosition, compressedInput))
+        if (&row == request(*mDb, mFindTile, &row, 1, worldspace.serializeText(), tilePosition, compressedInput))
             return {};
         return result;
     }
 
-    std::optional<TileData> NavMeshDb::getTileData(std::string_view worldspace,
-        const TilePosition& tilePosition, const std::vector<std::byte>& input)
+    std::optional<TileData> NavMeshDb::getTileData(
+        ESM::RefId worldspace, const TilePosition& tilePosition, const std::vector<std::byte>& input)
     {
         TileData result;
         auto row = std::tie(result.mTileId, result.mVersion, result.mData);
         const std::vector<std::byte> compressedInput = Misc::compress(input);
-        if (&row == request(*mDb, mGetTileData, &row, 1, worldspace, tilePosition, compressedInput))
+        if (&row == request(*mDb, mGetTileData, &row, 1, worldspace.serializeText(), tilePosition, compressedInput))
             return {};
         result.mData = Misc::decompress(result.mData);
         return result;
     }
 
-    int NavMeshDb::insertTile(TileId tileId, std::string_view worldspace, const TilePosition& tilePosition,
+    int NavMeshDb::insertTile(TileId tileId, ESM::RefId worldspace, const TilePosition& tilePosition,
         TileVersion version, const std::vector<std::byte>& input, const std::vector<std::byte>& data)
     {
         const std::vector<std::byte> compressedInput = Misc::compress(input);
         const std::vector<std::byte> compressedData = Misc::compress(data);
-        return execute(*mDb, mInsertTile, tileId, worldspace, tilePosition, version, compressedInput, compressedData);
+        return execute(*mDb, mInsertTile, tileId, worldspace.serializeText(), tilePosition, version, compressedInput,
+            compressedData);
     }
 
     int NavMeshDb::updateTile(TileId tileId, TileVersion version, const std::vector<std::byte>& data)
@@ -234,30 +237,29 @@ namespace DetourNavigator
         return execute(*mDb, mUpdateTile, tileId, version, compressedData);
     }
 
-    int NavMeshDb::deleteTilesAt(std::string_view worldspace, const TilePosition& tilePosition)
+    int NavMeshDb::deleteTilesAt(ESM::RefId worldspace, const TilePosition& tilePosition)
     {
-        return execute(*mDb, mDeleteTilesAt, worldspace, tilePosition);
+        return execute(*mDb, mDeleteTilesAt, worldspace.serializeText(), tilePosition);
     }
 
-    int NavMeshDb::deleteTilesAtExcept(std::string_view worldspace, const TilePosition& tilePosition, TileId excludeTileId)
+    int NavMeshDb::deleteTilesAtExcept(ESM::RefId worldspace, const TilePosition& tilePosition, TileId excludeTileId)
     {
-        return execute(*mDb, mDeleteTilesAtExcept, worldspace, tilePosition, excludeTileId);
+        return execute(*mDb, mDeleteTilesAtExcept, worldspace.serializeText(), tilePosition, excludeTileId);
     }
 
-    int NavMeshDb::deleteTilesOutsideRange(std::string_view worldspace, const TilesPositionsRange& range)
+    int NavMeshDb::deleteTilesOutsideRange(ESM::RefId worldspace, const TilesPositionsRange& range)
     {
-        return execute(*mDb, mDeleteTilesOutsideRange, worldspace, range);
+        return execute(*mDb, mDeleteTilesOutsideRange, worldspace.serializeText(), range);
     }
 
     ShapeId NavMeshDb::getMaxShapeId()
     {
-        ShapeId shapeId {0};
+        ShapeId shapeId{ 0 };
         request(*mDb, mGetMaxShapeId, &shapeId, 1);
         return shapeId;
     }
 
-    std::optional<ShapeId> NavMeshDb::findShapeId(std::string_view name, ShapeType type,
-        const Sqlite3::ConstBlob& hash)
+    std::optional<ShapeId> NavMeshDb::findShapeId(std::string_view name, ShapeType type, const Sqlite3::ConstBlob& hash)
     {
         ShapeId shapeId;
         if (&shapeId == request(*mDb, mFindShapeId, &shapeId, 1, name, type, hash))
@@ -265,8 +267,7 @@ namespace DetourNavigator
         return shapeId;
     }
 
-    int NavMeshDb::insertShape(ShapeId shapeId, std::string_view name, ShapeType type,
-        const Sqlite3::ConstBlob& hash)
+    int NavMeshDb::insertShape(ShapeId shapeId, std::string_view name, ShapeType type, const Sqlite3::ConstBlob& hash)
     {
         return execute(*mDb, mInsertShape, shapeId, name, type, hash);
     }
@@ -347,8 +348,8 @@ namespace DetourNavigator
             return deleteTilesAtQuery;
         }
 
-        void DeleteTilesAt::bind(sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace,
-            const TilePosition& tilePosition)
+        void DeleteTilesAt::bind(
+            sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace, const TilePosition& tilePosition)
         {
             Sqlite3::bindParameter(db, statement, ":worldspace", worldspace);
             Sqlite3::bindParameter(db, statement, ":tile_position_x", tilePosition.x());
@@ -374,8 +375,8 @@ namespace DetourNavigator
             return deleteTilesOutsideRangeQuery;
         }
 
-        void DeleteTilesOutsideRange::bind(sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace,
-            const TilesPositionsRange& range)
+        void DeleteTilesOutsideRange::bind(
+            sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace, const TilesPositionsRange& range)
         {
             Sqlite3::bindParameter(db, statement, ":worldspace", worldspace);
             Sqlite3::bindParameter(db, statement, ":begin_tile_position_x", range.mBegin.x());
@@ -394,8 +395,8 @@ namespace DetourNavigator
             return findShapeIdQuery;
         }
 
-        void FindShapeId::bind(sqlite3& db, sqlite3_stmt& statement, std::string_view name,
-            ShapeType type, const Sqlite3::ConstBlob& hash)
+        void FindShapeId::bind(
+            sqlite3& db, sqlite3_stmt& statement, std::string_view name, ShapeType type, const Sqlite3::ConstBlob& hash)
         {
             Sqlite3::bindParameter(db, statement, ":name", name);
             Sqlite3::bindParameter(db, statement, ":type", static_cast<int>(type));

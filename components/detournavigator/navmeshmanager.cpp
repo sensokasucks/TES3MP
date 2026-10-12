@@ -1,31 +1,22 @@
 #include "navmeshmanager.hpp"
+
 #include "debug.hpp"
-#include "exceptions.hpp"
 #include "gettilespositions.hpp"
 #include "makenavmesh.hpp"
 #include "navmeshcacheitem.hpp"
 #include "settings.hpp"
+#include "settingsutils.hpp"
 #include "waitconditiontype.hpp"
 
 #include <components/debug/debuglog.hpp>
-#include <components/bullethelpers/heightfield.hpp>
-#include <components/misc/convert.hpp>
+#include <components/esm/util.hpp>
 
 #include <osg/io_utils>
 
 #include <DetourNavMesh.h>
 
-#include <iterator>
-
 namespace
 {
-    using DetourNavigator::ChangeType;
-
-    ChangeType addChangeType(const ChangeType current, const ChangeType add)
-    {
-        return current == add ? current : ChangeType::mixed;
-    }
-
     /// Safely reset shared_ptr with definite underlying object destrutor call.
     /// Assuming there is another thread holding copy of this shared_ptr or weak_ptr to this shared_ptr.
     template <class T>
@@ -46,111 +37,114 @@ namespace DetourNavigator
 {
     namespace
     {
-        TileBounds makeBounds(const RecastSettings& settings, const osg::Vec2f& center, int maxTiles)
+        int getMaxRadius(int maxTiles)
         {
-            const float radius = fromNavMeshCoordinates(settings, std::ceil(std::sqrt(static_cast<float>(maxTiles) / osg::PIf) + 1) * getTileSize(settings));
-            TileBounds result;
-            result.mMin = center - osg::Vec2f(radius, radius);
-            result.mMax = center + osg::Vec2f(radius, radius);
+            return static_cast<int>(std::ceil(std::sqrt(static_cast<float>(maxTiles) / osg::PIf) + 1));
+        }
+
+        TilesPositionsRange makeRange(const TilePosition& center, int radius)
+        {
+            return TilesPositionsRange{
+                .mBegin = center - TilePosition(radius, radius),
+                .mEnd = center + TilePosition(radius + 1, radius + 1),
+            };
+        }
+
+        osg::Vec2f getMinCellGridPosition(const osg::Vec2i& center, int offset, float cellSize)
+        {
+            const osg::Vec2i cell = center + osg::Vec2i(offset, offset);
+            return osg::Vec2f(static_cast<float>(cell.x()) * cellSize, static_cast<float>(cell.y()) * cellSize);
+        }
+
+        TilesPositionsRange makeCellGridRange(
+            const RecastSettings& settings, ESM::RefId worldspace, const CellGridBounds& bounds)
+        {
+            const float floatCellSize = static_cast<float>(ESM::getCellSize(worldspace));
+            const osg::Vec2f min = getMinCellGridPosition(bounds.mCenter, -bounds.mHalfSize, floatCellSize);
+            const osg::Vec2f max = getMinCellGridPosition(bounds.mCenter, bounds.mHalfSize + 1, floatCellSize);
+            return TilesPositionsRange{
+                .mBegin = getTilePosition(settings, toNavMeshCoordinates(settings, min)),
+                .mEnd = getTilePosition(settings, toNavMeshCoordinates(settings, max)),
+            };
+        }
+
+        TilesPositionsRange makeRange(const Settings& settings, ESM::RefId worldspace,
+            const std::optional<CellGridBounds>& bounds, int radius, const TilePosition& center)
+        {
+            TilesPositionsRange result = makeRange(center, radius);
+            if (bounds.has_value())
+                result = getIntersection(result, makeCellGridRange(settings.mRecast, worldspace, *bounds));
             return result;
+        }
+
+        TilePosition toNavMeshTilePosition(const RecastSettings& settings, const osg::Vec3f& position)
+        {
+            return getTilePosition(settings, toNavMeshCoordinates(settings, position));
         }
     }
 
     NavMeshManager::NavMeshManager(const Settings& settings, std::unique_ptr<NavMeshDb>&& db)
         : mSettings(settings)
+        , mMaxRadius(getMaxRadius(settings.mMaxTilesNumber))
         , mRecastMeshManager(settings.mRecast)
         , mOffMeshConnectionsManager(settings.mRecast)
         , mAsyncNavMeshUpdater(settings, mRecastMeshManager, mOffMeshConnectionsManager, std::move(db))
-    {}
-
-    void NavMeshManager::setWorldspace(std::string_view worldspace)
     {
-        if (worldspace == mWorldspace)
-            return;
-        mRecastMeshManager.setWorldspace(worldspace);
-        for (auto& [agent, cache] : mCache)
-            cache = std::make_shared<GuardedNavMeshCacheItem>(makeEmptyNavMesh(mSettings), ++mGenerationCounter);
-        mWorldspace = worldspace;
     }
 
-    void NavMeshManager::updateBounds(const osg::Vec3f& playerPosition)
+    void NavMeshManager::updateBounds(ESM::RefId worldspace, const std::optional<CellGridBounds>& cellGridBounds,
+        const osg::Vec3f& playerPosition, const UpdateGuard* guard)
     {
-        const TileBounds bounds = makeBounds(mSettings.mRecast, osg::Vec2f(playerPosition.x(), playerPosition.y()),
-                                             mSettings.mMaxTilesNumber);
-        const auto changedTiles = mRecastMeshManager.setBounds(bounds);
-        for (const auto& [agent, cache] : mCache)
+        if (worldspace != mWorldspace)
         {
-            auto& tiles = mChangedTiles[agent];
-            for (const auto& [tilePosition, changeType] : changedTiles)
-            {
-                auto tile = tiles.find(tilePosition);
-                if (tile == tiles.end())
-                    tiles.emplace_hint(tile, tilePosition, changeType);
-                else
-                    tile->second = addChangeType(tile->second, changeType);
-            }
+            mRecastMeshManager.setWorldspace(worldspace, guard);
+            for (auto& [agent, cache] : mCache)
+                cache = std::make_shared<GuardedNavMeshCacheItem>(++mGenerationCounter, mSettings);
+            mWorldspace = worldspace;
         }
+
+        const TilePosition playerTile = toNavMeshTilePosition(mSettings.mRecast, playerPosition);
+
+        mRecastMeshManager.setRange(makeRange(mSettings, worldspace, cellGridBounds, mMaxRadius, playerTile), guard);
+        mCellGridBounds = cellGridBounds;
     }
 
     bool NavMeshManager::addObject(const ObjectId id, const CollisionShape& shape, const btTransform& transform,
-                                   const AreaType areaType)
+        const AreaType areaType, const UpdateGuard* guard)
     {
-        return mRecastMeshManager.addObject(id, shape, transform, areaType,
-            [&] (const TilePosition& tile) { addChangedTile(tile, ChangeType::add); });
+        return mRecastMeshManager.addObject(id, shape, transform, areaType, guard);
     }
 
-    bool NavMeshManager::updateObject(const ObjectId id, const CollisionShape& shape, const btTransform& transform,
-                                      const AreaType areaType)
+    bool NavMeshManager::updateObject(
+        const ObjectId id, const btTransform& transform, const AreaType areaType, const UpdateGuard* guard)
     {
-        return mRecastMeshManager.updateObject(id, shape, transform, areaType,
-            [&] (const TilePosition& tile, ChangeType changeType) { addChangedTile(tile, changeType); });
+        return mRecastMeshManager.updateObject(id, transform, areaType, guard);
     }
 
-    bool NavMeshManager::removeObject(const ObjectId id)
+    void NavMeshManager::removeObject(const ObjectId id, const UpdateGuard* guard)
     {
-        const auto object = mRecastMeshManager.removeObject(id);
-        if (!object)
-            return false;
-        addChangedTiles(object->mShape, object->mTransform, ChangeType::remove);
-        return true;
+        mRecastMeshManager.removeObject(id, guard);
     }
 
-    bool NavMeshManager::addWater(const osg::Vec2i& cellPosition, int cellSize, float level)
+    void NavMeshManager::addWater(const osg::Vec2i& cellPosition, int cellSize, float level, const UpdateGuard* guard)
     {
-        if (!mRecastMeshManager.addWater(cellPosition, cellSize, level))
-            return false;
-        const btVector3 shift = Misc::Convert::toBullet(getWaterShift3d(cellPosition, cellSize, level));
-        addChangedTiles(cellSize, shift, ChangeType::add);
-        return true;
+        mRecastMeshManager.addWater(cellPosition, cellSize, level, guard);
     }
 
-    bool NavMeshManager::removeWater(const osg::Vec2i& cellPosition)
+    void NavMeshManager::removeWater(const osg::Vec2i& cellPosition, const UpdateGuard* guard)
     {
-        const auto water = mRecastMeshManager.removeWater(cellPosition);
-        if (!water)
-            return false;
-        const btVector3 shift = Misc::Convert::toBullet(getWaterShift3d(cellPosition, water->mCellSize, water->mLevel));
-        addChangedTiles(water->mCellSize, shift, ChangeType::remove);
-        return true;
+        mRecastMeshManager.removeWater(cellPosition, guard);
     }
 
-    bool NavMeshManager::addHeightfield(const osg::Vec2i& cellPosition, int cellSize, const HeightfieldShape& shape)
+    void NavMeshManager::addHeightfield(
+        const osg::Vec2i& cellPosition, int cellSize, const HeightfieldShape& shape, const UpdateGuard* guard)
     {
-        if (!mRecastMeshManager.addHeightfield(cellPosition, cellSize, shape))
-            return false;
-        const btVector3 shift = getHeightfieldShift(shape, cellPosition, cellSize);
-        addChangedTiles(cellSize, shift, ChangeType::add);
-        return true;
+        mRecastMeshManager.addHeightfield(cellPosition, cellSize, shape, guard);
     }
 
-    bool NavMeshManager::removeHeightfield(const osg::Vec2i& cellPosition)
+    void NavMeshManager::removeHeightfield(const osg::Vec2i& cellPosition, const UpdateGuard* guard)
     {
-        const auto heightfield = mRecastMeshManager.removeHeightfield(cellPosition);
-        if (!heightfield)
-            return false;
-        const btVector3 shift = getHeightfieldShift(heightfield->mShape, cellPosition, heightfield->mCellSize);
-        addChangedTiles(heightfield->mCellSize, shift, ChangeType::remove);
-        return true;
+        mRecastMeshManager.removeHeightfield(cellPosition, guard);
     }
 
     void NavMeshManager::addAgent(const AgentBounds& agentBounds)
@@ -158,8 +152,8 @@ namespace DetourNavigator
         auto cached = mCache.find(agentBounds);
         if (cached != mCache.end())
             return;
-        mCache.insert(std::make_pair(agentBounds,
-            std::make_shared<GuardedNavMeshCacheItem>(makeEmptyNavMesh(mSettings), ++mGenerationCounter)));
+        mCache.emplace(agentBounds, std::make_shared<GuardedNavMeshCacheItem>(++mGenerationCounter, mSettings));
+        mPlayerTile.reset();
         Log(Debug::Debug) << "cache add for agent=" << agentBounds;
     }
 
@@ -171,95 +165,78 @@ namespace DetourNavigator
         if (!resetIfUnique(it->second))
             return false;
         mCache.erase(agentBounds);
-        mChangedTiles.erase(agentBounds);
-        mPlayerTile.erase(agentBounds);
-        mLastRecastMeshManagerRevision.erase(agentBounds);
+        mPlayerTile.reset();
         return true;
     }
 
-    void NavMeshManager::addOffMeshConnection(const ObjectId id, const osg::Vec3f& start, const osg::Vec3f& end, const AreaType areaType)
+    void NavMeshManager::addOffMeshConnection(
+        const ObjectId id, const osg::Vec3f& start, const osg::Vec3f& end, const AreaType areaType)
     {
-        mOffMeshConnectionsManager.add(id, OffMeshConnection {start, end, areaType});
+        mOffMeshConnectionsManager.add(id, OffMeshConnection{ start, end, areaType });
 
         const auto startTilePosition = getTilePosition(mSettings.mRecast, start);
         const auto endTilePosition = getTilePosition(mSettings.mRecast, end);
 
-        addChangedTile(startTilePosition, ChangeType::add);
+        mRecastMeshManager.addChangedTile(startTilePosition, ChangeType::add);
 
         if (startTilePosition != endTilePosition)
-            addChangedTile(endTilePosition, ChangeType::add);
+            mRecastMeshManager.addChangedTile(endTilePosition, ChangeType::add);
     }
 
     void NavMeshManager::removeOffMeshConnections(const ObjectId id)
     {
         const auto changedTiles = mOffMeshConnectionsManager.remove(id);
         for (const auto& tile : changedTiles)
-            addChangedTile(tile, ChangeType::update);
+            mRecastMeshManager.addChangedTile(tile, ChangeType::update);
     }
 
-    void NavMeshManager::update(const osg::Vec3f& playerPosition, const AgentBounds& agentBounds)
+    void NavMeshManager::update(const osg::Vec3f& playerPosition, const UpdateGuard* guard)
     {
-        const auto playerTile = getTilePosition(mSettings.mRecast, toNavMeshCoordinates(mSettings.mRecast, playerPosition));
-        auto& lastRevision = mLastRecastMeshManagerRevision[agentBounds];
-        auto lastPlayerTile = mPlayerTile.find(agentBounds);
-        if (lastRevision == mRecastMeshManager.getRevision() && lastPlayerTile != mPlayerTile.end()
-                && lastPlayerTile->second == playerTile)
+        const TilePosition playerTile = toNavMeshTilePosition(mSettings.mRecast, playerPosition);
+        if (mLastRecastMeshManagerRevision == mRecastMeshManager.getRevision() && mPlayerTile.has_value()
+            && *mPlayerTile == playerTile)
             return;
-        lastRevision = mRecastMeshManager.getRevision();
-        if (lastPlayerTile == mPlayerTile.end())
-            lastPlayerTile = mPlayerTile.insert(std::make_pair(agentBounds, playerTile)).first;
-        else
-            lastPlayerTile->second = playerTile;
-        std::map<TilePosition, ChangeType> tilesToPost;
-        const auto cached = getCached(agentBounds);
-        if (!cached)
+        mLastRecastMeshManagerRevision = mRecastMeshManager.getRevision();
+        mPlayerTile = playerTile;
+        mRecastMeshManager.setRange(makeRange(mSettings, mWorldspace, mCellGridBounds, mMaxRadius, playerTile), guard);
+        const auto changedTiles = mRecastMeshManager.takeChangedTiles(guard);
+        const TilesPositionsRange range = mRecastMeshManager.getLimitedObjectsRange();
+        for (const auto& [agentBounds, cached] : mCache)
+            update(agentBounds, playerTile, range, cached, changedTiles);
+    }
+
+    void NavMeshManager::update(const AgentBounds& agentBounds, const TilePosition& playerTile,
+        const TilesPositionsRange& range, const SharedNavMeshCacheItem& cached,
+        const std::map<osg::Vec2i, ChangeType>& changedTiles)
+    {
+        std::map<osg::Vec2i, ChangeType> tilesToPost = changedTiles;
         {
-            std::ostringstream stream;
-            stream << "Agent with half extents is not found: " << agentBounds;
-            throw InvalidArgument(stream.str());
-        }
-        const auto changedTiles = mChangedTiles.find(agentBounds);
-        {
+            const int maxTiles = mSettings.mMaxTilesNumber;
             const auto locked = cached->lockConst();
             const auto& navMesh = locked->getImpl();
-            if (changedTiles != mChangedTiles.end())
-            {
-                for (const auto& tile : changedTiles->second)
-                    if (navMesh.getTileAt(tile.first.x(), tile.first.y(), 0))
-                    {
-                        auto tileToPost = tilesToPost.find(tile.first);
-                        if (tileToPost == tilesToPost.end())
-                            tilesToPost.insert(tile);
-                        else
-                            tileToPost->second = addChangeType(tileToPost->second, tile.second);
-                    }
-            }
-            const auto maxTiles = std::min(mSettings.mMaxTilesNumber, navMesh.getParams()->maxTiles);
-            mRecastMeshManager.forEachTile([&] (const TilePosition& tile, CachedRecastMeshManager& recastMeshManager)
-            {
-                if (tilesToPost.count(tile))
+            getTilesPositions(range, [&](const TilePosition& tile) {
+                if (changedTiles.find(tile) != changedTiles.end())
                     return;
-                const auto shouldAdd = shouldAddTile(tile, playerTile, maxTiles);
-                const auto presentInNavMesh = bool(navMesh.getTileAt(tile.x(), tile.y(), 0));
+                const bool shouldAdd = shouldAddTile(tile, playerTile, maxTiles);
+                const bool presentInNavMesh = navMesh.getTileAt(tile.x(), tile.y(), 0) != nullptr;
                 if (shouldAdd && !presentInNavMesh)
-                    tilesToPost.insert(std::make_pair(tile, locked->isEmptyTile(tile) ? ChangeType::update : ChangeType::add));
+                    tilesToPost.emplace(tile, locked->isEmptyTile(tile) ? ChangeType::update : ChangeType::add);
                 else if (!shouldAdd && presentInNavMesh)
-                    tilesToPost.insert(std::make_pair(tile, ChangeType::mixed));
-                else
-                    recastMeshManager.reportNavMeshChange(recastMeshManager.getVersion(), Version {0, 0});
+                    tilesToPost.emplace(tile, ChangeType::remove);
+            });
+            locked->forEachTilePosition([&](const TilePosition& tile) {
+                if (!shouldAddTile(tile, playerTile, maxTiles))
+                    tilesToPost.emplace(tile, ChangeType::remove);
             });
         }
-        mAsyncNavMeshUpdater.post(agentBounds, cached, playerTile, mRecastMeshManager.getWorldspace(), tilesToPost);
-        if (changedTiles != mChangedTiles.end())
-            changedTiles->second.clear();
-        Log(Debug::Debug) << "Cache update posted for agent=" << agentBounds <<
-            " playerTile=" << lastPlayerTile->second <<
-            " recastMeshManagerRevision=" << lastRevision;
+        mAsyncNavMeshUpdater.post(agentBounds, cached, playerTile, mWorldspace, tilesToPost);
+        Log(Debug::Debug) << "Cache update posted for agent=" << agentBounds << " playerTile=" << playerTile
+                          << " recastMeshManagerRevision=" << mLastRecastMeshManagerRevision;
     }
 
-    void NavMeshManager::wait(Loading::Listener& listener, WaitConditionType waitConditionType)
+    void NavMeshManager::wait(WaitConditionType waitConditionType, Loading::Listener* listener)
     {
-        mAsyncNavMeshUpdater.wait(listener, waitConditionType);
+        mAsyncNavMeshUpdater.wait(waitConditionType, listener);
     }
 
     SharedNavMeshCacheItem NavMeshManager::getNavMesh(const AgentBounds& agentBounds) const
@@ -272,53 +249,22 @@ namespace DetourNavigator
         return mCache;
     }
 
-    void NavMeshManager::reportStats(unsigned int frameNumber, osg::Stats& stats) const
+    Stats NavMeshManager::getStats() const
     {
-        DetourNavigator::reportStats(mAsyncNavMeshUpdater.getStats(), frameNumber, stats);
+        return Stats{
+            .mUpdater = mAsyncNavMeshUpdater.getStats(),
+            .mRecast = mRecastMeshManager.getStats(),
+        };
     }
 
     RecastMeshTiles NavMeshManager::getRecastMeshTiles() const
     {
-        std::vector<TilePosition> tiles;
-        mRecastMeshManager.forEachTile(
-            [&tiles] (const TilePosition& tile, const CachedRecastMeshManager&) { tiles.push_back(tile); });
-        const std::string worldspace = mRecastMeshManager.getWorldspace();
         RecastMeshTiles result;
-        for (const TilePosition& tile : tiles)
-            if (auto mesh = mRecastMeshManager.getCachedMesh(worldspace, tile))
-                result.emplace(tile, std::move(mesh));
+        getTilesPositions(mRecastMeshManager.getLimitedObjectsRange(), [&](const TilePosition& v) {
+            if (auto mesh = mRecastMeshManager.getCachedMesh(mWorldspace, v))
+                result.emplace(v, std::move(mesh));
+        });
         return result;
-    }
-
-    void NavMeshManager::addChangedTiles(const btCollisionShape& shape, const btTransform& transform,
-            const ChangeType changeType)
-    {
-        const auto bounds = mRecastMeshManager.getBounds();
-        getTilesPositions(makeTilesPositionsRange(shape, transform, bounds, mSettings.mRecast),
-            [&] (const TilePosition& v) { addChangedTile(v, changeType); });
-    }
-
-    void NavMeshManager::addChangedTiles(const int cellSize, const btVector3& shift,
-            const ChangeType changeType)
-    {
-        if (cellSize == std::numeric_limits<int>::max())
-            return;
-
-        getTilesPositions(makeTilesPositionsRange(cellSize, shift, mSettings.mRecast),
-            [&] (const TilePosition& v) { addChangedTile(v, changeType); });
-    }
-
-    void NavMeshManager::addChangedTile(const TilePosition& tilePosition, const ChangeType changeType)
-    {
-        for (const auto& cached : mCache)
-        {
-            auto& tiles = mChangedTiles[cached.first];
-            auto tile = tiles.find(tilePosition);
-            if (tile == tiles.end())
-                tiles.insert(std::make_pair(tilePosition, changeType));
-            else
-                tile->second = addChangeType(tile->second, changeType);
-        }
     }
 
     SharedNavMeshCacheItem NavMeshManager::getCached(const AgentBounds& agentBounds) const

@@ -1,12 +1,26 @@
 #include "cellwater.hpp"
 
+#include <memory>
+#include <string_view>
+
 #include <osg/Geometry>
 #include <osg/Group>
 #include <osg/PositionAttitudeTransform>
+#include <osg/StateAttribute>
+#include <osg/StateSet>
+#include <osg/Texture2D>
+#include <osg/Texture>
+#include <osg/Vec3d>
+#include <osg/Vec3f>
+
+#include <apps/opencs/model/world/collection.hpp>
+#include <apps/opencs/model/world/idcollection.hpp>
+#include <apps/opencs/model/world/record.hpp>
+#include <apps/opencs/model/world/universalid.hpp>
 
 #include <components/esm3/loadland.hpp>
 #include <components/fallback/fallback.hpp>
-#include <components/misc/stringops.hpp>
+#include <components/misc/strings/lower.hpp>
 #include <components/resource/imagemanager.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/sceneutil/waterutil.hpp>
@@ -21,8 +35,8 @@ namespace CSVRender
 {
     const int CellWater::CellSize = ESM::Land::REAL_SIZE;
 
-    CellWater::CellWater(CSMWorld::Data& data, osg::Group* cellNode, const std::string& id,
-        const CSMWorld::CellCoordinates& cellCoords)
+    CellWater::CellWater(
+        CSMWorld::Data& data, osg::Group* cellNode, const std::string& id, const CSMWorld::CellCoordinates& cellCoords)
         : mData(data)
         , mId(id)
         , mParentNode(cellNode)
@@ -34,8 +48,8 @@ namespace CSVRender
         , mHasWater(false)
     {
         mWaterTransform = new osg::PositionAttitudeTransform();
-        mWaterTransform->setPosition(osg::Vec3f(cellCoords.getX() * CellSize + CellSize / 2.f,
-            cellCoords.getY() * CellSize + CellSize / 2.f, 0));
+        mWaterTransform->setPosition(osg::Vec3f(
+            cellCoords.getX() * CellSize + CellSize / 2.f, cellCoords.getY() * CellSize + CellSize / 2.f, 0));
 
         mWaterTransform->setNodeMask(Mask_Water);
         mParentNode->addChild(mWaterTransform);
@@ -43,7 +57,7 @@ namespace CSVRender
         mWaterGroup = new osg::Group();
         mWaterTransform->addChild(mWaterGroup);
 
-        int cellIndex = mData.getCells().searchId(mId);
+        const int cellIndex = mData.getCells().searchId(ESM::RefId::stringRefId(mId));
         if (cellIndex > -1)
         {
             updateCellData(mData.getCells().getRecord(cellIndex));
@@ -51,8 +65,7 @@ namespace CSVRender
 
         // Keep water existence/height up to date
         QAbstractItemModel* cells = mData.getTableModel(CSMWorld::UniversalId::Type_Cells);
-        connect(cells, SIGNAL(dataChanged(const QModelIndex&, const QModelIndex&)),
-            this, SLOT(cellDataChanged(const QModelIndex&, const QModelIndex&)));
+        connect(cells, &QAbstractItemModel::dataChanged, this, &CellWater::cellDataChanged);
     }
 
     CellWater::~CellWater()
@@ -118,7 +131,7 @@ namespace CSVRender
         {
             const CSMWorld::Record<CSMWorld::Cell>& cellRecord = cells.getRecord(row);
 
-            if (Misc::StringUtils::lowerCase(cellRecord.get().mId) == mId)
+            if (cellRecord.get().mId == ESM::RefId::stringRefId(mId))
                 updateCellData(cellRecord);
         }
     }
@@ -163,18 +176,18 @@ namespace CSVRender
         mWaterGeometry->setStateSet(SceneUtil::createSimpleWaterStateSet(Alpha, RenderBin));
 
         // Add water texture
-        std::string textureName = Fallback::Map::getString("Water_SurfaceTexture");
-        textureName = "textures/water/" + textureName + "00.dds";
+        constexpr VFS::Path::NormalizedView prefix("textures/water");
+        VFS::Path::Normalized texturePath(prefix);
+        texturePath /= std::string(Fallback::Map::getString("Water_SurfaceTexture")) + "00.dds";
 
         Resource::ImageManager* imageManager = mData.getResourceSystem()->getImageManager();
 
         osg::ref_ptr<osg::Texture2D> waterTexture = new osg::Texture2D();
-        waterTexture->setImage(imageManager->getImage(textureName));
+        waterTexture->setImage(imageManager->getImage(texturePath));
         waterTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
         waterTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
 
         mWaterGeometry->getStateSet()->setTextureAttributeAndModes(0, waterTexture, osg::StateAttribute::ON);
-
 
         mWaterGroup->addChild(mWaterGeometry);
     }

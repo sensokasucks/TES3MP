@@ -31,6 +31,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /// Include external headers
 #include <sstream>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <list>

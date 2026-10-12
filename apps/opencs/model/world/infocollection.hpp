@@ -1,8 +1,10 @@
 #ifndef CSM_WOLRD_INFOCOLLECTION_H
 #define CSM_WOLRD_INFOCOLLECTION_H
 
+#include <map>
+#include <string>
 #include <unordered_map>
-#include <string_view>
+#include <vector>
 
 #include "collection.hpp"
 #include "info.hpp"
@@ -10,90 +12,51 @@
 namespace ESM
 {
     struct Dialogue;
+    class ESMReader;
+
+    template <class T>
+    class InfoOrder;
 }
 
 namespace CSMWorld
 {
-    template<>
-    void Collection<Info, IdAccessor<Info> >::removeRows (int index, int count);
+    using InfosRecordPtrByTopic = std::unordered_map<ESM::RefId, std::vector<const Record<Info>*>>;
 
-    template<>
-    void Collection<Info, IdAccessor<Info> >::insertRecord (std::unique_ptr<RecordBase> record,
-        int index, UniversalId::Type type);
-
-    template<>
-    bool Collection<Info, IdAccessor<Info> >::reorderRowsImp (int baseIndex,
-        const std::vector<int>& newOrder);
-
-    class InfoCollection : public Collection<Info, IdAccessor<Info> >
+    struct OrderedInfo
     {
-        public:
+        ESM::RefId mId;
+        ESM::RefId mNext;
+        ESM::RefId mPrev;
 
-            typedef std::vector<std::unique_ptr<Record<Info> > >::const_iterator RecordConstIterator;
-            typedef std::pair<RecordConstIterator, RecordConstIterator> Range;
-
-        private:
-
-            // The general strategy is to keep the records in Collection kept in order (within
-            // a topic group) while the index lookup maps are not ordered.  It is assumed that
-            // each topic has a small number of infos, which allows the use of vectors for
-            // iterating through them without too much penalty.
-            //
-            // NOTE: topic string as well as id string are stored in lower case.
-            std::unordered_map<std::string, std::vector<std::pair<std::string, int> > > mInfoIndex;
-
-            void load (const Info& record, bool base);
-
-            int getInfoIndex(std::string_view id, std::string_view topic) const;
-            ///< Return index for record \a id or -1 (if not present; deleted records are considered)
-            ///
-            /// \param id info ID without topic prefix
-            //
-            /// \attention id and topic are assumed to be in lower case
-
-        public:
-
-            int getInsertIndex (const std::string& id,
-                UniversalId::Type type = UniversalId::Type_None,
-                RecordBase *record = nullptr) const override;
-            ///< \param type Will be ignored, unless the collection supports multiple record types
-            ///
-            /// Works like getAppendIndex unless an overloaded method uses the record pointer
-            /// to get additional info about the record that results in an alternative index.
-
-            int getAppendIndex(const std::string& id, UniversalId::Type type) const override
-            {
-                return getInsertIndex(id, type);
-            }
-
-            bool reorderRows (int baseIndex, const std::vector<int>& newOrder) override;
-            ///< Reorder the rows [baseIndex, baseIndex+newOrder.size()) according to the indices
-            /// given in \a newOrder (baseIndex+newOrder[0] specifies the new index of row baseIndex).
-            ///
-            /// \return Success?
-
-            void load (ESM::ESMReader& reader, bool base, const ESM::Dialogue& dialogue);
-
-            Range getTopicRange (const std::string& topic) const;
-            ///< Return iterators that point to the beginning and past the end of the range for
-            /// the given topic.
-
-            void removeDialogueInfos(const std::string& dialogueId);
-
-            void removeRows (int index, int count) override;
-
-            void appendBlankRecord (const std::string& id,
-                                            UniversalId::Type type = UniversalId::Type_None) override;
-
-            int searchId(std::string_view id) const override;
-
-            void appendRecord (std::unique_ptr<RecordBase> record,
-                UniversalId::Type type = UniversalId::Type_None) override;
-
-            void insertRecord (std::unique_ptr<RecordBase> record,
-                                       int index,
-                                       UniversalId::Type type = UniversalId::Type_None) override;
+        explicit OrderedInfo(const Info& info)
+            : mId(info.mOriginalId)
+            , mNext(info.mNext)
+            , mPrev(info.mPrev)
+        {
+        }
     };
+
+    using InfoOrder = ESM::InfoOrder<OrderedInfo>;
+    using InfoOrderByTopic = std::map<ESM::RefId, ESM::InfoOrder<OrderedInfo>>;
+
+    class InfoCollection : public Collection<Info>
+    {
+    private:
+        void load(const Info& value, bool base);
+
+    public:
+        void load(ESM::ESMReader& reader, bool base, const ESM::Dialogue& dialogue, InfoOrderByTopic& infoOrder);
+
+        void sort(const InfoOrderByTopic& infoOrders);
+
+        InfosRecordPtrByTopic getInfosByTopic() const;
+
+        int getAppendIndex(const ESM::RefId& id, UniversalId::Type type = UniversalId::Type_None) const override;
+
+        bool reorderRows(int baseIndex, const std::vector<int>& newOrder) override;
+    };
+
+    ESM::RefId makeCompositeInfoRefId(const ESM::RefId& topicId, const ESM::RefId& infoId);
 }
 
 #endif

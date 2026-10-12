@@ -4,6 +4,7 @@
 #include <string>
 
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
 
 namespace ESM
 {
@@ -14,25 +15,26 @@ namespace ESM
     {
         constexpr static RecNameInts sRecordId = REC_DBGP;
 
+        static constexpr std::string_view getRecordType() { return "DebugProfile"; }
 
         enum Flags
         {
-            Flag_Default = 1,       // add to newly opened scene subviews
+            Flag_Default = 1, // add to newly opened scene subviews
             Flag_BypassNewGame = 2, // bypass regular game startup
-            Flag_Global = 4         // make available from main menu (i.e. not location specific)
+            Flag_Global = 4 // make available from main menu (i.e. not location specific)
         };
 
-        unsigned int mRecordFlags;
-        std::string mId;
+        uint32_t mRecordFlags;
+        RefId mId;
 
         std::string mDescription;
 
         std::string mScriptText;
 
-        unsigned int mFlags;
+        uint32_t mFlags;
 
-        void load (ESMReader& esm, bool &isDeleted);
-        void save (ESMWriter& esm, bool isDeleted = false) const;
+        void load(ESMReader& esm, bool& isDeleted);
+        void save(ESMWriter& esm, bool isDeleted = false) const;
 
         /// Set record to default state (does not touch the ID).
         void blank();

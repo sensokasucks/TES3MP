@@ -3,16 +3,13 @@
 #include <SDL_events.h>
 #include <components/sdlutil/sdlmappings.hpp>
 
-#include "text.hpp"
-#include "textedit.hpp"
-#include "window.hpp"
-
 namespace LuaUi
 {
     WidgetExtension::WidgetExtension()
         : mForcePosition(false)
         , mForceSize(false)
         , mPropagateEvents(true)
+        , mVisible(true)
         , mLua(nullptr)
         , mWidget(nullptr)
         , mSlot(this)
@@ -22,12 +19,15 @@ namespace LuaUi
         , mExternal(sol::nil)
         , mParent(nullptr)
         , mTemplateChild(false)
-    {}
+        , mElementRoot(false)
+    {
+    }
 
-    void WidgetExtension::initialize(lua_State* lua, MyGUI::Widget* self)
+    void WidgetExtension::initialize(lua_State* lua, MyGUI::Widget* self, bool isRoot)
     {
         mLua = lua;
         mWidget = self;
+        mElementRoot = isRoot;
         initialize();
         updateTemplate();
     }
@@ -42,8 +42,6 @@ namespace LuaUi
     {
         clearCallbacks();
         clearEvents(mWidget);
-
-        mOnCoordChange.reset();
 
         for (WidgetExtension* w : mChildren)
             w->deinitialize();
@@ -76,7 +74,7 @@ namespace LuaUi
         w->eventMouseButtonPressed.clear();
         w->eventMouseButtonReleased.clear();
         w->eventMouseMove.clear();
-        w->eventMouseDrag.m_event.clear();
+        w->eventMouseDrag.clear();
 
         w->eventMouseSetFocus.clear();
         w->eventMouseLostFocus.clear();
@@ -87,19 +85,34 @@ namespace LuaUi
     void WidgetExtension::reset()
     {
         // detach all children from the slot widget, in case it gets destroyed
-        for (auto& w: mChildren)
+        for (auto& w : mChildren)
             w->widget()->detachFromWidget();
+    }
+
+    void WidgetExtension::updateVisible()
+    {
+        // workaround for MyGUI bug
+        // parent visibility doesn't affect added children
+        MyGUI::Widget* parent = widget()->getParent();
+        bool inheritedVisible = mVisible && (parent == nullptr || parent->getInheritedVisible());
+        widget()->setVisible(inheritedVisible);
     }
 
     void WidgetExtension::attach(WidgetExtension* ext)
     {
+        if (ext->mParent != this)
+        {
+            if (ext->mParent)
+            {
+                auto children = ext->mParent->children();
+                std::erase(children, this);
+                ext->mParent->setChildren(children);
+            }
+            ext->detachFromParent();
+        }
         ext->mParent = this;
         ext->mTemplateChild = false;
         ext->widget()->attachToWidget(mSlot->widget());
-        // workaround for MyGUI bug
-        // parent visibility doesn't affect added children
-        ext->widget()->setVisible(!ext->widget()->getVisible());
-        ext->widget()->setVisible(!ext->widget()->getVisible());
     }
 
     void WidgetExtension::attachTemplate(WidgetExtension* ext)
@@ -107,10 +120,13 @@ namespace LuaUi
         ext->mParent = this;
         ext->mTemplateChild = true;
         ext->widget()->attachToWidget(widget());
-        // workaround for MyGUI bug
-        // parent visibility doesn't affect added children
-        ext->widget()->setVisible(!ext->widget()->getVisible());
-        ext->widget()->setVisible(!ext->widget()->getVisible());
+    }
+
+    void WidgetExtension::detachFromParent()
+    {
+        mParent = nullptr;
+        widget()->detachFromWidget();
+        widget()->detachFromLayer();
     }
 
     WidgetExtension* WidgetExtension::findDeep(std::string_view flagName)
@@ -167,7 +183,8 @@ namespace LuaUi
         return sol::make_object(lua(), keySym);
     }
 
-    sol::object WidgetExtension::mouseEvent(int left, int top, MyGUI::MouseButton button = MyGUI::MouseButton::None) const
+    sol::object WidgetExtension::mouseEvent(
+        int left, int top, MyGUI::MouseButton button = MyGUI::MouseButton::None) const
     {
         osg::Vec2f position(left, top);
         MyGUI::IntPoint absolutePosition = mWidget->getAbsolutePosition();
@@ -246,24 +263,25 @@ namespace LuaUi
         mForcedCoord = size;
     }
 
-    void WidgetExtension::clearForced() {
+    void WidgetExtension::clearForced()
+    {
         mForcePosition = false;
         mForceSize = false;
     }
 
     void WidgetExtension::updateCoord()
     {
+        updateVisible();
+
         MyGUI::IntCoord oldCoord = mWidget->getCoord();
         MyGUI::IntCoord newCoord = calculateCoord();
 
         if (oldCoord != newCoord)
             mWidget->setCoord(newCoord);
         updateChildrenCoord();
-        if (oldCoord != newCoord && mOnCoordChange.has_value())
-            mOnCoordChange.value()(this, newCoord);
     }
 
-    void WidgetExtension::setProperties(sol::object props)
+    void WidgetExtension::setProperties(const sol::main_object& props)
     {
         mProperties = props;
         updateProperties();
@@ -277,7 +295,8 @@ namespace LuaUi
         mRelativeCoord = propertyValue("relativePosition", MyGUI::FloatPoint());
         mRelativeCoord = propertyValue("relativeSize", MyGUI::FloatSize());
         mAnchor = propertyValue("anchor", MyGUI::FloatSize());
-        mWidget->setVisible(propertyValue("visible", true));
+        mVisible = propertyValue("visible", true);
+        mWidget->setVisible(mVisible);
         mWidget->setPointer(propertyValue("pointer", std::string("arrow")));
         mWidget->setAlpha(propertyValue("alpha", 1.f));
         mWidget->setInheritsAlpha(propertyValue("inheritAlpha", true));
@@ -291,7 +310,7 @@ namespace LuaUi
             w->updateCoord();
     }
 
-    MyGUI::IntSize WidgetExtension::parentSize()
+    MyGUI::IntSize WidgetExtension::parentSize() const
     {
         if (!mParent)
             return widget()->getParentSize(); // size of the layer
@@ -301,7 +320,7 @@ namespace LuaUi
             return mParent->childScalingSize();
     }
 
-    MyGUI::IntSize WidgetExtension::calculateSize()
+    MyGUI::IntSize WidgetExtension::calculateSize() const
     {
         if (mForceSize)
             return mForcedCoord.size();
@@ -314,7 +333,7 @@ namespace LuaUi
         return newSize;
     }
 
-    MyGUI::IntPoint WidgetExtension::calculatePosition(const MyGUI::IntSize& size)
+    MyGUI::IntPoint WidgetExtension::calculatePosition(const MyGUI::IntSize& size) const
     {
         if (mForcePosition)
             return mForcedCoord.point();
@@ -326,7 +345,7 @@ namespace LuaUi
         return newPosition;
     }
 
-    MyGUI::IntCoord WidgetExtension::calculateCoord()
+    MyGUI::IntCoord WidgetExtension::calculateCoord() const
     {
         MyGUI::IntCoord newCoord;
         newCoord = calculateSize();
@@ -334,12 +353,12 @@ namespace LuaUi
         return newCoord;
     }
 
-    MyGUI::IntSize WidgetExtension::childScalingSize()
+    MyGUI::IntSize WidgetExtension::childScalingSize() const
     {
         return mSlot->widget()->getSize();
     }
 
-    MyGUI::IntSize WidgetExtension::templateScalingSize()
+    MyGUI::IntSize WidgetExtension::templateScalingSize() const
     {
         return widget()->getSize();
     }
@@ -362,7 +381,7 @@ namespace LuaUi
             });
         }
         else
-            propagateEvent("keyPress", [code](auto w){ return w->keyEvent(code); });
+            propagateEvent("keyPress", [code](auto w) { return w->keyEvent(code); });
     }
 
     void WidgetExtension::keyRelease(MyGUI::Widget*, MyGUI::KeyCode code)
@@ -382,12 +401,12 @@ namespace LuaUi
 
     void WidgetExtension::mouseClick(MyGUI::Widget* _widget)
     {
-        propagateEvent("mouseClick", [](auto){ return sol::nil; });
+        propagateEvent("mouseClick", [](auto) { return sol::nil; });
     }
 
     void WidgetExtension::mouseDoubleClick(MyGUI::Widget* _widget)
     {
-        propagateEvent("mouseDoubleClick", [](auto){ return sol::nil; });
+        propagateEvent("mouseDoubleClick", [](auto) { return sol::nil; });
     }
 
     void WidgetExtension::mousePress(MyGUI::Widget*, int left, int top, MyGUI::MouseButton button)
@@ -402,11 +421,11 @@ namespace LuaUi
 
     void WidgetExtension::focusGain(MyGUI::Widget*, MyGUI::Widget*)
     {
-        propagateEvent("focusGain", [](auto){ return sol::nil; });
+        propagateEvent("focusGain", [](auto) { return sol::nil; });
     }
 
     void WidgetExtension::focusLoss(MyGUI::Widget*, MyGUI::Widget*)
     {
-        propagateEvent("focusLoss", [](auto){ return sol::nil; });
+        propagateEvent("focusLoss", [](auto) { return sol::nil; });
     }
 }

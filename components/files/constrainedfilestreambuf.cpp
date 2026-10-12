@@ -1,17 +1,19 @@
 #include "constrainedfilestreambuf.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <limits>
 
 namespace Files
 {
     namespace File = Platform::File;
-    
-    ConstrainedFileStreamBuf::ConstrainedFileStreamBuf(const std::string& fname, std::size_t start, std::size_t length)
+
+    ConstrainedFileStreamBuf::ConstrainedFileStreamBuf(
+        const std::filesystem::path& fname, std::size_t start, std::size_t length)
         : mOrigin(start)
     {
-        mFile = File::open(fname.c_str());
-        mSize  = length != std::numeric_limits<std::size_t>::max() ? length : File::size(mFile) - start;
+        mFile = File::open(fname);
+        mSize = length != std::numeric_limits<std::size_t>::max() ? length : File::size(mFile) - start;
 
         if (start != 0)
             File::seek(mFile, start);
@@ -27,7 +29,7 @@ namespace Files
             // Read in the next chunk of data, and set the read pointers on success
             // Failure will throw exception.
             const std::size_t got = File::read(mFile, mBuffer, toRead);
-            setg(&mBuffer[0], &mBuffer[0], &mBuffer[0] + got);
+            setg(mBuffer, mBuffer, mBuffer + got);
         }
         if (gptr() == egptr())
             return traits_type::eof();
@@ -35,7 +37,8 @@ namespace Files
         return traits_type::to_int_type(*gptr());
     }
 
-    std::streambuf::pos_type ConstrainedFileStreamBuf::seekoff(off_type offset, std::ios_base::seekdir whence, std::ios_base::openmode mode)
+    std::streambuf::pos_type ConstrainedFileStreamBuf::seekoff(
+        off_type offset, std::ios_base::seekdir whence, std::ios_base::openmode mode)
     {
         if ((mode & std::ios_base::out) || !(mode & std::ios_base::in))
             return traits_type::eof();

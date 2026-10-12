@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Enchantment::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Enchantment::ENDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mCost, v.mCharge, v.mFlags);
+    }
+
+    void Enchantment::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -19,11 +27,11 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("ENDT"):
-                    esm.getHTSized<16>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("ENAM"):
@@ -45,9 +53,9 @@ namespace ESM
             esm.fail("Missing ENDT subrecord");
     }
 
-    void Enchantment::save(ESMWriter &esm, bool isDeleted) const
+    void Enchantment::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -55,7 +63,7 @@ namespace ESM
             return;
         }
 
-        esm.writeHNT("ENDT", mData, 16);
+        esm.writeNamedComposite("ENDT", mData);
         mEffects.save(esm);
     }
 

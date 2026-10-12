@@ -11,20 +11,23 @@ namespace LuaUi
     {
         MYGUI_RTTI_DERIVED(LuaTextEdit)
 
-        protected:
-            void initialize() override;
-            void deinitialize() override;
-            void updateProperties() override;
-            void updateCoord() override;
-            void updateChildren() override;
-            MyGUI::IntSize calculateSize() override;
+    public:
+        bool isTextInput() override { return mEditBox->getEditStatic(); }
 
-        private:
-            void textChange(MyGUI::EditBox*);
+    protected:
+        void initialize() override;
+        void deinitialize() override;
+        void updateProperties() override;
+        void updateCoord() override;
+        void updateChildren() override;
+        MyGUI::IntSize calculateSize() const override;
 
-            MyGUI::EditBox* mEditBox = nullptr;
-            bool mMultiline{false};
-            bool mAutoSize{false};
+    private:
+        void textChange(MyGUI::EditBox*);
+
+        MyGUI::EditBox* mEditBox = nullptr;
+        bool mMultiline{ false };
+        bool mAutoSize{ false };
     };
 }
 

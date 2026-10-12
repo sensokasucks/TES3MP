@@ -24,14 +24,17 @@ namespace LuaUtil
 
         static bool isLuaCallback(const sol::object&);
         static Callback fromLua(const sol::table&);
+        static sol::table makeMetatable(lua_State* L);
+        static sol::table make(const AsyncPackageId& asyncId, sol::main_protected_function fn, sol::table metatable);
 
         bool isValid() const { return mHiddenData[ScriptsContainer::sScriptIdKey] != sol::nil; }
 
         template <typename... Args>
         sol::object call(Args&&... args) const
         {
-            if (isValid())
-                return LuaUtil::call(mFunc, std::forward<Args>(args)...);
+            sol::optional<ScriptId> scriptId = mHiddenData[ScriptsContainer::sScriptIdKey];
+            if (scriptId.has_value())
+                return LuaUtil::call(scriptId.value(), mFunc, std::forward<Args>(args)...);
             else
                 Log(Debug::Debug) << "Ignored callback to the removed script "
                                   << mHiddenData.get<std::string>(ScriptsContainer::sScriptDebugNameKey);

@@ -6,36 +6,37 @@
 #include "variant.hpp"
 
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
 
 namespace ESM
 {
 
-class ESMReader;
-class ESMWriter;
+    class ESMReader;
+    class ESMWriter;
 
-/*
- * Global script variables
- */
+    /*
+     * Global script variables
+     */
 
-struct Global
-{
-    constexpr static RecNameInts sRecordId = REC_GLOB;
+    struct Global
+    {
+        constexpr static RecNameInts sRecordId = REC_GLOB;
 
-    /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
-    static std::string_view getRecordType() { return "Global"; }
+        /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
+        static std::string_view getRecordType() { return "Global"; }
 
-    unsigned int mRecordFlags;
-    std::string mId;
-    Variant mValue;
+        uint32_t mRecordFlags;
+        ESM::RefId mId;
+        Variant mValue;
 
-    void load(ESMReader &esm, bool &isDeleted);
-    void save(ESMWriter &esm, bool isDeleted = false) const;
+        void load(ESMReader& esm, bool& isDeleted);
+        void save(ESMWriter& esm, bool isDeleted = false) const;
 
-    void blank();
-    ///< Set record to default state (does not touch the ID).
-};
+        void blank();
+        ///< Set record to default state (does not touch the ID).
+    };
 
-bool operator== (const Global& left, const Global& right);
+    bool operator==(const Global& left, const Global& right);
 
 }
 #endif

@@ -1,19 +1,19 @@
 #include "collections.hpp"
+#include "conversion.hpp"
 
-#include <components/misc/stringops.hpp>
+#include <components/misc/strings/algorithm.hpp>
+#include <components/misc/strings/lower.hpp>
 
 namespace Files
 {
     Collections::Collections()
         : mDirectories()
-        , mFoldCase(false)
         , mCollections()
     {
     }
 
-    Collections::Collections(const Files::PathContainer& directories, bool foldCase)
+    Collections::Collections(const Files::PathContainer& directories)
         : mDirectories(directories)
-        , mFoldCase(foldCase)
         , mCollections()
     {
     }
@@ -22,10 +22,10 @@ namespace Files
     {
         std::string ext = Misc::StringUtils::lowerCase(extension);
         auto iter = mCollections.find(ext);
-        if (iter==mCollections.end())
+        if (iter == mCollections.end())
         {
-            std::pair<MultiDirCollectionContainer::iterator, bool> result =
-                mCollections.emplace(ext, MultiDirCollection(mDirectories, ext, mFoldCase));
+            std::pair<MultiDirCollectionContainer::iterator, bool> result
+                = mCollections.emplace(ext, MultiDirCollection(mDirectories, ext));
 
             iter = result.first;
         }
@@ -33,45 +33,33 @@ namespace Files
         return iter->second;
     }
 
-    boost::filesystem::path Collections::getPath(const std::string& file) const
+    std::filesystem::path Collections::getPath(const std::string& file) const
     {
-        for (Files::PathContainer::const_iterator iter = mDirectories.begin();
-             iter != mDirectories.end(); ++iter)
+        for (auto iter = mDirectories.rbegin(); iter != mDirectories.rend(); iter++)
         {
-            for (boost::filesystem::directory_iterator iter2 (*iter);
-                iter2!=boost::filesystem::directory_iterator(); ++iter2)
+            for (const auto& iter2 : std::filesystem::directory_iterator(*iter))
             {
-                boost::filesystem::path path = *iter2;
+                const auto& path = iter2.path();
+                const auto str = Files::pathToUnicodeString(path.filename());
 
-                if (mFoldCase)
-                {
-                    if (Misc::StringUtils::ciEqual(file, path.filename().string()))
-                        return path.string();
-                }
-                else if (path.filename().string() == file)
-                    return path.string();
+                if (Misc::StringUtils::ciEqual(file, str))
+                    return path;
             }
         }
 
-        throw std::runtime_error ("file " + file + " not found");
+        throw std::runtime_error("file " + file + " not found");
     }
 
     bool Collections::doesExist(const std::string& file) const
     {
-        for (Files::PathContainer::const_iterator iter = mDirectories.begin();
-             iter != mDirectories.end(); ++iter)
+        for (auto iter = mDirectories.rbegin(); iter != mDirectories.rend(); iter++)
         {
-            for (boost::filesystem::directory_iterator iter2 (*iter);
-                iter2!=boost::filesystem::directory_iterator(); ++iter2)
+            for (const auto& iter2 : std::filesystem::directory_iterator(*iter))
             {
-                boost::filesystem::path path = *iter2;
+                const auto& path = iter2.path();
+                const auto str = Files::pathToUnicodeString(path.filename());
 
-                if (mFoldCase)
-                {
-                    if (Misc::StringUtils::ciEqual(file, path.filename().string()))
-                        return true;
-                }
-                else if (path.filename().string() == file)
+                if (Misc::StringUtils::ciEqual(file, str))
                     return true;
             }
         }

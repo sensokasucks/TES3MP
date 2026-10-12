@@ -19,7 +19,7 @@
 
 namespace MWWorld
 {
-    void ActionTrap::executeImp(const Ptr &actor)
+    void ActionTrap::executeImp(const Ptr& actor)
     {
         osg::Vec3f actorPosition(actor.getRefData().getPosition().asVec3());
         osg::Vec3f trapPosition(mTrapSource.getRefData().getPosition().asVec3());
@@ -29,7 +29,9 @@ namespace MWWorld
         // radius, because for most trap spells this is 1 foot, much less than the activation distance.
         // Using activation distance as the trap range.
 
-        if (actor == MWBase::Environment::get().getWorld()->getPlayerPtr() && MWBase::Environment::get().getWorld()->getDistanceToFacedObject() > trapRange) // player activated object outside range of trap
+        if (actor == MWBase::Environment::get().getWorld()->getPlayerPtr()
+            && MWBase::Environment::get().getWorld()->getDistanceToFacedObject()
+                > trapRange) // player activated object outside range of trap
         {
             MWMechanics::CastSpell cast(mTrapSource, mTrapSource);
             cast.mHitPosition = trapPosition;
@@ -48,7 +50,7 @@ namespace MWWorld
             Disable unilateral trap disarming on this client and expect the server's reply to our
             packet to do it instead
         */
-        //mTrapSource.getCellRef().setTrap("");
+        //mTrapSource.getCellRef().setTrap(ESM::RefId());
         /*
             End of tes3mp change (major)
         */
@@ -61,7 +63,7 @@ namespace MWWorld
         mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
         objectList->reset();
         objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-        
+
         ESM::Position pos;
 
         if (actor == MWBase::Environment::get().getWorld()->getPlayerPtr() && MWBase::Environment::get().getWorld()->getDistanceToFacedObject() > trapRange)

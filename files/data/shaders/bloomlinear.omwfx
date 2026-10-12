@@ -3,48 +3,48 @@ uniform_float uGamma {
     min = 0.1;
     max = 4.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:GammaLevelName}";
-    description = "#{BuiltInShaders:GammaLevelDescription}";
+    display_name = "#{OMWShaders:GammaLevelName}";
+    description = "#{OMWShaders:GammaLevelDescription}";
 }
 uniform_float uThreshold {
     default = 0.35;
     min = 0.0;
     max = 1.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:BloomThresholdLevelName}";
-    description = "#{BuiltInShaders:BloomThresholdLevelDescription}";
+    display_name = "#{OMWShaders:BloomThresholdLevelName}";
+    description = "#{OMWShaders:BloomThresholdLevelDescription}";
 }
 uniform_float uClamp {
     default = 1.0;
     min = 0.0;
     max = 1.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:BloomClampLevelName}";
-    description = "#{BuiltInShaders:BloomClampLevelDescription}";
+    display_name = "#{OMWShaders:BloomClampLevelName}";
+    description = "#{OMWShaders:BloomClampLevelDescription}";
 }
 uniform_float uSkyFactor {
     default = 0.5;
     min = 0.0;
     max = 2.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:SkyFactorLevelName}";
-    description = "#{BuiltInShaders:SkyFactorLevelDescription}";
+    display_name = "#{OMWShaders:SkyFactorLevelName}";
+    description = "#{OMWShaders:SkyFactorLevelDescription}";
 }
 uniform_float uRadius {
     default = 0.5;
     min = 0.0;
     max = 1.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:RadiusLevelName}";
-    description = "#{BuiltInShaders:RadiusLevelDescription}";
+    display_name = "#{OMWShaders:RadiusLevelName}";
+    description = "#{OMWShaders:RadiusLevelDescription}";
 }
 uniform_float uStrength {
     default = 0.25;
     min = 0.0;
     max = 1.0;
     step = 0.01;
-    display_name = "#{BuiltInShaders:StrengthLevelName}";
-    description = "#{BuiltInShaders:StrengthLevelDescription}";
+    display_name = "#{OMWShaders:StrengthLevelName}";
+    description = "#{OMWShaders:StrengthLevelDescription}";
 }
 
 shared {
@@ -80,8 +80,9 @@ shared {
         radius = max(radius, 0.1);
         // hack: make the radius wider on the screen edges
         // (makes things in the corner of the screen look less "wrong" with not-extremely-low FOVs)
-        radius *= pow(texcoord.x*2.0-1.0, 2)+1.0;
-        radius *= pow(texcoord.y*2.0-1.0, 2)+1.0;
+        texcoord = texcoord * 2.0 - vec2(1.0);
+        radius *= texcoord.x * texcoord.x + 1.0;
+        radius *= texcoord.y * texcoord.y + 1.0;
         return radius;
     }
     vec3 powv(vec3 a, float x)
@@ -94,7 +95,7 @@ render_target RT_NoMipmap {
     width_ratio = 0.25;
     height_ratio = 0.25;
     internal_format = rgb16f;
-    source_type = float;
+    source_type = half_float;
     source_format = rgb;
     mipmaps = false;
     min_filter = nearest;
@@ -105,7 +106,7 @@ render_target RT_Horizontal {
     width_ratio = 0.25;
     height_ratio = 0.25;
     internal_format = rgb16f;
-    source_type = float;
+    source_type = half_float;
     source_format = rgb;
     mipmaps = false;
     min_filter = nearest;
@@ -116,7 +117,7 @@ render_target RT_Vertical {
     width_ratio = 0.25;
     height_ratio = 0.25;
     internal_format = rgb16f;
-    source_type = float;
+    source_type = half_float;
     source_format = rgb;
     mipmaps = false;
     min_filter = linear;
@@ -215,7 +216,7 @@ fragment final(rt1=RT_Vertical) {
 
 technique {
     passes = nomipmap, horizontal, vertical, final;
-    description = "#{BuiltInShaders:BloomDescription}";
+    description = "#{OMWShaders:BloomDescription}";
     author = "OpenMW";
     version = "1.0";
 }

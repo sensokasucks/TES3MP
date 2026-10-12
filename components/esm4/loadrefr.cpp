@@ -27,92 +27,127 @@
 #include "loadrefr.hpp"
 
 #include <stdexcept>
-#include <iostream> // FIXME: debug only
 
 #include "reader.hpp"
-//#include "writer.hpp"
+// #include "writer.hpp"
 
 void ESM4::Reference::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
-    mParent = reader.currCell(); // NOTE: only for persistent refs?
+    mId = reader.hdr().record.getFormId();
+    reader.adjustFormId(mId);
+    mFlags = reader.hdr().record.flags;
+    mParent = reader.currCell();
 
-    // TODO: Let the engine apply this? Saved games?
-    //mInitiallyDisabled = ((mFlags & ESM4::Rec_Disabled) != 0) ? true : false;
-    std::uint32_t esmVer = reader.esmVersion();
-    bool isFONV = esmVer == ESM::VER_132 || esmVer == ESM::VER_133 || esmVer == ESM::VER_134;
-
-    FormId mid;
-    FormId sid;
+    ESM::FormId mid;
+    ESM::FormId sid;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getLocalizedString(mFullName); break;
-            case ESM4::SUB_NAME:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("NAME"):
             {
-                reader.getFormId(mBaseObj);
-#if 0
-                if (mFlags & ESM4::Rec_Disabled)
-                    std::cout << "REFR disable at start " << formIdToString(mFormId) <<
-                        " baseobj " << formIdToString(mBaseObj) <<
-                        " " << (mEditorId.empty() ? "" : mEditorId) << std::endl; // FIXME
-#endif
-                //if (mBaseObj == 0x20) // e.g. FO3 mFormId == 0x0007E90F
-                //if (mBaseObj == 0x17)
-                    //std::cout << mEditorId << std::endl;
+                ESM::FormId BaseId;
+                reader.getFormId(BaseId);
+                mBaseObj = BaseId;
                 break;
             }
-            case ESM4::SUB_DATA: reader.get(mPlacement); break;
-            case ESM4::SUB_XSCL: reader.get(mScale);    break;
-            case ESM4::SUB_XOWN: reader.getFormId(mOwner);    break;
-            case ESM4::SUB_XGLB: reader.getFormId(mGlobal);   break;
-            case ESM4::SUB_XRNK: reader.get(mFactionRank); break;
-            case ESM4::SUB_XESP:
+            case ESM::fourCC("DATA"):
+                reader.get(mPos);
+                break;
+            case ESM::fourCC("XSCL"):
+                reader.get(mScale);
+                break;
+            case ESM::fourCC("XOWN"):
             {
-                reader.get(mEsp);
-                reader.adjustFormId(mEsp.parent);
-                //std::cout << "REFR  parent: " << formIdToString(mEsp.parent) << " ref " << formIdToString(mFormId)
-                    //<< ", 0x" << std::hex << (mEsp.flags & 0xff) << std::endl;// FIXME
+                switch (subHdr.dataSize)
+                {
+                    case 4:
+                        reader.getFormId(mOwner);
+                        break;
+                    case 12:
+                    {
+                        reader.getFormId(mOwner);
+                        std::uint32_t dummy;
+                        reader.get(dummy); // Unknown
+                        reader.get(dummy); // No crime flag, FO4
+                        break;
+                    }
+                    default:
+                        reader.skipSubRecordData();
+                        break;
+                }
                 break;
             }
-            case ESM4::SUB_XTEL:
+            case ESM::fourCC("XGLB"):
+                reader.getFormId(mGlobal);
+                break;
+            case ESM::fourCC("XRNK"):
+                reader.get(mFactionRank);
+                break;
+            case ESM::fourCC("XESP"):
             {
-                reader.getFormId(mDoor.destDoor);
-                reader.get(mDoor.destPos);
-                if (esmVer == ESM::VER_094 || esmVer == ESM::VER_170 || isFONV)
-                    reader.get(mDoor.flags); // not in Obvlivion
-                //std::cout << "REFR  dest door: " << formIdToString(mDoor.destDoor) << std::endl;// FIXME
+                reader.getFormId(mEsp.parent);
+                reader.get(mEsp.flags);
+                // std::cout << "REFR  parent: " << formIdToString(mEsp.parent) << " ref " << formIdToString(mFormId)
+                // << ", 0x" << std::hex << (mEsp.flags & 0xff) << std::endl;// FIXME
                 break;
             }
-            case ESM4::SUB_XSED:
+            case ESM::fourCC("XTEL"):
+            {
+                switch (subHdr.dataSize)
+                {
+                    case 28:
+                    case 32: // FO3, FNV, TES5
+                    case 36: // FO4
+                    {
+                        reader.getFormId(mDoor.destDoor);
+                        reader.get(mDoor.destPos);
+                        mDoor.flags = 0;
+                        if (subHdr.dataSize >= 32)
+                        {
+                            reader.get(mDoor.flags);
+                            if (subHdr.dataSize == 36)
+                                reader.getFormId(mDoor.transitionInterior);
+                        }
+                        break;
+                    }
+                    default:
+                        reader.skipSubRecordData();
+                        break;
+                }
+                break;
+            }
+            case ESM::fourCC("XSED"):
             {
                 // 1 or 4 bytes
                 if (subHdr.dataSize == 1)
                 {
                     uint8_t data;
                     reader.get(data);
-                    //std::cout << "REFR XSED " << std::hex << (int)data << std::endl;
+                    // std::cout << "REFR XSED " << std::hex << (int)data << std::endl;
                     break;
                 }
                 else if (subHdr.dataSize == 4)
                 {
                     uint32_t data;
                     reader.get(data);
-                    //std::cout << "REFR XSED " << std::hex << (int)data << std::endl;
+                    // std::cout << "REFR XSED " << std::hex << (int)data << std::endl;
                     break;
                 }
 
-                //std::cout << "REFR XSED dataSize: " << subHdr.dataSize << std::endl;// FIXME
+                // std::cout << "REFR XSED dataSize: " << subHdr.dataSize << std::endl;// FIXME
                 reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_XLOD:
+            case ESM::fourCC("XLOD"):
             {
                 // 12 bytes
                 if (subHdr.dataSize == 12)
@@ -121,32 +156,33 @@ void ESM4::Reference::load(ESM4::Reader& reader)
                     reader.get(data);
                     reader.get(data2);
                     reader.get(data3);
-                    //bool hasVisibleWhenDistantFlag = (mFlags & 0x00008000) != 0; // currently unused
-                    // some are trees, e.g. 000E03B6, mBaseObj 00022F32, persistent, visible when distant
-                    // some are doors, e.g. 000270F7, mBaseObj 000CD338, persistent, initially disabled
-                    // (this particular one is an Oblivion Gate)
-                    //std::cout << "REFR XLOD " << std::hex << (int)data << " " << (int)data2 << " " << (int)data3 << std::endl;
+                    // bool hasVisibleWhenDistantFlag = (mFlags & 0x00008000) != 0; // currently unused
+                    //  some are trees, e.g. 000E03B6, mBaseObj 00022F32, persistent, visible when distant
+                    //  some are doors, e.g. 000270F7, mBaseObj 000CD338, persistent, initially disabled
+                    //  (this particular one is an Oblivion Gate)
+                    // std::cout << "REFR XLOD " << std::hex << (int)data << " " << (int)data2 << " " << (int)data3 <<
+                    // std::endl;
                     break;
                 }
-                //std::cout << "REFR XLOD dataSize: " << subHdr.dataSize << std::endl;// FIXME
+                // std::cout << "REFR XLOD dataSize: " << subHdr.dataSize << std::endl;// FIXME
                 reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_XACT:
+            case ESM::fourCC("XACT"):
             {
                 if (subHdr.dataSize == 4)
                 {
                     uint32_t data;
                     reader.get(data);
-                    //std::cout << "REFR XACT " << std::hex << (int)data << std::endl;
+                    // std::cout << "REFR XACT " << std::hex << (int)data << std::endl;
                     break;
                 }
 
-                //std::cout << "REFR XACT dataSize: " << subHdr.dataSize << std::endl;// FIXME
+                // std::cout << "REFR XACT dataSize: " << subHdr.dataSize << std::endl;// FIXME
                 reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_XRTM: // formId
+            case ESM::fourCC("XRTM"): // formId
             {
                 // seems like another ref, e.g. 00064583 has base object 00000034 which is "XMarkerHeading"
                 // e.g. some are doors (prob. quest related)
@@ -158,38 +194,43 @@ void ESM4::Reference::load(ESM4::Reader& reader)
                 //    MQ11BravilGate      XRTM : 0018AE1B
                 // e.g. some are XMarkerHeading
                 //    XRTM : 000A4DD7 in OblivionRDCavesMiddleA05 (maybe spawn points?)
-                FormId marker;
+                ESM::FormId marker;
                 reader.getFormId(marker);
-                //std::cout << "REFR " << mEditorId << " XRTM : " << formIdToString(marker) << std::endl;// FIXME
+                // std::cout << "REFR " << mEditorId << " XRTM : " << formIdToString(marker) << std::endl;// FIXME
                 break;
             }
-            case ESM4::SUB_TNAM: //reader.get(mMapMarker); break;
+            case ESM::fourCC("TNAM"): // reader.get(mMapMarker); break;
             {
                 if (subHdr.dataSize != sizeof(mMapMarker))
-                    //reader.skipSubRecordData(); // FIXME: FO3
+                    // reader.skipSubRecordData(); // FIXME: FO3
                     reader.getFormId(mid);
                 else
                     reader.get(mMapMarker); // TES4
 
                 break;
             }
-            case ESM4::SUB_XMRK: mIsMapMarker = true; break; // all have mBaseObj 0x00000010 "MapMarker"
-            case ESM4::SUB_FNAM:
+            case ESM::fourCC("XMRK"):
+                mIsMapMarker = true;
+                break; // all have mBaseObj 0x00000010 "MapMarker"
+            case ESM::fourCC("FNAM"):
             {
-                //std::cout << "REFR " << ESM::printName(subHdr.typeId) << " skipping..."
-                        //<< subHdr.dataSize << std::endl;
+                // std::cout << "REFR " << ESM::printName(subHdr.typeId) << " skipping..."
+                // << subHdr.dataSize << std::endl;
                 reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_XTRG: // formId
+            case ESM::fourCC("XTRG"): // formId
             {
                 reader.getFormId(mTargetRef);
-                //std::cout << "REFR XRTG : " << formIdToString(id) << std::endl;// FIXME
+                // std::cout << "REFR XRTG : " << formIdToString(id) << std::endl;// FIXME
                 break;
             }
-            case ESM4::SUB_CNAM: reader.getFormId(mAudioLocation); break; // FONV
-            case ESM4::SUB_XRDO: // FO3
+            case ESM::fourCC("CNAM"):
+                reader.getFormId(mAudioLocation);
+                break; // FONV
+            case ESM::fourCC("XRDO"): // FO3
             {
+                // FIXME: completely different meaning in FO4
                 reader.get(mRadio.rangeRadius);
                 reader.get(mRadio.broadcastRange);
                 reader.get(mRadio.staticPercentage);
@@ -197,14 +238,14 @@ void ESM4::Reference::load(ESM4::Reader& reader)
 
                 break;
             }
-            case ESM4::SUB_SCRO: // FO3
+            case ESM::fourCC("SCRO"): // FO3
             {
                 reader.getFormId(sid);
-                //if (mFormId == 0x0016b74B)
-                    //std::cout << "REFR SCRO : " << formIdToString(sid) << std::endl;// FIXME
+                // if (mFormId == 0x0016b74B)
+                // std::cout << "REFR SCRO : " << formIdToString(sid) << std::endl;// FIXME
                 break;
             }
-            case ESM4::SUB_XLOC:
+            case ESM::fourCC("XLOC"):
             {
                 mIsLocked = true;
                 std::int8_t dummy; // FIXME: very poor code
@@ -213,110 +254,125 @@ void ESM4::Reference::load(ESM4::Reader& reader)
                 reader.get(dummy);
                 reader.get(dummy);
                 reader.get(dummy);
-                reader.getFormId(mKey);
+                ESM::FormId keyForm;
+                reader.getFormId(keyForm);
+                mKey = keyForm;
                 reader.get(dummy); // flag?
                 reader.get(dummy);
                 reader.get(dummy);
                 reader.get(dummy);
                 if (subHdr.dataSize == 16)
                     reader.skipSubRecordData(4); // Oblivion (sometimes), flag?
-                else if (subHdr.dataSize == 20)  // Skyrim, FO3
+                else if (subHdr.dataSize == 20) // Skyrim, FO3
                     reader.skipSubRecordData(8); // flag?
 
                 break;
             }
-            // lighting
-            case ESM4::SUB_LNAM: // lighting template formId
-            case ESM4::SUB_XLIG: // struct, FOV, fade, etc
-            case ESM4::SUB_XEMI: // LIGH formId
-            case ESM4::SUB_XRDS: // Radius or Radiance
-            case ESM4::SUB_XRGB:
-            case ESM4::SUB_XRGD: // tangent data?
-            case ESM4::SUB_XALP: // alpha cutoff
-            //
-            case ESM4::SUB_XPCI: // formId
-            case ESM4::SUB_XLCM:
-            case ESM4::SUB_XCNT:
-            case ESM4::SUB_ONAM:
-            case ESM4::SUB_VMAD:
-            case ESM4::SUB_XPRM:
-            case ESM4::SUB_INAM:
-            case ESM4::SUB_PDTO:
-            case ESM4::SUB_SCHR:
-            case ESM4::SUB_SCTX:
-            case ESM4::SUB_XAPD:
-            case ESM4::SUB_XAPR:
-            case ESM4::SUB_XCVL:
-            case ESM4::SUB_XCZA:
-            case ESM4::SUB_XCZC:
-            case ESM4::SUB_XEZN:
-            case ESM4::SUB_XFVC:
-            case ESM4::SUB_XHTW:
-            case ESM4::SUB_XIS2:
-            case ESM4::SUB_XLCN:
-            case ESM4::SUB_XLIB:
-            case ESM4::SUB_XLKR:
-            case ESM4::SUB_XLRM:
-            case ESM4::SUB_XLRT:
-            case ESM4::SUB_XLTW:
-            case ESM4::SUB_XMBO:
-            case ESM4::SUB_XMBP:
-            case ESM4::SUB_XMBR:
-            case ESM4::SUB_XNDP:
-            case ESM4::SUB_XOCP:
-            case ESM4::SUB_XPOD:
-            case ESM4::SUB_XPPA:
-            case ESM4::SUB_XPRD:
-            case ESM4::SUB_XPWR:
-            case ESM4::SUB_XRMR:
-            case ESM4::SUB_XSPC:
-            case ESM4::SUB_XTNM:
-            case ESM4::SUB_XTRI:
-            case ESM4::SUB_XWCN:
-            case ESM4::SUB_XWCU:
-            case ESM4::SUB_XATR: // Dawnguard only?
-            case ESM4::SUB_XHLT: // Unofficial Oblivion Patch
-            case ESM4::SUB_XCHG: // thievery.exp
-            case ESM4::SUB_XHLP: // FO3
-            case ESM4::SUB_XAMT: // FO3
-            case ESM4::SUB_XAMC: // FO3
-            case ESM4::SUB_XRAD: // FO3
-            case ESM4::SUB_XIBS: // FO3
-            case ESM4::SUB_XORD: // FO3
-            case ESM4::SUB_XCLP: // FO3
-            case ESM4::SUB_SCDA: // FO3
-            case ESM4::SUB_RCLR: // FO3
-            case ESM4::SUB_BNAM: // FONV
-            case ESM4::SUB_MMRK: // FONV
-            case ESM4::SUB_MNAM: // FONV
-            case ESM4::SUB_NNAM: // FONV
-            case ESM4::SUB_XATO: // FONV
-            case ESM4::SUB_SCRV: // FONV
-            case ESM4::SUB_SCVR: // FONV
-            case ESM4::SUB_SLSD: // FONV
-            case ESM4::SUB_XSRF: // FONV
-            case ESM4::SUB_XSRD: // FONV
-            case ESM4::SUB_WMI1: // FONV
-            case ESM4::SUB_XLRL: // Unofficial Skyrim Patch
+            case ESM::fourCC("XCNT"):
             {
-                //if (mFormId == 0x0007e90f) // XPRM XPOD
-                //if (mBaseObj == 0x17) //XPRM XOCP occlusion plane data XMBO bound half extents
-                //std::cout << "REFR " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
-                reader.skipSubRecordData();
+                reader.get(mCount);
                 break;
             }
+            // lighting
+            case ESM::fourCC("LNAM"): // lighting template formId
+            case ESM::fourCC("XLIG"): // struct, FOV, fade, etc
+            case ESM::fourCC("XEMI"): // LIGH formId
+            case ESM::fourCC("XRDS"): // Radius or Radiance
+            case ESM::fourCC("XRGB"):
+            case ESM::fourCC("XRGD"): // tangent data?
+            case ESM::fourCC("XALP"): // alpha cutoff
+            //
+            case ESM::fourCC("XPCI"): // formId
+            case ESM::fourCC("XLCM"):
+            case ESM::fourCC("ONAM"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("XPRM"):
+            case ESM::fourCC("INAM"):
+            case ESM::fourCC("PDTO"):
+            case ESM::fourCC("SCHR"):
+            case ESM::fourCC("SCTX"):
+            case ESM::fourCC("XAPD"):
+            case ESM::fourCC("XAPR"):
+            case ESM::fourCC("XCVL"):
+            case ESM::fourCC("XCZA"):
+            case ESM::fourCC("XCZC"):
+            case ESM::fourCC("XEZN"):
+            case ESM::fourCC("XFVC"):
+            case ESM::fourCC("XHTW"):
+            case ESM::fourCC("XIS2"):
+            case ESM::fourCC("XLCN"):
+            case ESM::fourCC("XLIB"):
+            case ESM::fourCC("XLKR"):
+            case ESM::fourCC("XLRM"):
+            case ESM::fourCC("XLRT"):
+            case ESM::fourCC("XLTW"):
+            case ESM::fourCC("XMBO"):
+            case ESM::fourCC("XMBP"):
+            case ESM::fourCC("XMBR"):
+            case ESM::fourCC("XNDP"):
+            case ESM::fourCC("XOCP"):
+            case ESM::fourCC("XPOD"):
+            case ESM::fourCC("XPTL"):
+            case ESM::fourCC("XPPA"):
+            case ESM::fourCC("XPRD"):
+            case ESM::fourCC("XPWR"):
+            case ESM::fourCC("XRMR"):
+            case ESM::fourCC("XSPC"):
+            case ESM::fourCC("XTNM"):
+            case ESM::fourCC("XTRI"):
+            case ESM::fourCC("XWCN"):
+            case ESM::fourCC("XWCU"):
+            case ESM::fourCC("XATR"):
+            case ESM::fourCC("XHLT"): // Unofficial Oblivion Patch
+            case ESM::fourCC("XCHG"): // thievery.exp
+            case ESM::fourCC("XHLP"): // FO3
+            case ESM::fourCC("XAMT"): // FO3
+            case ESM::fourCC("XAMC"): // FO3
+            case ESM::fourCC("XRAD"): // FO3
+            case ESM::fourCC("XIBS"): // FO3
+            case ESM::fourCC("XORD"): // FO3
+            case ESM::fourCC("XCLP"): // FO3
+            case ESM::fourCC("SCDA"): // FO3
+            case ESM::fourCC("RCLR"): // FO3
+            case ESM::fourCC("BNAM"): // FONV
+            case ESM::fourCC("MMRK"): // FONV
+            case ESM::fourCC("MNAM"): // FONV
+            case ESM::fourCC("NNAM"): // FONV
+            case ESM::fourCC("XATO"): // FONV
+            case ESM::fourCC("SCRV"): // FONV
+            case ESM::fourCC("SCVR"): // FONV
+            case ESM::fourCC("SLSD"): // FONV
+            case ESM::fourCC("XSRF"): // FONV
+            case ESM::fourCC("XSRD"): // FONV
+            case ESM::fourCC("WMI1"): // FONV
+            case ESM::fourCC("XLRL"): // Unofficial Skyrim Patch
+            case ESM::fourCC("XASP"): // FO4
+            case ESM::fourCC("XATP"): // FO4
+            case ESM::fourCC("XBSD"): // FO4
+            case ESM::fourCC("XCVR"): // FO4
+            case ESM::fourCC("XCZR"): // FO4
+            case ESM::fourCC("XLKT"): // FO4
+            case ESM::fourCC("XLYR"): // FO4
+            case ESM::fourCC("XMSP"): // FO4
+            case ESM::fourCC("XPDD"): // FO4
+            case ESM::fourCC("XPLK"): // FO4
+            case ESM::fourCC("XRFG"): // FO4
+            case ESM::fourCC("XWPG"): // FO4
+            case ESM::fourCC("XWPN"): // FO4
+                // if (mFormId == 0x0007e90f) // XPRM XPOD
+                // if (mBaseObj == 0x17) //XPRM XOCP occlusion plane data XMBO bound half extents
+                reader.skipSubRecordData();
+                break;
             default:
                 throw std::runtime_error("ESM4::REFR::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
-    //if (mFormId == 0x0016B74B) // base is TACT vCasinoUltraLuxeRadio in cell ULCasino
-        //std::cout << "REFR SCRO " << formIdToString(sid) << std::endl;
+    // if (mFormId == 0x0016B74B) // base is TACT vCasinoUltraLuxeRadio in cell ULCasino
+    // std::cout << "REFR SCRO " << formIdToString(sid) << std::endl;
 }
 
-//void ESM4::Reference::save(ESM4::Writer& writer) const
+// void ESM4::Reference::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-void ESM4::Reference::blank()
-{
-}
+void ESM4::Reference::blank() {}

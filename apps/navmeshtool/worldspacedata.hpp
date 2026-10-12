@@ -8,6 +8,7 @@
 #include <components/resource/bulletshape.hpp>
 
 #include <BulletCollision/CollisionDispatch/btCollisionObject.h>
+#include <BulletCollision/Gimpact/btBoxCollision.h>
 #include <LinearMath/btVector3.h>
 
 #include <memory>
@@ -42,17 +43,17 @@ namespace DetourNavigator
 
 namespace NavMeshTool
 {
-    using DetourNavigator::TileCachedRecastMeshManager;
     using DetourNavigator::ObjectTransform;
+    using DetourNavigator::TileCachedRecastMeshManager;
 
     struct WorldspaceNavMeshInput
     {
-        std::string mWorldspace;
+        ESM::RefId mWorldspace;
         TileCachedRecastMeshManager mTileCachedRecastMeshManager;
         btAABB mAabb;
         bool mAabbInitialized = false;
 
-        explicit WorldspaceNavMeshInput(std::string worldspace, const DetourNavigator::RecastSettings& settings);
+        explicit WorldspaceNavMeshInput(ESM::RefId worldspace, const DetourNavigator::RecastSettings& settings);
     };
 
     class BulletObject
@@ -61,12 +62,10 @@ namespace NavMeshTool
         BulletObject(osg::ref_ptr<Resource::BulletShapeInstance>&& shapeInstance, const ESM::Position& position,
             float localScaling)
             : mShapeInstance(std::move(shapeInstance))
-            , mObjectTransform {position, localScaling}
-            , mCollisionObject(BulletHelpers::makeCollisionObject(
-                mShapeInstance->mCollisionShape.get(),
-                Misc::Convert::toBullet(position.asVec3()),
-                Misc::Convert::toBullet(Misc::Convert::makeOsgQuat(position))
-            ))
+            , mObjectTransform{ position, localScaling }
+            , mCollisionObject(BulletHelpers::makeCollisionObject(mShapeInstance->mCollisionShape.get(),
+                  Misc::Convert::toBullet(position.asVec3()),
+                  Misc::Convert::toBullet(Misc::Convert::makeOsgQuat(position))))
         {
             mShapeInstance->setLocalScaling(btVector3(localScaling, localScaling, localScaling));
         }

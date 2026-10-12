@@ -1,12 +1,12 @@
 #include "loadsndg.hpp"
 
+#include "components/esm/defs.hpp"
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    void SoundGenerator::load(ESMReader &esm, bool &isDeleted)
+    void SoundGenerator::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -19,18 +19,18 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("DATA"):
-                    esm.getHTSized<4>(mType);
+                    esm.getHT(mType);
                     hasData = true;
                     break;
                 case fourCC("CNAM"):
-                    mCreature = esm.getHString();
+                    mCreature = esm.getRefId();
                     break;
                 case fourCC("SNAM"):
-                    mSound = esm.getHString();
+                    mSound = esm.getRefId();
                     break;
                 case SREC_DELE:
                     esm.skipHSub();
@@ -47,9 +47,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing DATA subrecord");
     }
-    void SoundGenerator::save(ESMWriter &esm, bool isDeleted) const
+    void SoundGenerator::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -57,17 +57,16 @@ namespace ESM
             return;
         }
 
-        esm.writeHNT("DATA", mType, 4);
-        esm.writeHNOCString("CNAM", mCreature);
-        esm.writeHNOCString("SNAM", mSound);
-        
+        esm.writeHNT("DATA", mType);
+        esm.writeHNOCRefId("CNAM", mCreature);
+        esm.writeHNOCRefId("SNAM", mSound);
     }
 
     void SoundGenerator::blank()
     {
         mRecordFlags = 0;
         mType = LeftFoot;
-        mCreature.clear();
-        mSound.clear();
+        mCreature = ESM::RefId();
+        mSound = ESM::RefId();
     }
 }

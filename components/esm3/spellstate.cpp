@@ -6,18 +6,18 @@
 namespace ESM
 {
 
-    void SpellState::load(ESMReader &esm)
+    void SpellState::load(ESMReader& esm)
     {
-        if(esm.getFormat() < 17)
+        if (esm.getFormatVersion() <= MaxClearModifiersFormatVersion)
         {
             while (esm.isNextSub("SPEL"))
             {
-                std::string id = esm.getHString();
+                ESM::RefId id = esm.getRefId();
 
                 SpellParams state;
                 while (esm.isNextSub("INDX"))
                 {
-                    int index;
+                    int32_t index;
                     esm.getHT(index);
 
                     float magnitude;
@@ -26,26 +26,27 @@ namespace ESM
                     state.mEffectRands[index] = magnitude;
                 }
 
-                while (esm.isNextSub("PURG")) {
-                    int index;
+                while (esm.isNextSub("PURG"))
+                {
+                    int32_t index;
                     esm.getHT(index);
                     state.mPurgedEffects.insert(index);
                 }
 
-                mSpellParams[id] = state;
+                mSpellParams[id] = std::move(state);
                 mSpells.emplace_back(id);
             }
         }
         else
         {
             while (esm.isNextSub("SPEL"))
-                mSpells.emplace_back(esm.getHString());
+                mSpells.emplace_back(esm.getRefId());
         }
 
         // Obsolete
         while (esm.isNextSub("PERM"))
         {
-            std::string spellId = esm.getHString();
+            ESM::RefId spellId = esm.getRefId();
             std::vector<PermanentSpellEffectInfo> permEffectList;
 
             while (true)
@@ -68,46 +69,43 @@ namespace ESM
                 esm.getHNT(info.mMagnitude, "MAGN");
                 permEffectList.push_back(info);
             }
-            mPermanentSpellEffects[spellId] = permEffectList;
+            mPermanentSpellEffects[spellId] = std::move(permEffectList);
         }
 
         // Obsolete
         while (esm.isNextSub("CORP"))
         {
-            std::string id = esm.getHString();
+            ESM::RefId id = esm.getRefId();
 
             CorprusStats stats;
             esm.getHNT(stats.mWorsenings, "WORS");
-            esm.getHNT(stats.mNextWorsening, "TIME");
+            stats.mNextWorsening.load(esm);
 
             mCorprusSpells[id] = stats;
         }
 
         while (esm.isNextSub("USED"))
         {
-            std::string id = esm.getHString();
-            TimeStamp time;
-            esm.getHNT(time, "TIME");
-
-            mUsedPowers[id] = time;
+            ESM::RefId id = esm.getRefId();
+            mUsedPowers[id].load(esm);
         }
 
-        mSelectedSpell = esm.getHNOString("SLCT");
+        mSelectedSpell = esm.getHNORefId("SLCT");
     }
 
-    void SpellState::save(ESMWriter &esm) const
+    void SpellState::save(ESMWriter& esm) const
     {
-        for (const std::string& spell : mSpells)
-            esm.writeHNString("SPEL", spell);
+        for (const ESM::RefId& spell : mSpells)
+            esm.writeHNRefId("SPEL", spell);
 
-        for (std::map<std::string, TimeStamp>::const_iterator it = mUsedPowers.begin(); it != mUsedPowers.end(); ++it)
+        for (auto it = mUsedPowers.begin(); it != mUsedPowers.end(); ++it)
         {
-            esm.writeHNString("USED", it->first);
+            esm.writeHNRefId("USED", it->first);
             esm.writeHNT("TIME", it->second);
         }
 
         if (!mSelectedSpell.empty())
-            esm.writeHNString("SLCT", mSelectedSpell);
+            esm.writeHNRefId("SLCT", mSelectedSpell);
     }
 
 }

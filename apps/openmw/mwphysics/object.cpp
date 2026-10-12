@@ -1,12 +1,12 @@
 #include "object.hpp"
 #include "mtphysics.hpp"
 
+#include <components/bullethelpers/collisionobject.hpp>
 #include <components/debug/debuglog.hpp>
+#include <components/misc/convert.hpp>
 #include <components/nifosg/particle.hpp>
 #include <components/resource/bulletshape.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
-#include <components/misc/convert.hpp>
-#include <components/bullethelpers/collisionobject.hpp>
 
 #include <BulletCollision/CollisionShapes/btCompoundShape.h>
 
@@ -14,20 +14,23 @@
 
 namespace MWPhysics
 {
-    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance, osg::Quat rotation, int collisionType, PhysicsTaskScheduler* scheduler)
-        : mShapeInstance(std::move(shapeInstance))
+    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance,
+        osg::Quat rotation, int collisionType, PhysicsTaskScheduler* scheduler)
+        : PtrHolder(ptr, osg::Vec3f())
+        , mShapeInstance(std::move(shapeInstance))
         , mSolid(true)
         , mScale(ptr.getCellRef().getScale(), ptr.getCellRef().getScale(), ptr.getCellRef().getScale())
         , mPosition(ptr.getRefData().getPosition().asVec3())
         , mRotation(rotation)
         , mTaskScheduler(scheduler)
+        , mCollidedWith(ScriptedCollisionType_None)
     {
-        mPtr = ptr;
         mCollisionObject = BulletHelpers::makeCollisionObject(mShapeInstance->mCollisionShape.get(),
             Misc::Convert::toBullet(mPosition), Misc::Convert::toBullet(rotation));
         mCollisionObject->setUserPointer(this);
         mShapeInstance->setLocalScaling(mScale);
-        mTaskScheduler->addCollisionObject(mCollisionObject.get(), collisionType, CollisionType_Actor|CollisionType_HeightMap|CollisionType_Projectile);
+        mTaskScheduler->addCollisionObject(mCollisionObject.get(), collisionType,
+            CollisionType_Actor | CollisionType_HeightMap | CollisionType_Projectile);
     }
 
     Object::~Object()
@@ -43,7 +46,7 @@ namespace MWPhysics
     void Object::setScale(float scale)
     {
         std::unique_lock<std::mutex> lock(mPositionMutex);
-        mScale = { scale,scale,scale };
+        mScale = { scale, scale, scale };
         mScaleUpdatePending = true;
     }
 
@@ -108,7 +111,10 @@ namespace MWPhysics
         if (mShapeInstance->mAnimatedShapes.empty())
             return false;
 
-        assert (mShapeInstance->mCollisionShape->isCompound());
+        if (!mPtr.getRefData().getBaseNode())
+            return false;
+
+        assert(mShapeInstance->mCollisionShape->isCompound());
 
         btCompoundShape* compound = static_cast<btCompoundShape*>(mShapeInstance->mCollisionShape.get());
         bool result = false;
@@ -121,7 +127,8 @@ namespace MWPhysics
                 mPtr.getRefData().getBaseNode()->accept(visitor);
                 if (!visitor.mFound)
                 {
-                    Log(Debug::Warning) << "Warning: animateCollisionShapes can't find node " << recIndex << " for " << mPtr.getCellRef().getRefId();
+                    Log(Debug::Warning) << "Warning: animateCollisionShapes can't find node " << recIndex << " for "
+                                        << mPtr.getCellRef().getRefId();
 
                     // Remove nonexistent nodes from animated shapes map and early out
                     mShapeInstance->mAnimatedShapes.erase(recIndex);
@@ -134,16 +141,24 @@ namespace MWPhysics
 
             osg::NodePath& nodePath = nodePathFound->second;
             osg::Matrixf matrix = osg::computeLocalToWorld(nodePath);
+            btVector3 scale = Misc::Convert::toBullet(matrix.getScale());
             matrix.orthoNormalize(matrix);
 
             btTransform transform;
             transform.setOrigin(Misc::Convert::toBullet(matrix.getTrans()) * compound->getLocalScaling());
-            for (int i=0; i<3; ++i)
-                for (int j=0; j<3; ++j)
-                    transform.getBasis()[i][j] = matrix(j,i); // NB column/row major difference
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    transform.getBasis()[i][j] = matrix(j, i); // NB column/row major difference
 
-            // Note: we can not apply scaling here for now since we treat scaled shapes
-            // as new shapes (btScaledBvhTriangleMeshShape) with 1.0 scale for now
+            btCollisionShape* childShape = compound->getChildShape(shapeIndex);
+            btVector3 newScale = compound->getLocalScaling() * scale;
+
+            if (childShape->getLocalScaling() != newScale)
+            {
+                childShape->setLocalScaling(newScale);
+                result = true;
+            }
+
             if (!(transform == compound->getChildTransform(shapeIndex)))
             {
                 compound->updateChildTransform(shapeIndex, transform);
@@ -151,5 +166,21 @@ namespace MWPhysics
             }
         }
         return result;
+    }
+
+    bool Object::collidedWith(ScriptedCollisionType type) const
+    {
+        return mCollidedWith & type;
+    }
+
+    void Object::addCollision(ScriptedCollisionType type)
+    {
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        mCollidedWith |= type;
+    }
+
+    void Object::resetCollisions()
+    {
+        mCollidedWith = ScriptedCollisionType_None;
     }
 }

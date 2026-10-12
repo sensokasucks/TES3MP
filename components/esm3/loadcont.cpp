@@ -1,33 +1,33 @@
 #include "loadcont.hpp"
 
+#include "components/esm/defs.hpp"
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
 
-    void InventoryList::add(ESMReader &esm)
+    void InventoryList::add(ESMReader& esm)
     {
         esm.getSubHeader();
         ContItem ci;
         esm.getT(ci.mCount);
-        ci.mItem.assign(esm.getString(32));
+        ci.mItem = esm.getMaybeFixedRefIdSize(32);
         mList.push_back(ci);
     }
 
-    void InventoryList::save(ESMWriter &esm) const
+    void InventoryList::save(ESMWriter& esm) const
     {
         for (std::vector<ContItem>::const_iterator it = mList.begin(); it != mList.end(); ++it)
         {
             esm.startSubRecord("NPCO");
             esm.writeT(it->mCount);
-            esm.writeFixedSizeString(it->mItem, 32);
+            esm.writeMaybeFixedSizeRefId(it->mItem, 32);
             esm.endRecord("NPCO");
         }
     }
 
-    void Container::load(ESMReader &esm, bool &isDeleted)
+    void Container::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -43,7 +43,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -53,11 +53,11 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("CNDT"):
-                    esm.getHTSized<4>(mWeight);
+                    esm.getHT(mWeight);
                     hasWeight = true;
                     break;
                 case fourCC("FLAG"):
-                    esm.getHTSized<4>(mFlags);
+                    esm.getHT(mFlags);
                     if (mFlags & 0xf4)
                         esm.fail("Unknown flags");
                     if (!(mFlags & 0x8))
@@ -65,7 +65,7 @@ namespace ESM
                     hasFlags = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("NPCO"):
                     mInventory.add(esm);
@@ -88,9 +88,9 @@ namespace ESM
             esm.fail("Missing FLAG subrecord");
     }
 
-    void Container::save(ESMWriter &esm, bool isDeleted) const
+    void Container::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -100,10 +100,10 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("CNDT", mWeight, 4);
-        esm.writeHNT("FLAG", mFlags, 4);
+        esm.writeHNT("CNDT", mWeight);
+        esm.writeHNT("FLAG", mFlags);
 
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeHNOCRefId("SCRI", mScript);
 
         mInventory.save(esm);
     }
@@ -113,7 +113,7 @@ namespace ESM
         mRecordFlags = 0;
         mName.clear();
         mModel.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
         mWeight = 0;
         mFlags = 0x8; // set default flag value
         mInventory.mList.clear();

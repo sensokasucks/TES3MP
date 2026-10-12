@@ -2,73 +2,78 @@
 #define INTERPRETER_INTERPRETER_H_INCLUDED
 
 #include <map>
-#include <stack>
 #include <memory>
-#include <cassert>
+#include <stack>
+#include <stdexcept>
 #include <utility>
 
+#include <components/misc/strings/format.hpp>
+
+#include "opcodes.hpp"
+#include "program.hpp"
 #include "runtime.hpp"
 #include "types.hpp"
-#include "opcodes.hpp"
 
 namespace Interpreter
 {
+    struct Program;
+
     class Interpreter
     {
-            std::stack<Runtime> mCallstack;
-            bool mRunning;
-            Runtime mRuntime;
-            std::map<int, std::unique_ptr<Opcode1>> mSegment0;
-            std::map<int, std::unique_ptr<Opcode1>> mSegment2;
-            std::map<int, std::unique_ptr<Opcode1>> mSegment3;
-            std::map<int, std::unique_ptr<Opcode0>> mSegment5;
+        std::stack<Runtime> mCallstack;
+        bool mRunning = false;
+        Runtime mRuntime;
+        std::map<int, std::unique_ptr<Opcode1>> mSegment0;
+        std::map<int, std::unique_ptr<Opcode1>> mSegment2;
+        std::map<int, std::unique_ptr<Opcode1>> mSegment3;
+        std::map<int, std::unique_ptr<Opcode0>> mSegment5;
 
-            // not implemented
-            Interpreter (const Interpreter&);
-            Interpreter& operator= (const Interpreter&);
+        void execute(Type_Code code);
 
-            void execute (Type_Code code);
+        void begin();
 
-            void begin();
+        void end();
 
-            void end();
+        template <typename T, typename... Args>
+        void installSegment(auto& segment, std::string_view name, int code, Args&&... args)
+        {
+            if (segment.find(code) != segment.end())
+                throw std::invalid_argument(Misc::StringUtils::format(
+                    "Duplicated interpreter instruction code in segment %s: 0x%x", name, code));
+            segment.emplace(code, std::make_unique<T>(std::forward<Args>(args)...));
+        }
 
-            template<typename TSeg, typename TOp>
-            void installSegment(TSeg& seg, int code, TOp&& op)
-            {
-                assert(seg.find(code) == seg.end());
-                seg.emplace(code, std::move(op));
-            }
+    public:
+        Interpreter() = default;
 
-        public:
+        Interpreter(const Interpreter&) = delete;
+        Interpreter& operator=(const Interpreter&) = delete;
 
-            Interpreter();
+        template <typename T, typename... TArgs>
+        void installSegment0(int code, TArgs&&... args)
+        {
+            installSegment<T>(mSegment0, "0", code, std::forward<TArgs>(args)...);
+        }
 
-            template<typename T, typename ...TArgs>
-            void installSegment0(int code, TArgs&& ...args)
-            {
-                installSegment(mSegment0, code, std::make_unique<T>(std::forward<TArgs>(args)...));
-            }
+        template <typename T, typename... TArgs>
+        void installSegment2(int code, TArgs&&... args)
+        {
+            installSegment<T>(mSegment2, "2", code, std::forward<TArgs>(args)...);
+        }
 
-            template<typename T, typename ...TArgs>
-            void installSegment2(int code, TArgs&& ...args)
-            {
-                installSegment(mSegment2, code, std::make_unique<T>(std::forward<TArgs>(args)...));
-            }
+        template <typename T, typename... TArgs>
+        void installSegment3(int code, TArgs&&... args)
+        {
+            installSegment<T>(mSegment3, "3", code, std::forward<TArgs>(args)...);
+        }
 
-            template<typename T, typename ...TArgs>
-            void installSegment3(int code, TArgs&& ...args)
-            {
-                installSegment(mSegment3, code, std::make_unique<T>(std::forward<TArgs>(args)...));
-            }
+        template <typename T, typename... TArgs>
+        void installSegment5(int code, TArgs&&... args)
+        {
+            installSegment<T>(mSegment5, "5", code, std::forward<TArgs>(args)...);
+        }
 
-            template<typename T, typename ...TArgs>
-            void installSegment5(int code, TArgs&& ...args)
-            {
-                installSegment(mSegment5, code, std::make_unique<T>(std::forward<TArgs>(args)...));
-            }
-
-            void run (const Type_Code *code, int codeSize, Context& context);
+        void run(const Program& program, Context& context);
     };
 }
 

@@ -1,8 +1,9 @@
 #ifndef OPENMW_COMPONENTS_ESM_GLOBALMAP_H
 #define OPENMW_COMPONENTS_ESM_GLOBALMAP_H
 
-#include <vector>
+#include <cstdint>
 #include <set>
+#include <vector>
 
 #include "components/esm/defs.hpp"
 
@@ -18,11 +19,10 @@ namespace ESM
     {
         constexpr static RecNameInts sRecordId = REC_GMAP;
 
-
         // The minimum and maximum cell coordinates
         struct Bounds
         {
-            int mMinX, mMaxX, mMinY, mMaxY;
+            int32_t mMinX, mMaxX, mMinY, mMaxY;
         };
 
         Bounds mBounds;
@@ -32,8 +32,8 @@ namespace ESM
         typedef std::pair<int, int> CellId;
         std::set<CellId> mMarkers;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
 }

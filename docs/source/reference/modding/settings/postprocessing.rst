@@ -1,6 +1,8 @@
 Post Processing Settings
 ########################
 
+.. _Post Processing:
+
 enabled
 -------
 
@@ -21,18 +23,6 @@ It is recommended to configure the settings and order of shaders through the in 
 Note, an empty chain will not disable post processing.
 
 This setting has no effect if :ref:`enabled` is set to false.
-
-live reload
------------
-
-:Type:		boolean
-:Range:		True/False
-:Default:	False
-
-Automatically reloads a shader if the file has been changed. This is useful for debugging and writing shaders yourself.
-
-.. warning::
-    This should be disabled for normal gameplay
 
 auto exposure speed
 -------------------
@@ -61,5 +51,5 @@ objects usually have depth writes disabled and massive margins between the geome
 
 .. warning::
     This can be quite costly with vanilla assets. For best performance it is recommended to use a mod replacer which
-    uses alpha tested foliage and disable this setting. Morrowind Optimizaton Patch is a great option. 
+    uses alpha tested foliage and disable this setting. Morrowind Optimization Patch is a great option. 
     If you are not using any shaders which utilize the depth buffer this setting should be disabled.

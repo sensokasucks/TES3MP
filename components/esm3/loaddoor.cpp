@@ -5,7 +5,7 @@
 
 namespace ESM
 {
-    void Door::load(ESMReader &esm, bool &isDeleted)
+    void Door::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -17,7 +17,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -27,13 +27,13 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("SNAM"):
-                    mOpenSound = esm.getHString();
+                    mOpenSound = esm.getRefId();
                     break;
                 case fourCC("ANAM"):
-                    mCloseSound = esm.getHString();
+                    mCloseSound = esm.getRefId();
                     break;
                 case SREC_DELE:
                     esm.skipHSub();
@@ -49,9 +49,9 @@ namespace ESM
             esm.fail("Missing NAME subrecord");
     }
 
-    void Door::save(ESMWriter &esm, bool isDeleted) const
+    void Door::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -61,9 +61,9 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNOCString("SCRI", mScript);
-        esm.writeHNOCString("SNAM", mOpenSound);
-        esm.writeHNOCString("ANAM", mCloseSound);
+        esm.writeHNOCRefId("SCRI", mScript);
+        esm.writeHNOCRefId("SNAM", mOpenSound);
+        esm.writeHNOCRefId("ANAM", mCloseSound);
     }
 
     void Door::blank()
@@ -71,8 +71,8 @@ namespace ESM
         mRecordFlags = 0;
         mName.clear();
         mModel.clear();
-        mScript.clear();
-        mOpenSound.clear();
-        mCloseSound.clear();
+        mScript = ESM::RefId();
+        mOpenSound = ESM::RefId();
+        mCloseSound = ESM::RefId();
     }
 }

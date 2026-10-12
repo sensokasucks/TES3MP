@@ -29,48 +29,42 @@
 #include "loadmusc.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: for debugging only
-
-//#include "formid.hpp"
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Music::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FNAM: reader.getZString(mMusicFile);
-                                 //std::cout << "music: " << /*formIdToString(mFormId)*/mEditorId << " " << mMusicFile << std::endl;
-                                 break;
-            case ESM4::SUB_ANAM: // FONV float (attenuation in db? loop if positive?)
-            case ESM4::SUB_WNAM: // TES5
-            case ESM4::SUB_PNAM: // TES5
-            case ESM4::SUB_TNAM: // TES5
-            {
-                //std::cout << "MUSC " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FNAM"):
+                reader.getZString(mMusicFile);
+                break;
+            case ESM::fourCC("ANAM"): // FONV float (attenuation in db? loop if positive?)
+            case ESM::fourCC("WNAM"): // TES5
+            case ESM::fourCC("PNAM"): // TES5
+            case ESM::fourCC("TNAM"): // TES5
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::MUSC::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Music::save(ESM4::Writer& writer) const
+// void ESM4::Music::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Music::blank()
+// void ESM4::Music::blank()
 //{
-//}
+// }

@@ -5,12 +5,12 @@
 namespace ESSImport
 {
 
-    void KLST::load(ESM::ESMReader &esm)
+    void KLST::load(ESM::ESMReader& esm)
     {
         while (esm.isNextSub("KNAM"))
         {
-            std::string refId = esm.getHString();
-            int count;
+            ESM::RefId refId = esm.getRefId();
+            int32_t count;
             esm.getHNT(count, "CNAM");
             mKillCounter[refId] = count;
         }

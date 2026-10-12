@@ -4,39 +4,41 @@
 #include <string>
 
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
 
 namespace ESM
 {
 
-class ESMReader;
-class ESMWriter;
+    class ESMReader;
+    class ESMWriter;
 
-struct Lockpick
-{
-    constexpr static RecNameInts sRecordId = REC_LOCK;
-
-    /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
-    static std::string_view getRecordType() { return "Lockpick"; }
-
-    struct Data
+    struct Lockpick
     {
-        float mWeight;
-        int mValue;
+        constexpr static RecNameInts sRecordId = REC_LOCK;
 
-        float mQuality;
-        int mUses;
-    }; // Size = 16
+        /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
+        static std::string_view getRecordType() { return "Lockpick"; }
 
-    Data mData;
-    unsigned int mRecordFlags;
-    std::string mId, mName, mModel, mIcon, mScript;
+        struct Data
+        {
+            float mWeight;
+            int32_t mValue;
 
-    void load(ESMReader &esm, bool &isDeleted);
-    void save(ESMWriter &esm, bool isDeleted = false) const;
+            float mQuality;
+            int32_t mUses;
+        }; // Size = 16
 
-    void blank();
-    ///< Set record to default state (does not touch the ID).
-};
+        Data mData;
+        uint32_t mRecordFlags;
+        RefId mId, mScript;
+        std::string mName, mModel, mIcon;
+
+        void load(ESMReader& esm, bool& isDeleted);
+        void save(ESMWriter& esm, bool isDeleted = false) const;
+
+        void blank();
+        ///< Set record to default state (does not touch the ID).
+    };
 
 }
 #endif

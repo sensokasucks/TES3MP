@@ -27,60 +27,83 @@
 #include "loadclot.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: for debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Clothing::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getZString(mFullName); break;
-            case ESM4::SUB_DATA: reader.get(mData);            break;
-            case ESM4::SUB_BMDT: reader.get(mClothingFlags);   break;
-            case ESM4::SUB_SCRI: reader.getFormId(mScriptId);      break;
-            case ESM4::SUB_ENAM: reader.getFormId(mEnchantment); break;
-            case ESM4::SUB_ANAM: reader.get(mEnchantmentPoints); break;
-            case ESM4::SUB_MODB: reader.get(mBoundRadius);     break;
-            case ESM4::SUB_MODL: reader.getZString(mModelMale); break;
-            case ESM4::SUB_MOD2: reader.getZString(mModelMaleWorld); break;
-            case ESM4::SUB_MOD3: reader.getZString(mModelFemale); break;
-            case ESM4::SUB_MOD4: reader.getZString(mModelFemaleWorld); break;
-            case ESM4::SUB_ICON: reader.getZString(mIconMale); break;
-            case ESM4::SUB_ICO2: reader.getZString(mIconFemale); break;
-            case ESM4::SUB_MODT:
-            case ESM4::SUB_MO2B:
-            case ESM4::SUB_MO3B:
-            case ESM4::SUB_MO4B:
-            case ESM4::SUB_MO2T:
-            case ESM4::SUB_MO3T:
-            case ESM4::SUB_MO4T:
-            {
-                //std::cout << "CLOT " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getZString(mFullName);
+                break;
+            case ESM::fourCC("DATA"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("BMDT"):
+                reader.get(mClothingFlags);
+                break;
+            case ESM::fourCC("SCRI"):
+                reader.getFormId(mScriptId);
+                break;
+            case ESM::fourCC("ENAM"):
+                reader.getFormId(mEnchantment);
+                break;
+            case ESM::fourCC("ANAM"):
+                reader.get(mEnchantmentPoints);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModelMale);
+                break;
+            case ESM::fourCC("MOD2"):
+                reader.getZString(mModelMaleWorld);
+                break;
+            case ESM::fourCC("MOD3"):
+                reader.getZString(mModelFemale);
+                break;
+            case ESM::fourCC("MOD4"):
+                reader.getZString(mModelFemaleWorld);
+                break;
+            case ESM::fourCC("ICON"):
+                reader.getZString(mIconMale);
+                break;
+            case ESM::fourCC("ICO2"):
+                reader.getZString(mIconFemale);
+                break;
+            case ESM::fourCC("MODT"):
+            case ESM::fourCC("MO2B"):
+            case ESM::fourCC("MO3B"):
+            case ESM::fourCC("MO4B"):
+            case ESM::fourCC("MO2T"):
+            case ESM::fourCC("MO3T"):
+            case ESM::fourCC("MO4T"):
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::CLOT::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
-    //if ((mClothingFlags&0xffff) == 0x02) // only hair
-        //std::cout << "only hair " << mEditorId << std::endl;
+    // if ((mClothingFlags&0xffff) == 0x02) // only hair
+    // std::cout << "only hair " << mEditorId << std::endl;
 }
 
-//void ESM4::Clothing::save(ESM4::Writer& writer) const
+// void ESM4::Clothing::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Clothing::blank()
+// void ESM4::Clothing::blank()
 //{
-//}
+// }

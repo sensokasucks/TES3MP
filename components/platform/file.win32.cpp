@@ -1,12 +1,14 @@
 #include "file.hpp"
 
-#include <components/windows.hpp>
-#include <string>
-#include <stdexcept>
-#include <boost/locale.hpp>
 #include <cassert>
+#include <components/misc/windows.hpp>
+#include <stdexcept>
+#include <string>
 
-namespace Platform::File {
+#include <components/files/conversion.hpp>
+
+namespace Platform::File
+{
 
     static auto getNativeHandle(Handle handle)
     {
@@ -26,13 +28,13 @@ namespace Platform::File {
         return -1;
     }
 
-    Handle open(const char* filename)
+    Handle open(const std::filesystem::path& filename)
     {
-        std::wstring wname = boost::locale::conv::utf_to_utf<wchar_t>(filename);
-        HANDLE handle = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+        HANDLE handle = CreateFileW(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
         if (handle == INVALID_HANDLE_VALUE)
         {
-            throw std::runtime_error(std::string("Failed to open '") + filename + "' for reading: " + std::to_string(GetLastError()));
+            throw std::runtime_error(std::string("Failed to open '") + Files::pathToUnicodeString(filename)
+                + "' for reading: " + std::to_string(GetLastError()));
         }
         return static_cast<Handle>(reinterpret_cast<intptr_t>(handle));
     }
@@ -49,7 +51,7 @@ namespace Platform::File {
         const auto nativeSeekType = getNativeSeekType(type);
 
         LARGE_INTEGER li;
-        li.QuadPart = position;
+        li.QuadPart = static_cast<LONGLONG>(position);
         if (!SetFilePointerEx(nativeHandle, li, nullptr, nativeSeekType))
         {
             if (auto errCode = GetLastError(); errCode != ERROR_SUCCESS)
@@ -92,7 +94,8 @@ namespace Platform::File {
         DWORD bytesRead{};
 
         if (!ReadFile(nativeHandle, data, static_cast<DWORD>(size), &bytesRead, nullptr))
-            throw std::runtime_error(std::string("A read operation on a file failed: ") + std::to_string(GetLastError()));
+            throw std::runtime_error(
+                std::string("A read operation on a file failed: ") + std::to_string(GetLastError()));
 
         return bytesRead;
     }

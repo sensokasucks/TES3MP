@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Clothing::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Clothing::CTDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mWeight, v.mValue, v.mEnchant);
+    }
+
+    void Clothing::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -20,7 +28,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -30,17 +38,17 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("CTDT"):
-                    esm.getHTSized<12>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
                     break;
                 case fourCC("ENAM"):
-                    mEnchant = esm.getHString();
+                    mEnchant = esm.getRefId();
                     break;
                 case fourCC("INDX"):
                     mParts.add(esm);
@@ -61,9 +69,9 @@ namespace ESM
             esm.fail("Missing CTDT subrecord");
     }
 
-    void Clothing::save(ESMWriter &esm, bool isDeleted) const
+    void Clothing::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -73,14 +81,14 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("CTDT", mData, 12);
+        esm.writeNamedComposite("CTDT", mData);
 
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
 
         mParts.save(esm);
 
-        esm.writeHNOCString("ENAM", mEnchant);
+        esm.writeHNOCRefId("ENAM", mEnchant);
     }
 
     void Clothing::blank()
@@ -94,7 +102,7 @@ namespace ESM
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mEnchant.clear();
-        mScript.clear();
+        mEnchant = ESM::RefId();
+        mScript = ESM::RefId();
     }
 }

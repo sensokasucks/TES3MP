@@ -27,27 +27,30 @@
 #include "loadsoun.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Sound::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_FNAM: reader.getZString(mSoundFile); break;
-            case ESM4::SUB_SNDX: reader.get(mData); break;
-            case ESM4::SUB_SNDD:
-            {
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FNAM"):
+                reader.getZString(mSoundFile);
+                break;
+            case ESM::fourCC("SNDX"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("SNDD"):
                 if (subHdr.dataSize == 8)
                     reader.get(&mData, 8);
                 else
@@ -55,31 +58,26 @@ void ESM4::Sound::load(ESM4::Reader& reader)
                     reader.get(mData);
                     reader.get(mExtra);
                 }
-
                 break;
-            }
-            case ESM4::SUB_OBND: // TES5 only
-            case ESM4::SUB_SDSC: // TES5 only
-            case ESM4::SUB_ANAM: // FO3
-            case ESM4::SUB_GNAM: // FO3
-            case ESM4::SUB_HNAM: // FO3
-            case ESM4::SUB_RNAM: // FONV
-            {
-                //std::cout << "SOUN " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("OBND"): // TES5 only
+            case ESM::fourCC("SDSC"): // TES5 only
+            case ESM::fourCC("ANAM"): // FO3
+            case ESM::fourCC("GNAM"): // FO3
+            case ESM::fourCC("HNAM"): // FO3
+            case ESM::fourCC("RNAM"): // FONV
+            case ESM::fourCC("REPT"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::SOUN::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Sound::save(ESM4::Writer& writer) const
+// void ESM4::Sound::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Sound::blank()
+// void ESM4::Sound::blank()
 //{
-//}
+// }

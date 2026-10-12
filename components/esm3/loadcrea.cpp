@@ -1,14 +1,21 @@
 #include "loadcrea.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/misc/concepts.hpp>
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
 namespace ESM
 {
+    template <Misc::SameAsWithoutCvref<Creature::NPDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mLevel, v.mAttributes, v.mHealth, v.mMana, v.mFatigue, v.mSoul, v.mCombat, v.mMagic, v.mStealth,
+            v.mAttack, v.mGold);
+    }
 
-    void Creature::load(ESMReader &esm, bool &isDeleted)
+    void Creature::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -32,23 +39,23 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
                 case fourCC("CNAM"):
-                    mOriginal = esm.getHString();
+                    mOriginal = esm.getRefId();
                     break;
                 case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("NPDT"):
-                    esm.getHTSized<96>(mData);
+                    esm.getSubComposite(mData);
                     hasNpdt = true;
                     break;
                 case fourCC("FLAG"):
@@ -68,7 +75,7 @@ namespace ESM
                     mSpells.add(esm);
                     break;
                 case fourCC("AIDT"):
-                    esm.getHExact(&mAiData, sizeof(mAiData));
+                    esm.getSubComposite(mAiData);
                     break;
                 case fourCC("DODT"):
                 case fourCC("DNAM"):
@@ -106,9 +113,9 @@ namespace ESM
             esm.fail("Missing FLAG subrecord");
     }
 
-    void Creature::save(ESMWriter &esm, bool isDeleted) const
+    void Creature::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -117,18 +124,19 @@ namespace ESM
         }
 
         esm.writeHNCString("MODL", mModel);
-        esm.writeHNOCString("CNAM", mOriginal);
+        esm.writeHNOCRefId("CNAM", mOriginal);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNOCString("SCRI", mScript);
-        esm.writeHNT("NPDT", mData, 96);
+        esm.writeHNOCRefId("SCRI", mScript);
+        esm.writeNamedComposite("NPDT", mData);
         esm.writeHNT("FLAG", ((mBloodType << 10) + mFlags));
-        if (mScale != 1.0) {
+        if (mScale != 1.0)
+        {
             esm.writeHNT("XSCL", mScale);
         }
 
         mInventory.save(esm);
         mSpells.save(esm);
-        esm.writeHNT("AIDT", mAiData, sizeof(mAiData));
+        esm.writeNamedComposite("AIDT", mAiData);
         mTransport.save(esm);
         mAiPackage.save(esm);
     }
@@ -138,20 +146,20 @@ namespace ESM
         mRecordFlags = 0;
         mData.mType = 0;
         mData.mLevel = 0;
-        mData.mStrength = mData.mIntelligence = mData.mWillpower = mData.mAgility =
-            mData.mSpeed = mData.mEndurance = mData.mPersonality = mData.mLuck = 0;
+        mData.mAttributes.fill(0);
         mData.mHealth = mData.mMana = mData.mFatigue = 0;
         mData.mSoul = 0;
         mData.mCombat = mData.mMagic = mData.mStealth = 0;
-        for (int i=0; i<6; ++i) mData.mAttack[i] = 0;
+        for (int i = 0; i < 6; ++i)
+            mData.mAttack[i] = 0;
         mData.mGold = 0;
         mBloodType = 0;
         mFlags = 0;
         mScale = 1.f;
         mModel.clear();
         mName.clear();
-        mScript.clear();
-        mOriginal.clear();
+        mScript = ESM::RefId();
+        mOriginal = ESM::RefId();
         mInventory.mList.clear();
         mSpells.mList.clear();
         mAiData.blank();

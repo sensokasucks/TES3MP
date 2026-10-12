@@ -18,7 +18,6 @@ macro(FetchContent_MakeAvailableExcludeFromAll)
 endmacro()
 
 if(NOT OPENMW_USE_SYSTEM_BULLET)
-    cmake_minimum_required(VERSION 3.11) # for FetchContent
 
     set(BUILD_BULLET3 OFF CACHE BOOL "")
     set(BUILD_EXTRAS OFF CACHE BOOL "")
@@ -63,17 +62,13 @@ if(NOT OPENMW_USE_SYSTEM_BULLET)
 endif()
 
 if(NOT OPENMW_USE_SYSTEM_MYGUI)
-    cmake_minimum_required(VERSION 3.11) # for FetchContent
 
     set(MYGUI_RENDERSYSTEM 4 CACHE STRING "")
     set(MYGUI_DISABLE_PLUGINS TRUE CACHE BOOL "")
     set(MYGUI_BUILD_DEMOS OFF CACHE BOOL "")
     set(MYGUI_BUILD_PLUGINS OFF CACHE BOOL "")
     set(MYGUI_BUILD_TOOLS OFF CACHE BOOL "")
-
-    # We appear to be using some obsolete properties in the XML.
-    # See https://gitlab.com/OpenMW/openmw/-/issues/5896
-    set(MYGUI_DONT_USE_OBSOLETE OFF CACHE BOOL "")
+    set(MYGUI_DONT_USE_OBSOLETE ON CACHE BOOL "")
 
     if(MYGUI_STATIC)
         set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -81,11 +76,10 @@ if(NOT OPENMW_USE_SYSTEM_MYGUI)
         set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
     endif()
 
-    # master on 13 Mar 2021
     include(FetchContent)
     FetchContent_Declare(mygui
-        URL https://github.com/MyGUI/mygui/archive/59c1388b942721887d18743ada15f1906ff11a1f.zip
-        URL_HASH SHA512=56b112b261fdc4c9b782de8ef8a9d239af3a75b8cfaa617daecc77c38ecd6521624cf5c17e6ac839b0870be5c31608d4f2a1574165d9d049f14f9e6ae03a8f98
+        URL https://github.com/MyGUI/mygui/archive/refs/tags/MyGUI3.4.3.zip
+        URL_HASH SHA512=c804ef665e786076582367f171082cd2181fdbd214300ddcca4a4245c5a0f45e62e72778ee2d96ec46b393e22477dd729f9bb3006e6eecbf536674e34a057721
         SOURCE_DIR fetched/mygui
     )
     FetchContent_MakeAvailableExcludeFromAll(mygui)
@@ -95,7 +89,6 @@ if(NOT OPENMW_USE_SYSTEM_MYGUI)
 endif()
 
 if(NOT OPENMW_USE_SYSTEM_OSG)
-    cmake_minimum_required(VERSION 3.11) # for FetchContent
 
     set(BUILD_OSG_APPLICATIONS OFF CACHE BOOL "")
     set(BUILD_OSG_DEPRECATED_SERIALIZERS OFF CACHE BOOL "")
@@ -103,17 +96,18 @@ if(NOT OPENMW_USE_SYSTEM_OSG)
 
     set(BUILD_OSG_PLUGINS_BY_DEFAULT OFF CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_BMP ON CACHE BOOL "")
+    set(BUILD_OSG_PLUGIN_DAE ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_DDS ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_FREETYPE ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_JPEG ON CACHE BOOL "")
+    set(BUILD_OSG_PLUGIN_KTX ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_OSG ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_PNG ON CACHE BOOL "")
     set(BUILD_OSG_PLUGIN_TGA ON CACHE BOOL "")
-    set(BUILD_OSG_PLUGIN_KTX ON CACHE BOOL "")
 
-    set(OSG_USE_FLOAT_MATRIX ON CACHE BOOL "")
-    set(OSG_USE_FLOAT_PLANE ON CACHE BOOL "")
-    set(OSG_USE_FLOAT_QUAT ON CACHE BOOL "")
+    set(OSG_USE_FLOAT_MATRIX OFF CACHE BOOL "")
+    set(OSG_USE_FLOAT_PLANE OFF CACHE BOOL "")
+    set(OSG_USE_FLOAT_QUAT OFF CACHE BOOL "")
 
     set(OPENGL_PROFILE "GL2" CACHE STRING "")
 
@@ -179,11 +173,10 @@ if(NOT OPENMW_USE_SYSTEM_RECASTNAVIGATION)
     set(RECASTNAVIGATION_TESTS OFF CACHE BOOL "")
     set(RECASTNAVIGATION_EXAMPLES OFF CACHE BOOL "")
 
-    # master on 15 Feb 2021
     include(FetchContent)
     FetchContent_Declare(recastnavigation
-        URL https://github.com/recastnavigation/recastnavigation/archive/e75adf86f91eb3082220085e42dda62679f9a3ea.zip
-        URL_HASH SHA512=93a19490cdfa55e98a6af9cc050e94af88fdb95fae2059ceeff28b62f3b48515f5fdd2c806c910550933b6861a4f6a91173ee0ed1b61c1396f7b34d4c78f0793
+        URL https://github.com/recastnavigation/recastnavigation/archive/c393777d26d2ff6519ac23612abf8af42678c9dd.zip
+        URL_HASH SHA512=48f20cee7a70c2f20f4c68bb74d5af11a1434be85294e37f5fe7b7aae820fbcdff4f35d3be286eaf6f9cbce0aed4201fcc090df409a5bd04aec5fd7c29b3ad94
         SOURCE_DIR fetched/recastnavigation
     )
     FetchContent_MakeAvailableExcludeFromAll(recastnavigation)
@@ -192,8 +185,8 @@ endif()
 if (NOT OPENMW_USE_SYSTEM_SQLITE3)
     include(FetchContent)
     FetchContent_Declare(sqlite3
-        URL https://www.sqlite.org/2021/sqlite-amalgamation-3360000.zip
-        URL_HASH SHA512=5c18f158a599b1e91d95c91de3aa5c5de52f986845ad0cb49dfd56b650587e55e24d469571b5b864229b870d0eaf85d78893f61ef950b95389cb41692be37f58
+        URL https://www.sqlite.org/2023/sqlite-amalgamation-3410100.zip
+        URL_HASH SHA512=7de291709e88fffc693cf24ac675950cfc35c1bf7631cfea95167105720a05cf37fb943c57c5c985db2eeaa57b31894b3c0df98a7bd2939b5746fc5a24b5ae87
         SOURCE_DIR fetched/sqlite3
     )
     FetchContent_MakeAvailableExcludeFromAll(sqlite3)
@@ -212,7 +205,6 @@ endif()
 add_subdirectory(smhasher)
 
 if (BUILD_BENCHMARKS AND NOT OPENMW_USE_SYSTEM_BENCHMARK)
-    cmake_minimum_required(VERSION 3.11)
 
     set(BENCHMARK_ENABLE_TESTING OFF)
     set(BENCHMARK_ENABLE_INSTALL OFF)
@@ -220,8 +212,8 @@ if (BUILD_BENCHMARKS AND NOT OPENMW_USE_SYSTEM_BENCHMARK)
 
     include(FetchContent)
     FetchContent_Declare(benchmark
-        URL https://github.com/google/benchmark/archive/refs/tags/v1.5.2.zip
-        URL_HASH SHA512=1146deca3b424703800933012ef75805d4657309d58b3484498bb51a99025bd405a69855a75af59c23fc3684bfa027224513999b8d7beaab3320c96fb6d6c540
+        URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
+        URL_HASH SHA512=d73587ad9c49338749e1d117a6f8c7ff9c603a91a2ffa91a7355c7df7dea82710b9a810d34ddfef20973ecdc77092ec10fb2b4e4cc8d2e7810cbed79617b3828
         SOURCE_DIR fetched/benchmark
     )
     FetchContent_MakeAvailableExcludeFromAll(benchmark)
@@ -242,7 +234,7 @@ if (NOT OPENMW_USE_SYSTEM_YAML_CPP)
     )
     FetchContent_MakeAvailableExcludeFromAll(yaml-cpp)
 
-    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+    if (MSVC AND PRECOMPILE_HEADERS_WITH_MSVC)
         target_precompile_headers(yaml-cpp PRIVATE <algorithm>)
     endif()
 endif()
@@ -302,8 +294,7 @@ if (NOT OPENMW_USE_SYSTEM_ICU)
     set(ICU_LIBRARIES ICU::i18n ICU::uc ICU::data PARENT_SCOPE)
 endif()
 
-if (BUILD_UNITTESTS AND NOT OPENMW_USE_SYSTEM_GOOGLETEST)
-    cmake_minimum_required(VERSION 3.11)
+if ((BUILD_COMPONENTS_TESTS OR BUILD_OPENCS_TESTS OR BUILD_OPENMW_TESTS) AND NOT OPENMW_USE_SYSTEM_GOOGLETEST)
 
     include(FetchContent)
     FetchContent_Declare(googletest

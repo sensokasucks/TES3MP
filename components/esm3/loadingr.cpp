@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Ingredient::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Ingredient::IRDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mEffectID, v.mSkills, v.mAttributes);
+    }
+
+    void Ingredient::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -28,11 +36,11 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("IRDT"):
-                    esm.getHTSized<56>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
@@ -53,32 +61,26 @@ namespace ESM
             esm.fail("Missing IRDT subrecord");
 
         // horrible hack to fix broken data in records
-        for (int i=0; i<4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
-            if (mData.mEffectID[i] != 85 &&
-                mData.mEffectID[i] != 22 &&
-                mData.mEffectID[i] != 17 &&
-                mData.mEffectID[i] != 79 &&
-                mData.mEffectID[i] != 74)
+            if (mData.mEffectID[i] != 85 && mData.mEffectID[i] != 22 && mData.mEffectID[i] != 17
+                && mData.mEffectID[i] != 79 && mData.mEffectID[i] != 74)
             {
                 mData.mAttributes[i] = -1;
             }
 
             // is this relevant in cycle from 0 to 4?
-            if (mData.mEffectID[i] != 89 &&
-                mData.mEffectID[i] != 26 &&
-                mData.mEffectID[i] != 21 &&
-                mData.mEffectID[i] != 83 &&
-                mData.mEffectID[i] != 78)
+            if (mData.mEffectID[i] != 89 && mData.mEffectID[i] != 26 && mData.mEffectID[i] != 21
+                && mData.mEffectID[i] != 83 && mData.mEffectID[i] != 78)
             {
                 mData.mSkills[i] = -1;
             }
         }
     }
 
-    void Ingredient::save(ESMWriter &esm, bool isDeleted) const
+    void Ingredient::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -88,8 +90,8 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("IRDT", mData, 56);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeNamedComposite("IRDT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
     }
 
@@ -98,7 +100,7 @@ namespace ESM
         mRecordFlags = 0;
         mData.mWeight = 0;
         mData.mValue = 0;
-        for (int i=0; i<4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             mData.mEffectID[i] = 0;
             mData.mSkills[i] = 0;
@@ -108,6 +110,6 @@ namespace ESM
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
     }
 }

@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Book::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Book::BKDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mIsScroll, v.mSkillId, v.mEnchant);
+    }
+
+    void Book::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -28,17 +36,17 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("BKDT"):
-                    esm.getHTSized<20>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
                     break;
                 case fourCC("ENAM"):
-                    mEnchant = esm.getHString();
+                    mEnchant = esm.getRefId();
                     break;
                 case fourCC("TEXT"):
                     mText = esm.getHString();
@@ -58,9 +66,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing BKDT subrecord");
     }
-    void Book::save(ESMWriter &esm, bool isDeleted) const
+    void Book::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -70,11 +78,11 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("BKDT", mData, 20);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeNamedComposite("BKDT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
         esm.writeHNOString("TEXT", mText);
-        esm.writeHNOCString("ENAM", mEnchant);
+        esm.writeHNOCRefId("ENAM", mEnchant);
     }
 
     void Book::blank()
@@ -88,8 +96,8 @@ namespace ESM
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
-        mEnchant.clear();
+        mScript = ESM::RefId();
+        mEnchant = ESM::RefId();
         mText.clear();
     }
 }

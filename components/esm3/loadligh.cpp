@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Light::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Light::LHDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mTime, v.mRadius, v.mColor, v.mFlags);
+    }
+
+    void Light::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -31,14 +39,14 @@ namespace ESM
                     mIcon = esm.getHString();
                     break;
                 case fourCC("LHDT"):
-                    esm.getHTSized<24>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("SNAM"):
-                    mSound = esm.getHString();
+                    mSound = esm.getRefId();
                     break;
                 case SREC_DELE:
                     esm.skipHSub();
@@ -55,9 +63,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing LHDT subrecord");
     }
-    void Light::save(ESMWriter &esm, bool isDeleted) const
+    void Light::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -68,9 +76,9 @@ namespace ESM
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
         esm.writeHNOCString("ITEX", mIcon);
-        esm.writeHNT("LHDT", mData, 24);
-        esm.writeHNOCString("SCRI", mScript);
-        esm.writeHNOCString("SNAM", mSound);
+        esm.writeNamedComposite("LHDT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
+        esm.writeHNOCRefId("SNAM", mSound);
     }
 
     void Light::blank()
@@ -82,8 +90,8 @@ namespace ESM
         mData.mRadius = 0;
         mData.mColor = 0;
         mData.mFlags = 0;
-        mSound.clear();
-        mScript.clear();
+        mSound = ESM::RefId();
+        mScript = ESM::RefId();
         mModel.clear();
         mIcon.clear();
         mName.clear();

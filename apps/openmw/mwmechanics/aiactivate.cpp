@@ -14,8 +14,9 @@
     End of tes3mp addition
 */
 
-#include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/luamanager.hpp"
+#include "../mwbase/world.hpp"
 
 #include "../mwworld/class.hpp"
 
@@ -25,11 +26,11 @@
 
 namespace MWMechanics
 {
-    AiActivate::AiActivate(std::string_view objectId, bool repeat)
-        : TypedAiPackage<AiActivate>(repeat), mObjectId(objectId)
+    AiActivate::AiActivate(const ESM::RefId& objectId, bool repeat)
+        : TypedAiPackage<AiActivate>(repeat)
+        , mObjectId(objectId)
     {
     }
-
     /*
         Start of tes3mp addition
 
@@ -44,7 +45,9 @@ namespace MWMechanics
         End of tes3mp addition
     */
 
-    bool AiActivate::execute(const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration)
+
+    bool AiActivate::execute(
+        const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration)
     {
         /*
             Start of tes3mp change (major)
@@ -60,11 +63,12 @@ namespace MWMechanics
 
         // Stop if the target doesn't exist
         // Really we should be checking whether the target is currently registered with the MechanicsManager
-        if (target == MWWorld::Ptr() || !target.getRefData().getCount() || !target.getRefData().isEnabled())
+        if (target == MWWorld::Ptr() || !target.getCellRef().getCount() || !target.getRefData().isEnabled())
             return true;
 
         // Turn to target and move to it directly, without pathfinding.
-        const osg::Vec3f targetDir = target.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3();
+        const osg::Vec3f targetDir
+            = target.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3();
 
         zTurn(actor, std::atan2(targetDir.x(), targetDir.y()), 0.f);
         actor.getClass().getMovementSettings(actor).mPosition[1] = 1;
@@ -95,7 +99,7 @@ namespace MWMechanics
                 Cancel the package to avoid an infinite activation loop, deviating from the behavior
                 established in OpenMW in commit 48aba76ce904738d428e79f1ee24ce170f2a8309
             */
-            //MWBase::Environment::get().getWorld()->activate(target, actor);
+            //MWBase::Environment::get().getLuaManager()->objectActivated(target, actor);
             return true;
             /*
                 End of tes3mp change (major)
@@ -104,7 +108,7 @@ namespace MWMechanics
         return false;
     }
 
-    void AiActivate::writeState(ESM::AiSequence::AiSequence &sequence) const
+    void AiActivate::writeState(ESM::AiSequence::AiSequence& sequence) const
     {
         auto activate = std::make_unique<ESM::AiSequence::AiActivate>();
         activate->mTargetId = mObjectId;
@@ -116,7 +120,7 @@ namespace MWMechanics
         sequence.mPackages.push_back(std::move(package));
     }
 
-    AiActivate::AiActivate(const ESM::AiSequence::AiActivate *activate)
+    AiActivate::AiActivate(const ESM::AiSequence::AiActivate* activate)
         : AiActivate(activate->mTargetId, activate->mRepeat)
     {
     }

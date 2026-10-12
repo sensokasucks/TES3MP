@@ -33,41 +33,75 @@
 
 void ESM4::IdleAnimation::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_DNAM: reader.getZString(mCollision); break;
-            case ESM4::SUB_ENAM: reader.getZString(mEvent);     break;
-            case ESM4::SUB_ANAM:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("DNAM"):
+                reader.getZString(mCollision);
+                break;
+            case ESM::fourCC("ENAM"):
+                reader.getZString(mEvent);
+                break;
+            case ESM::fourCC("ANAM"):
             {
-                reader.get(mParent);
-                reader.get(mPrevious);
+                switch (subHdr.dataSize)
+                {
+                    case 1: // TES4
+                    {
+                        // Animation group section
+                        uint8_t dummy;
+                        reader.get(dummy);
+                        break;
+                    }
+                    case 8: // Everything else
+                    {
+                        // These IDs go into DATA for TES4
+                        reader.getFormId(mParent);
+                        reader.getFormId(mPrevious);
+                        break;
+                    }
+                    default:
+                        reader.skipSubRecordData();
+                        break;
+                }
                 break;
             }
-            case ESM4::SUB_CTDA: // formId
-            case ESM4::SUB_DATA: // formId
-            {
-                //std::cout << "IDLE " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("CTDA"): // formId
+            case ESM::fourCC("CTDT"):
+            case ESM::fourCC("CIS1"):
+            case ESM::fourCC("CIS2"):
+            case ESM::fourCC("DATA"):
+            case ESM::fourCC("MODD"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODT"):
+            case ESM::fourCC("GNAM"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
-                throw std::runtime_error("ESM4::IDLE::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
+                throw std::runtime_error("ESM4::IDLE::load - Unknown subrecord " + std::to_string(subHdr.typeId) + " "
+                    + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::IdleAnimation::save(ESM4::Writer& writer) const
+// void ESM4::IdleAnimation::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::IdleAnimation::blank()
+// void ESM4::IdleAnimation::blank()
 //{
-//}
+// }

@@ -1,19 +1,13 @@
 #include "lexer.hpp"
 
-#include <string_view>
-#include <string>
-#include <variant>
+#include <cctype>
+#include <cstdlib>
 #include <optional>
-#include <cstdint>
-#include <array>
-#include <cmath>
-#include <exception>
+#include <string>
+#include <string_view>
 
-#include <components/misc/stringops.hpp>
-
-#include <components/debug/debuglog.hpp>
-
-#include "types.hpp"
+#include <components/fx/lexer_types.hpp>
+#include <components/misc/strings/format.hpp>
 
 namespace fx
 {
@@ -27,7 +21,8 @@ namespace fx
             , mLine(0)
             , mBuffer(buffer)
             , mLastToken(Eof{})
-        { }
+        {
+        }
 
         Token Lexer::next()
         {
@@ -114,7 +109,8 @@ namespace fx
                 if (level == 0)
                 {
                     mHead--;
-                    auto sv = std::string_view{start, static_cast<std::string_view::size_type>(mHead + 1 - start)};
+                    mLine--;
+                    auto sv = std::string_view{ start, static_cast<std::string_view::size_type>(mHead + 1 - start) };
                     mLastJumpBlock.content = sv;
                     return sv;
                 }
@@ -158,7 +154,7 @@ namespace fx
             while (true)
             {
                 if (mHead == mTail)
-                    return {Eof{}};
+                    return { Eof{} };
 
                 if (head() == '\n')
                 {
@@ -181,38 +177,38 @@ namespace fx
             if (std::isdigit(head()) || head() == '.' || head() == '-')
                 return scanNumber();
 
-            switch(head())
+            switch (head())
             {
                 case '=':
                     advance();
-                    return {Equal{}};
+                    return { Equal{} };
                 case '{':
                     advance();
-                    return {Open_bracket{}};
+                    return { Open_bracket{} };
                 case '}':
                     advance();
-                    return {Close_bracket{}};
+                    return { Close_bracket{} };
                 case '(':
                     advance();
-                    return {Open_Parenthesis{}};
+                    return { Open_Parenthesis{} };
                 case ')':
                     advance();
-                    return {Close_Parenthesis{}};
+                    return { Close_Parenthesis{} };
                 case '\"':
                     advance();
-                    return {Quote{}};
+                    return { Quote{} };
                 case ':':
                     advance();
-                    return {Colon{}};
+                    return { Colon{} };
                 case ';':
                     advance();
-                    return {SemiColon{}};
+                    return { SemiColon{} };
                 case '|':
                     advance();
-                    return {VBar{}};
+                    return { VBar{} };
                 case ',':
                     advance();
-                    return {Comma{}};
+                    return { Comma{} };
                 default:
                     error(Misc::StringUtils::format("unexpected token <%c>", head()));
             }
@@ -226,30 +222,50 @@ namespace fx
             while (mHead != mTail && (std::isalnum(head()) || head() == '_'))
                 advance();
 
-            std::string_view value{start, static_cast<std::string_view::size_type>(mHead - start)};
+            std::string_view value{ start, static_cast<std::string_view::size_type>(mHead - start) };
 
-            if (value == "shared") return Shared{};
-            if (value == "technique") return Technique{};
-            if (value == "render_target") return Render_Target{};
-            if (value == "vertex") return Vertex{};
-            if (value == "fragment") return Fragment{};
-            if (value == "compute") return Compute{};
-            if (value == "sampler_1d") return Sampler_1D{};
-            if (value == "sampler_2d") return Sampler_2D{};
-            if (value == "sampler_3d") return Sampler_3D{};
-            if (value == "uniform_bool") return Uniform_Bool{};
-            if (value == "uniform_float") return Uniform_Float{};
-            if (value == "uniform_int") return Uniform_Int{};
-            if (value == "uniform_vec2") return Uniform_Vec2{};
-            if (value == "uniform_vec3") return Uniform_Vec3{};
-            if (value == "uniform_vec4") return Uniform_Vec4{};
-            if (value == "true") return True{};
-            if (value == "false") return False{};
-            if (value == "vec2") return Vec2{};
-            if (value == "vec3") return Vec3{};
-            if (value == "vec4") return Vec4{};
+            if (value == "shared")
+                return Shared{};
+            if (value == "technique")
+                return Technique{};
+            if (value == "render_target")
+                return Render_Target{};
+            if (value == "vertex")
+                return Vertex{};
+            if (value == "fragment")
+                return Fragment{};
+            if (value == "compute")
+                return Compute{};
+            if (value == "sampler_1d")
+                return Sampler_1D{};
+            if (value == "sampler_2d")
+                return Sampler_2D{};
+            if (value == "sampler_3d")
+                return Sampler_3D{};
+            if (value == "uniform_bool")
+                return Uniform_Bool{};
+            if (value == "uniform_float")
+                return Uniform_Float{};
+            if (value == "uniform_int")
+                return Uniform_Int{};
+            if (value == "uniform_vec2")
+                return Uniform_Vec2{};
+            if (value == "uniform_vec3")
+                return Uniform_Vec3{};
+            if (value == "uniform_vec4")
+                return Uniform_Vec4{};
+            if (value == "true")
+                return True{};
+            if (value == "false")
+                return False{};
+            if (value == "vec2")
+                return Vec2{};
+            if (value == "vec3")
+                return Vec3{};
+            if (value == "vec4")
+                return Vec4{};
 
-            return Literal{value};
+            return Literal{ value };
         }
 
         Token Lexer::scanStringLiteral()
@@ -272,7 +288,7 @@ namespace fx
             if (!terminated)
                 error("unterminated string");
 
-            return String{{start, static_cast<std::string_view::size_type>(mHead - start - 1)}};
+            return String{ { start, static_cast<std::string_view::size_type>(mHead - start - 1) } };
         }
 
         Token Lexer::scanNumber()
@@ -291,10 +307,10 @@ namespace fx
             for (; tmp != endPtr; ++tmp)
             {
                 if ((*tmp == '.'))
-                    return Float{static_cast<float>(buffer)};
+                    return Float{ static_cast<float>(buffer) };
             }
 
-            return Integer{static_cast<int>(buffer)};
+            return Integer{ static_cast<int>(buffer) };
         }
     }
 }

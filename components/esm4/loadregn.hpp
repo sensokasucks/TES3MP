@@ -31,7 +31,8 @@
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -42,42 +43,42 @@ namespace ESM4
     {
         enum RegionDataType
         {
-            RDAT_None      = 0x00,
-            RDAT_Objects   = 0x02,
-            RDAT_Weather   = 0x03,
-            RDAT_Map       = 0x04,
+            RDAT_None = 0x00,
+            RDAT_Objects = 0x02,
+            RDAT_Weather = 0x03,
+            RDAT_Map = 0x04,
             RDAT_Landscape = 0x05,
-            RDAT_Grass     = 0x06,
-            RDAT_Sound     = 0x07,
-            RDAT_Imposter  = 0x08
+            RDAT_Grass = 0x06,
+            RDAT_Sound = 0x07,
+            RDAT_Imposter = 0x08
         };
 
 #pragma pack(push, 1)
         struct RegionData
         {
             std::uint32_t type;
-            std::uint8_t  flag;
-            std::uint8_t  priority;
+            std::uint8_t flag;
+            std::uint8_t priority;
             std::uint16_t unknown;
         };
 
         struct RegionSound
         {
-            FormId sound;
+            ESM::FormId32 sound;
             std::uint32_t flags; // 0 pleasant, 1 cloudy, 2 rainy, 3 snowy
             std::uint32_t chance;
         };
 #pragma pack(pop)
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
-        std::string   mEditorId;
+        std::string mEditorId;
         std::uint32_t mColour; // RGBA
-        FormId  mWorldId;      // worldspace formid
+        ESM::FormId mWorldId; // worldspace formid
 
-        std::string   mShader; //?? ICON
-        std::string   mMapName;
+        std::string mShader; //?? ICON
+        std::string mMapName;
 
         std::uint32_t mEdgeFalloff;
         std::vector<std::uint32_t> mRPLD; // unknown, point data?
@@ -86,9 +87,10 @@ namespace ESM4
         std::vector<RegionSound> mSounds;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
         void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_REGN4;
     };
 }
 

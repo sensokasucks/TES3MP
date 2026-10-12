@@ -27,10 +27,12 @@
 #ifndef ESM4_TES4_H
 #define ESM4_TES4_H
 
+#include <cstdint>
+#include <string>
 #include <vector>
 
-#include "formid.hpp"
-#include "../esm/common.hpp" // ESMVersion, MasterData
+#include <components/esm/common.hpp> // ESMVersion, MasterData
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -41,8 +43,8 @@ namespace ESM4
     struct Data
     {
         ESM::ESMVersion version; // File format version.
-        std::int32_t    records; // Number of records
-        std::uint32_t   nextObjectId;
+        std::int32_t records; // Number of records
+        std::uint32_t nextObjectId;
     };
 #pragma pack(pop)
 
@@ -52,17 +54,17 @@ namespace ESM4
 
         Data mData;
         std::string mAuthor; // Author's name
-        std::string mDesc;   // File description
+        std::string mDesc; // File description
         std::vector<ESM::MasterData> mMaster;
 
-        std::vector<FormId> mOverrides; // Skyrim only, cell children (ACHR, LAND, NAVM, PGRE, PHZD, REFR)
+        std::vector<ESM::FormId> mOverrides; // Skyrim only, cell children (ACHR, LAND, NAVM, PGRE, PHZD, REFR)
 
         // position in the vector = mod index of master files above
         // value = adjusted mod index based on all the files loaded so far
-        //std::vector<std::uint32_t> mModIndices;
+        // std::vector<std::uint32_t> mModIndices;
 
-        void load (Reader& reader);
-        //void save (Writer& writer);
+        void load(Reader& reader);
+        // void save (Writer& writer);
     };
 }
 

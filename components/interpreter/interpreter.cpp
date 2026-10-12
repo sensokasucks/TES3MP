@@ -5,6 +5,7 @@
 #include <string>
 
 #include "opcodes.hpp"
+#include "program.hpp"
 
 namespace Interpreter
 {
@@ -20,7 +21,7 @@ namespace Interpreter
         throw std::runtime_error(error);
     }
 
-    template<typename T>
+    template <typename T>
     auto& getDispatcher(const T& segment, unsigned int seg, int opcode)
     {
         auto it = segment.find(opcode);
@@ -31,7 +32,7 @@ namespace Interpreter
         return it->second;
     }
 
-    void Interpreter::execute (Type_Code code)
+    void Interpreter::execute(Type_Code code)
     {
         unsigned int segSpec = code >> 30;
 
@@ -74,14 +75,14 @@ namespace Interpreter
             }
         }
 
-        abortUnknownSegment (code);
+        abortUnknownSegment(code);
     }
 
     void Interpreter::begin()
     {
         if (mRunning)
         {
-            mCallstack.push (mRuntime);
+            mCallstack.push(mRuntime);
             mRuntime.clear();
         }
         else
@@ -104,28 +105,19 @@ namespace Interpreter
         }
     }
 
-    Interpreter::Interpreter() : mRunning (false)
-    {}
-
-    void Interpreter::run (const Type_Code *code, int codeSize, Context& context)
+    void Interpreter::run(const Program& program, Context& context)
     {
-        assert (codeSize>=4);
-
         begin();
 
         try
         {
-            mRuntime.configure (code, codeSize, context);
+            mRuntime.configure(program, context);
 
-            int opcodes = static_cast<int> (code[0]);
-
-            const Type_Code *codeBlock = code + 4;
-
-            while (mRuntime.getPC()>=0 && mRuntime.getPC()<opcodes)
+            while (mRuntime.getPC() >= 0 && static_cast<std::size_t>(mRuntime.getPC()) < program.mInstructions.size())
             {
-                Type_Code runCode = codeBlock[mRuntime.getPC()];
-                mRuntime.setPC (mRuntime.getPC()+1);
-                execute (runCode);
+                const Type_Code instruction = program.mInstructions[mRuntime.getPC()];
+                mRuntime.setPC(mRuntime.getPC() + 1);
+                execute(instruction);
             }
         }
         catch (...)

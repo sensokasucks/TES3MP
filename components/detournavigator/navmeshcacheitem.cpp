@@ -1,14 +1,16 @@
-#include "tileposition.hpp"
+#include "navmeshcacheitem.hpp"
+#include "debug.hpp"
+#include "makenavmesh.hpp"
+#include "navmeshdata.hpp"
 #include "navmeshtilescache.hpp"
 #include "navmeshtileview.hpp"
-#include "navmeshcacheitem.hpp"
-#include "navmeshdata.hpp"
-
-#include <components/misc/guarded.hpp>
+#include "settings.hpp"
+#include "tileposition.hpp"
 
 #include <DetourNavMesh.h>
 
 #include <ostream>
+#include <sstream>
 
 namespace
 {
@@ -68,25 +70,39 @@ namespace DetourNavigator
         return navMesh.getTileAt(position.x(), position.y(), layer);
     }
 
-    UpdateNavMeshStatus NavMeshCacheItem::updateTile(const TilePosition& position, NavMeshTilesCache::Value&& cached,
-        NavMeshData&& navMeshData)
+    NavMeshCacheItem::NavMeshCacheItem(std::size_t generation, const Settings& settings)
+        : mVersion{ generation, 0 }
     {
-        const dtMeshTile* currentTile = getTile(*mImpl, position);
+        initEmptyNavMesh(settings, mImpl);
+
+        if (const dtStatus status = mQuery.init(&mImpl, settings.mDetour.mMaxNavMeshQueryNodes);
+            !dtStatusSucceed(status))
+        {
+            std::ostringstream error;
+            error << "Failed to init navmesh query: " << WriteDtStatus{ status };
+            throw std::runtime_error(error.str());
+        }
+    }
+
+    UpdateNavMeshStatus NavMeshCacheItem::updateTile(
+        const TilePosition& position, NavMeshTilesCache::Value&& cached, NavMeshData&& navMeshData)
+    {
+        const dtMeshTile* currentTile = getTile(mImpl, position);
         if (currentTile != nullptr
             && asNavMeshTileConstView(*currentTile) == asNavMeshTileConstView(navMeshData.mValue.get()))
         {
             return UpdateNavMeshStatus::ignored;
         }
-        bool removed = ::removeTile(*mImpl, position);
+        bool removed = ::removeTile(mImpl, position);
         removed = mEmptyTiles.erase(position) > 0 || removed;
-        const auto addStatus = addTile(*mImpl, navMeshData.mValue.get(), navMeshData.mSize);
+        const auto addStatus = addTile(mImpl, navMeshData.mValue.get(), navMeshData.mSize);
         if (dtStatusSucceed(addStatus))
         {
             auto tile = mUsedTiles.find(position);
             if (tile == mUsedTiles.end())
             {
                 mUsedTiles.emplace_hint(tile, position,
-                    Tile {Version {mVersion.mRevision, 1}, std::move(cached), std::move(navMeshData)});
+                    Tile{ Version{ mVersion.mRevision, 1 }, std::move(cached), std::move(navMeshData) });
             }
             else
             {
@@ -104,13 +120,16 @@ namespace DetourNavigator
                 mUsedTiles.erase(position);
                 ++mVersion.mRevision;
             }
-            return UpdateNavMeshStatusBuilder().removed(removed).failed((addStatus & DT_OUT_OF_MEMORY) != 0).getResult();
+            return UpdateNavMeshStatusBuilder()
+                .removed(removed)
+                .failed((addStatus & DT_OUT_OF_MEMORY) != 0)
+                .getResult();
         }
     }
 
     UpdateNavMeshStatus NavMeshCacheItem::removeTile(const TilePosition& position)
     {
-        bool removed = ::removeTile(*mImpl, position);
+        bool removed = ::removeTile(mImpl, position);
         removed = mEmptyTiles.erase(position) > 0 || removed;
         if (removed)
         {
@@ -122,7 +141,7 @@ namespace DetourNavigator
 
     UpdateNavMeshStatus NavMeshCacheItem::markAsEmpty(const TilePosition& position)
     {
-        bool removed = ::removeTile(*mImpl, position);
+        bool removed = ::removeTile(mImpl, position);
         removed = mEmptyTiles.insert(position).second || removed;
         if (removed)
         {

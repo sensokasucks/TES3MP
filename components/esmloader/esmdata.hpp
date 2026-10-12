@@ -2,6 +2,7 @@
 #define OPENMW_COMPONENTS_ESMLOADER_ESMDATA_H
 
 #include <components/esm/defs.hpp>
+#include <components/esm/refid.hpp>
 
 #include <string_view>
 #include <vector>
@@ -16,13 +17,14 @@ namespace ESM
     struct Land;
     struct Static;
     class Variant;
+    class RefId;
 }
 
 namespace EsmLoader
 {
     struct RefIdWithType
     {
-        std::string_view mId;
+        ESM::RefId mId;
         ESM::RecNameInts mType;
     };
 
@@ -44,7 +46,7 @@ namespace EsmLoader
         ~EsmData();
     };
 
-    std::string_view getModel(const EsmData& content, std::string_view refId, ESM::RecNameInts type);
+    std::string_view getModel(const EsmData& content, const ESM::RefId& refId, ESM::RecNameInts type);
 
     ESM::Variant getGameSetting(const std::vector<ESM::GameSetting>& records, std::string_view id);
 }

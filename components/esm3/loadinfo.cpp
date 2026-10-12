@@ -3,19 +3,28 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void DialInfo::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<DialInfo::DATAstruct> T>
+    void decompose(T&& v, const auto& f)
     {
-        mId = esm.getHNString("INAM");
+        char padding = 0;
+        f(v.mType, v.mDisposition, v.mRank, v.mGender, v.mPCrank, padding);
+    }
+
+    void DialInfo::load(ESMReader& esm, bool& isDeleted)
+    {
+        mId = esm.getHNRefId("INAM");
 
         isDeleted = false;
 
         mQuestStatus = QS_None;
         mFactionLess = false;
 
-        mPrev = esm.getHNString("PNAM");
-        mNext = esm.getHNString("NNAM");
+        mPrev = esm.getHNRefId("PNAM");
+        mNext = esm.getHNRefId("NNAM");
 
         while (esm.hasMoreSubs())
         {
@@ -23,20 +32,20 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case fourCC("DATA"):
-                    esm.getHTSized<12>(mData);
+                    esm.getSubComposite(mData);
                     break;
                 case fourCC("ONAM"):
-                    mActor = esm.getHString();
+                    mActor = esm.getRefId();
                     break;
                 case fourCC("RNAM"):
-                    mRace = esm.getHString();
+                    mRace = esm.getRefId();
                     break;
                 case fourCC("CNAM"):
-                    mClass = esm.getHString();
+                    mClass = esm.getRefId();
                     break;
                 case fourCC("FNAM"):
                 {
-                    mFaction = esm.getHString();
+                    mFaction = esm.getRefId();
                     if (mFaction == "FFFF")
                     {
                         mFactionLess = true;
@@ -44,10 +53,10 @@ namespace ESM
                     break;
                 }
                 case fourCC("ANAM"):
-                    mCell = esm.getHString();
+                    mCell = esm.getRefId();
                     break;
                 case fourCC("DNAM"):
-                    mPcFaction = esm.getHString();
+                    mPcFaction = esm.getRefId();
                     break;
                 case fourCC("SNAM"):
                     mSound = esm.getHString();
@@ -57,10 +66,9 @@ namespace ESM
                     break;
                 case fourCC("SCVR"):
                 {
-                    SelectStruct ss;
-                    ss.mSelectRule = esm.getHString();
-                    ss.mValue.read(esm, Variant::Format_Info);
-                    mSelects.push_back(ss);
+                    auto filter = DialogueCondition::load(esm, mId);
+                    if (filter)
+                        mSelects.emplace_back(std::move(*filter));
                     break;
                 }
                 case fourCC("BNAM"):
@@ -89,11 +97,11 @@ namespace ESM
         }
     }
 
-    void DialInfo::save(ESMWriter &esm, bool isDeleted) const
+    void DialInfo::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("INAM", mId);
-        esm.writeHNCString("PNAM", mPrev);
-        esm.writeHNCString("NNAM", mNext);
+        esm.writeHNCRefId("INAM", mId);
+        esm.writeHNCRefId("PNAM", mPrev);
+        esm.writeHNCRefId("NNAM", mNext);
 
         if (isDeleted)
         {
@@ -101,30 +109,34 @@ namespace ESM
             return;
         }
 
-        esm.writeHNT("DATA", mData, 12);
-        esm.writeHNOCString("ONAM", mActor);
-        esm.writeHNOCString("RNAM", mRace);
-        esm.writeHNOCString("CNAM", mClass);
-        esm.writeHNOCString("FNAM", mFaction);
-        esm.writeHNOCString("ANAM", mCell);
-        esm.writeHNOCString("DNAM", mPcFaction);
+        esm.writeNamedComposite("DATA", mData);
+        esm.writeHNOCRefId("ONAM", mActor);
+        esm.writeHNOCRefId("RNAM", mRace);
+        esm.writeHNOCRefId("CNAM", mClass);
+        esm.writeHNOCRefId("FNAM", mFaction);
+        esm.writeHNOCRefId("ANAM", mCell);
+        esm.writeHNOCRefId("DNAM", mPcFaction);
         esm.writeHNOCString("SNAM", mSound);
         esm.writeHNOString("NAME", mResponse);
 
-        for (std::vector<SelectStruct>::const_iterator it = mSelects.begin(); it != mSelects.end(); ++it)
-        {
-            esm.writeHNString("SCVR", it->mSelectRule);
-            it->mValue.write (esm, Variant::Format_Info);
-        }
+        for (const auto& rule : mSelects)
+            rule.save(esm);
 
         esm.writeHNOString("BNAM", mResultScript);
 
-        switch(mQuestStatus)
+        switch (mQuestStatus)
         {
-        case QS_Name: esm.writeHNT("QSTN",'\1'); break;
-        case QS_Finished: esm.writeHNT("QSTF", '\1'); break;
-        case QS_Restart: esm.writeHNT("QSTR", '\1'); break;
-        default: break;
+            case QS_Name:
+                esm.writeHNT("QSTN", '\1');
+                break;
+            case QS_Finished:
+                esm.writeHNT("QSTF", '\1');
+                break;
+            case QS_Restart:
+                esm.writeHNT("QSTR", '\1');
+                break;
+            default:
+                break;
         }
     }
 
@@ -133,14 +145,14 @@ namespace ESM
         mData = {};
 
         mSelects.clear();
-        mPrev.clear();
-        mNext.clear();
-        mActor.clear();
-        mRace.clear();
-        mClass.clear();
-        mFaction.clear();
-        mPcFaction.clear();
-        mCell.clear();
+        mPrev = ESM::RefId();
+        mNext = ESM::RefId();
+        mActor = ESM::RefId();
+        mRace = ESM::RefId();
+        mClass = ESM::RefId();
+        mFaction = ESM::RefId();
+        mPcFaction = ESM::RefId();
+        mCell = ESM::RefId();
         mSound.clear();
         mResponse.clear();
         mResultScript.clear();

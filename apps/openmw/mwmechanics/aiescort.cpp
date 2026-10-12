@@ -1,15 +1,19 @@
 #include "aiescort.hpp"
 
+#include <components/esm/util.hpp>
 #include <components/esm3/aisequence.hpp>
 #include <components/esm3/loadcell.hpp>
+#include <components/misc/algorithm.hpp>
 
-#include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
+#include "../mwbase/world.hpp"
 
-#include "../mwworld/class.hpp"
 #include "../mwworld/cellstore.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/datetimemanager.hpp"
 
+#include "character.hpp"
 #include "creaturestats.hpp"
 #include "movement.hpp"
 
@@ -20,40 +24,52 @@
 
 namespace MWMechanics
 {
-    AiEscort::AiEscort(std::string_view actorId, int duration, float x, float y, float z, bool repeat)
-    : TypedAiPackage<AiEscort>(repeat), mX(x), mY(y), mZ(z), mDuration(duration), mRemainingDuration(static_cast<float>(duration))
-    , mCellX(std::numeric_limits<int>::max())
-    , mCellY(std::numeric_limits<int>::max())
+    AiEscort::AiEscort(const ESM::RefId& actorId, int duration, float x, float y, float z, bool repeat)
+        : TypedAiPackage<AiEscort>(repeat)
+        , mX(x)
+        , mY(y)
+        , mZ(z)
+        , mDuration(duration)
+        , mRemainingDuration(static_cast<float>(duration))
     {
-        mTargetActorRefId = std::string(actorId);
+        mTargetActorRefId = actorId;
     }
 
-    AiEscort::AiEscort(std::string_view actorId, std::string_view cellId, int duration, float x, float y, float z, bool repeat)
-    : TypedAiPackage<AiEscort>(repeat), mCellId(cellId), mX(x), mY(y), mZ(z), mDuration(duration), mRemainingDuration(static_cast<float>(duration))
-    , mCellX(std::numeric_limits<int>::max())
-    , mCellY(std::numeric_limits<int>::max())
+    AiEscort::AiEscort(
+        const ESM::RefId& actorId, std::string_view cellId, int duration, float x, float y, float z, bool repeat)
+        : TypedAiPackage<AiEscort>(repeat)
+        , mCellId(cellId)
+        , mX(x)
+        , mY(y)
+        , mZ(z)
+        , mDuration(duration)
+        , mRemainingDuration(static_cast<float>(duration))
     {
-        mTargetActorRefId = std::string(actorId);
+        mTargetActorRefId = actorId;
     }
 
-    AiEscort::AiEscort(const ESM::AiSequence::AiEscort *escort)
-        : TypedAiPackage<AiEscort>(escort->mRepeat), mCellId(escort->mCellId), mX(escort->mData.mX), mY(escort->mData.mY), mZ(escort->mData.mZ)
+    AiEscort::AiEscort(const ESM::AiSequence::AiEscort* escort)
+        : TypedAiPackage<AiEscort>(escort->mRepeat)
+        , mCellId(escort->mCellId)
+        , mX(escort->mData.mX)
+        , mY(escort->mData.mY)
+        , mZ(escort->mData.mZ)
         , mDuration(escort->mData.mDuration)
         , mRemainingDuration(escort->mRemainingDuration)
-        , mCellX(std::numeric_limits<int>::max())
-        , mCellY(std::numeric_limits<int>::max())
     {
         mTargetActorRefId = escort->mTargetId;
         mTargetActorId = escort->mTargetActorId;
     }
 
-    bool AiEscort::execute (const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration)
+    bool AiEscort::execute(
+        const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration)
     {
         // If AiEscort has ran for as long or longer then the duration specified
         // and the duration is not infinite, the package is complete.
         if (mDuration > 0)
         {
-            mRemainingDuration -= ((duration*MWBase::Environment::get().getWorld()->getTimeScaleFactor()) / 3600);
+            mRemainingDuration
+                -= ((duration * MWBase::Environment::get().getWorld()->getTimeManager()->getGameTimeScale()) / 3600);
             if (mRemainingDuration <= 0)
             {
                 mRemainingDuration = mDuration;
@@ -61,7 +77,7 @@ namespace MWMechanics
             }
         }
 
-        if (!mCellId.empty() && mCellId != actor.getCell()->getCell()->getCellId().mWorldspace)
+        if (!mCellId.empty() && !Misc::StringUtils::ciEqual(mCellId, actor.getCell()->getCell()->getNameId()))
             return false; // Not in the correct cell, pause and rely on the player to go back through a teleport door
 
         actor.getClass().getCreatureStats(actor).setDrawState(DrawState::Nothing);
@@ -75,8 +91,21 @@ namespace MWMechanics
 
         if ((leaderPos - followerPos).length2() <= mMaxDist * mMaxDist)
         {
+            // TESCS allows the creation of Escort packages without a specific destination
+            constexpr float nowhere = std::numeric_limits<float>::max();
+            if (mX == nowhere || mY == nowhere)
+                return true;
+            if (mZ == nowhere)
+            {
+                if (mCellId.empty()
+                    && ESM::positionToExteriorCellLocation(mX, mY)
+                        == actor.getCell()->getCell()->getExteriorCellLocation())
+                    return false;
+                return true;
+            }
+
             const osg::Vec3f dest(mX, mY, mZ);
-            if (pathTo(actor, dest, duration, maxHalfExtent)) //Returns true on path complete
+            if (pathTo(actor, dest, duration, characterController.getSupportedMovementDirections(), maxHalfExtent))
             {
                 mRemainingDuration = mDuration;
                 return true;
@@ -94,7 +123,7 @@ namespace MWMechanics
         return false;
     }
 
-    void AiEscort::writeState(ESM::AiSequence::AiSequence &sequence) const
+    void AiEscort::writeState(ESM::AiSequence::AiSequence& sequence) const
     {
         auto escort = std::make_unique<ESM::AiSequence::AiEscort>();
         escort->mData.mX = mX;
@@ -113,11 +142,10 @@ namespace MWMechanics
         sequence.mPackages.push_back(std::move(package));
     }
 
-    void AiEscort::fastForward(const MWWorld::Ptr& actor, AiState &state)
+    void AiEscort::fastForward(const MWWorld::Ptr& actor, AiState& state)
     {
         // Update duration counter if this package has a duration
         if (mDuration > 0)
             mRemainingDuration--;
     }
 }
-

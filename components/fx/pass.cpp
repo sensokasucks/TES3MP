@@ -1,25 +1,24 @@
 #include "pass.hpp"
 
-#include <unordered_set>
-#include <string>
 #include <sstream>
+#include <string>
+#include <unordered_set>
 
+#include <osg/BindImageTexture>
+#include <osg/FrameBufferObject>
 #include <osg/Program>
 #include <osg/Shader>
 #include <osg/State>
 #include <osg/StateSet>
-#include <osg/BindImageTexture>
-#include <osg/FrameBufferObject>
 
-#include <components/misc/stringops.hpp>
-#include <components/sceneutil/util.hpp>
-#include <components/sceneutil/lightmanager.hpp>
-#include <components/sceneutil/clearcolor.hpp>
 #include <components/resource/scenemanager.hpp>
+#include <components/sceneutil/lightmanager.hpp>
+#include <components/settings/values.hpp>
 #include <components/stereo/multiview.hpp>
+#include <components/version/version.hpp>
 
-#include "technique.hpp"
 #include "stateupdater.hpp"
+#include "technique.hpp"
 
 namespace
 {
@@ -69,6 +68,7 @@ namespace fx
 
 @uboStruct
 
+#define OMW_API_VERSION @apiVersion
 #define OMW_REVERSE_Z @reverseZ
 #define OMW_RADIAL_FOG @radialFog
 #define OMW_EXPONENTIAL_FOG @exponentialFog
@@ -81,6 +81,7 @@ namespace fx
 #define omw_Position @position
 #define omw_Texture1D @texture1D
 #define omw_Texture2D @texture2D
+#define omw_Texture2DArray @texture2DArray
 #define omw_Texture3D @texture3D
 #define omw_Vertex @vertex
 #define omw_FragColor @fragColor
@@ -91,6 +92,7 @@ uniform @builtinSampler omw_SamplerLastShader;
 uniform @builtinSampler omw_SamplerLastPass;
 uniform @builtinSampler omw_SamplerDepth;
 uniform @builtinSampler omw_SamplerNormals;
+uniform @builtinSampler omw_SamplerDistortion;
 
 uniform vec4 omw_PointLights[@pointLightCount];
 uniform int omw_PointLightsCount;
@@ -153,7 +155,7 @@ mat4 omw_InvProjectionMatrix()
     float omw_GetDepth(vec2 uv)
     {
 #if OMW_MULTIVIEW
-        float depth = omw_Texture2D(omw_SamplerDepth, vec3(uv, gl_ViewID_OVR)).r;
+        float depth = omw_Texture2DArray(omw_SamplerDepth, vec3(uv, gl_ViewID_OVR)).r;
 #else
         float depth = omw_Texture2D(omw_SamplerDepth, uv).r;
 #endif
@@ -164,10 +166,19 @@ mat4 omw_InvProjectionMatrix()
 #endif
     }
 
+    vec4 omw_GetDistortion(vec2 uv)
+    {
+#if OMW_MULTIVIEW
+        return omw_Texture2DArray(omw_SamplerDistortion, vec3(uv, gl_ViewID_OVR));
+#else
+        return omw_Texture2D(omw_SamplerDistortion, uv);
+#endif
+    }
+
     vec4 omw_GetLastShader(vec2 uv)
     {
 #if OMW_MULTIVIEW
-        return omw_Texture2D(omw_SamplerLastShader, vec3(uv, gl_ViewID_OVR));
+        return omw_Texture2DArray(omw_SamplerLastShader, vec3(uv, gl_ViewID_OVR));
 #else
         return omw_Texture2D(omw_SamplerLastShader, uv);
 #endif
@@ -176,7 +187,7 @@ mat4 omw_InvProjectionMatrix()
     vec4 omw_GetLastPass(vec2 uv)
     {
 #if OMW_MULTIVIEW
-        return omw_Texture2D(omw_SamplerLastPass, vec3(uv, gl_ViewID_OVR));
+        return omw_Texture2DArray(omw_SamplerLastPass, vec3(uv, gl_ViewID_OVR));
 #else
         return omw_Texture2D(omw_SamplerLastPass, uv);
 #endif
@@ -185,10 +196,15 @@ mat4 omw_InvProjectionMatrix()
     vec3 omw_GetNormals(vec2 uv)
     {
 #if OMW_MULTIVIEW
-        return omw_Texture2D(omw_SamplerNormals, vec3(uv, gl_ViewID_OVR)).rgb * 2.0 - 1.0;
+        return omw_Texture2DArray(omw_SamplerNormals, vec3(uv, gl_ViewID_OVR)).rgb * 2.0 - 1.0;
 #else
         return omw_Texture2D(omw_SamplerNormals, uv).rgb * 2.0 - 1.0;
 #endif
+    }
+
+    vec3 omw_GetNormalsWorldSpace(vec2 uv)
+    {
+        return (vec4(omw_GetNormals(uv), 0.0) * omw.viewMatrix).rgb;
     }
 
     vec3 omw_GetWorldPosFromUV(vec2 uv)
@@ -250,35 +266,36 @@ float omw_EstimateFogCoverageFromUV(vec2 uv)
 
         std::stringstream extBlock;
         for (const auto& extension : technique.getGLSLExtensions())
-            extBlock << "#ifdef " << extension << '\n' << "\t#extension " << extension << ": enable" << '\n' << "#endif" << '\n';
+            extBlock << "#ifdef " << extension << '\n'
+                     << "\t#extension " << extension << ": enable" << '\n'
+                     << "#endif" << '\n';
 
-        const std::vector<std::pair<std::string,std::string>> defines = {
-            {"@pointLightCount", std::to_string(SceneUtil::PPLightBuffer::sMaxPPLightsArraySize)},
-            {"@version", std::to_string(technique.getGLSLVersion())},
-            {"@multiview", Stereo::getMultiview() ? "1" : "0"},
-            {"@builtinSampler", Stereo::getMultiview() ? "sampler2DArray" : "sampler2D"},
-            {"@profile", technique.getGLSLProfile()},
-            {"@extensions", extBlock.str()},
-            {"@uboStruct", StateUpdater::getStructDefinition()},
-            {"@ubo", mUBO ? "1" : "0"},
-            {"@normals", technique.getNormals() ? "1" : "0"},
-            {"@reverseZ", SceneUtil::AutoDepth::isReversed() ? "1" : "0"},
-            {"@radialFog", Settings::Manager::getBool("radial fog", "Fog") ? "1" : "0"},
-            {"@exponentialFog", Settings::Manager::getBool("exponential fog", "Fog") ? "1" : "0"},
-            {"@hdr", technique.getHDR() ? "1" : "0"},
-            {"@in", mLegacyGLSL ? "varying" : "in"},
-            {"@out", mLegacyGLSL ? "varying" : "out"},
-            {"@position", "gl_Position"},
-            {"@texture1D", mLegacyGLSL ? "texture1D" : "texture"},
-            {"@texture2D", mLegacyGLSL ? "texture2D" : "texture"},
-            {"@texture3D", mLegacyGLSL ? "texture3D" : "texture"},
-            {"@vertex", mLegacyGLSL ? "gl_Vertex" : "_omw_Vertex"},
-            {"@fragColor", mLegacyGLSL ? "gl_FragColor" : "_omw_FragColor"},
-            {"@useBindings", mLegacyGLSL ? "0" : "1"},
-            {"@fragBinding", mLegacyGLSL ? "" : "out vec4 omw_FragColor;"}
-        };
+        const std::vector<std::pair<std::string, std::string>> defines
+            = { { "@pointLightCount", std::to_string(SceneUtil::PPLightBuffer::sMaxPPLightsArraySize) },
+                  { "@apiVersion", std::to_string(Version::getPostprocessingApiRevision()) },
+                  { "@version", std::to_string(technique.getGLSLVersion()) },
+                  { "@multiview", Stereo::getMultiview() ? "1" : "0" },
+                  { "@builtinSampler", Stereo::getMultiview() ? "sampler2DArray" : "sampler2D" },
+                  { "@profile", technique.getGLSLProfile() }, { "@extensions", extBlock.str() },
+                  { "@uboStruct", StateUpdater::getStructDefinition() }, { "@ubo", mUBO ? "1" : "0" },
+                  { "@normals", technique.getNormals() ? "1" : "0" },
+                  { "@reverseZ", SceneUtil::AutoDepth::isReversed() ? "1" : "0" },
+                  { "@radialFog", Settings::fog().mRadialFog ? "1" : "0" },
+                  { "@exponentialFog", Settings::fog().mExponentialFog ? "1" : "0" },
+                  { "@hdr", technique.getHDR() ? "1" : "0" }, { "@in", mLegacyGLSL ? "varying" : "in" },
+                  { "@out", mLegacyGLSL ? "varying" : "out" }, { "@position", "gl_Position" },
+                  { "@texture1D", mLegacyGLSL ? "texture1D" : "texture" },
+                  // Note, @texture2DArray must be defined before @texture2D since @texture2D is a perfect prefix of
+                  // texture2DArray
+                  { "@texture2DArray", mLegacyGLSL ? "texture2DArray" : "texture" },
+                  { "@texture2D", mLegacyGLSL ? "texture2D" : "texture" },
+                  { "@texture3D", mLegacyGLSL ? "texture3D" : "texture" },
+                  { "@vertex", mLegacyGLSL ? "gl_Vertex" : "_omw_Vertex" },
+                  { "@fragColor", mLegacyGLSL ? "gl_FragColor" : "_omw_FragColor" },
+                  { "@useBindings", mLegacyGLSL ? "0" : "1" },
+                  { "@fragBinding", mLegacyGLSL ? "" : "out vec4 omw_FragColor;" } };
 
-        for (const auto& [define, value]: defines)
+        for (const auto& [define, value] : defines)
             for (size_t pos = header.find(define); pos != std::string::npos; pos = header.find(define))
                 header.replace(pos, define.size(), value);
 
@@ -325,9 +342,6 @@ float omw_EstimateFogCoverageFromUV(vec2 uv)
 
         if (mBlendEq)
             stateSet->setAttributeAndModes(new osg::BlendEquation(mBlendEq.value()));
-
-        if (mClearColor)
-            stateSet->setAttributeAndModes(new SceneUtil::ClearColor(mClearColor.value(), GL_COLOR_BUFFER_BIT));
     }
 
     void Pass::dirty()
@@ -343,12 +357,13 @@ float omw_EstimateFogCoverageFromUV(vec2 uv)
         if (mCompiled)
             return;
 
-        mLegacyGLSL = technique.getGLSLVersion() != 330;
+        mLegacyGLSL = technique.getGLSLVersion() < 330;
 
         if (mType == Type::Pixel)
         {
             if (!mVertex)
-                mVertex = new osg::Shader(osg::Shader::VERTEX, Stereo::getMultiview() ? s_DefaultVertexMultiview : s_DefaultVertex);
+                mVertex = new osg::Shader(
+                    osg::Shader::VERTEX, Stereo::getMultiview() ? s_DefaultVertexMultiview : s_DefaultVertex);
 
             mVertex->setShaderSource(getPassHeader(technique, preamble).append(mVertex->getShaderSource()));
             mFragment->setShaderSource(getPassHeader(technique, preamble, true).append(mFragment->getShaderSource()));

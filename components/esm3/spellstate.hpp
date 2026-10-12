@@ -2,51 +2,54 @@
 #define OPENMW_ESM_SPELLSTATE_H
 
 #include <map>
-#include <vector>
-#include <string>
 #include <set>
+#include <string>
+#include <vector>
 
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
+#include "timestamp.hpp"
 
 namespace ESM
 {
     class ESMReader;
     class ESMWriter;
+    class RefId;
 
     // NOTE: spell ids must be lower case
     struct SpellState
     {
         struct CorprusStats
         {
-            int mWorsenings;
+            int32_t mWorsenings;
             TimeStamp mNextWorsening;
         };
 
         struct PermanentSpellEffectInfo
         {
-            int mId;
-            int mArg;
+            int32_t mId;
+            int32_t mArg;
             float mMagnitude;
         };
 
         struct SpellParams
         {
-            std::map<int, float> mEffectRands; // <effect index, normalised random magnitude>
-            std::set<int> mPurgedEffects; // indices of purged effects
+            std::map<int32_t, float> mEffectRands; // <effect index, normalised random magnitude>
+            std::set<int32_t> mPurgedEffects; // indices of purged effects
         };
-        std::vector<std::string> mSpells;
+        std::vector<ESM::RefId> mSpells;
 
         // FIXME: obsolete, used only for old saves
-        std::map<std::string, SpellParams> mSpellParams;
-        std::map<std::string, std::vector<PermanentSpellEffectInfo> > mPermanentSpellEffects;
-        std::map<std::string, CorprusStats> mCorprusSpells;
+        std::map<ESM::RefId, SpellParams> mSpellParams;
+        std::map<ESM::RefId, std::vector<PermanentSpellEffectInfo>> mPermanentSpellEffects;
+        std::map<ESM::RefId, CorprusStats> mCorprusSpells;
 
-        std::map<std::string, TimeStamp> mUsedPowers;
+        std::map<ESM::RefId, TimeStamp> mUsedPowers;
 
-        std::string mSelectedSpell;
+        ESM::RefId mSelectedSpell;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
 }

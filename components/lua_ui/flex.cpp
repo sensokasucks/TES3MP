@@ -19,15 +19,15 @@ namespace LuaUi
             {
                 switch (alignment)
                 {
-                case Alignment::Start:
-                    alignedPosition = 0;
-                    break;
-                case Alignment::Center:
-                    alignedPosition = (container - content) / 2;
-                    break;
-                case Alignment::End:
-                    alignedPosition = container - content;
-                    break;
+                    case Alignment::Start:
+                        alignedPosition = 0;
+                        break;
+                    case Alignment::Center:
+                        alignedPosition = (container - content) / 2;
+                        break;
+                    case Alignment::End:
+                        alignedPosition = container - content;
+                        break;
                 }
             }
             return alignedPosition;
@@ -43,7 +43,7 @@ namespace LuaUi
     {
         float totalGrow = 0;
         MyGUI::IntSize childrenSize;
-        for (auto* w: children())
+        for (auto* w : children())
         {
             w->clearForced();
             MyGUI::IntSize size = w->calculateSize();
@@ -79,7 +79,7 @@ namespace LuaUi
         WidgetExtension::updateChildren();
     }
 
-    MyGUI::IntSize LuaFlex::childScalingSize()
+    MyGUI::IntSize LuaFlex::childScalingSize() const
     {
         // Call the base method to prevent relativeSize feedback loop
         MyGUI::IntSize size = WidgetExtension::calculateSize();
@@ -88,10 +88,11 @@ namespace LuaUi
         return size;
     }
 
-    MyGUI::IntSize LuaFlex::calculateSize()
+    MyGUI::IntSize LuaFlex::calculateSize() const
     {
         MyGUI::IntSize size = WidgetExtension::calculateSize();
-        if (mAutoSized) {
+        if (mAutoSized)
+        {
             primary(size) = std::max(primary(size), primary(mChildrenSize));
             secondary(size) = std::max(secondary(size), secondary(mChildrenSize));
         }

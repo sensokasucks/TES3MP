@@ -1,16 +1,17 @@
 #include "textinput.hpp"
 
-#include "../mwbase/windowmanager.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/windowmanager.hpp"
 
-#include <MyGUI_EditBox.h>
 #include <MyGUI_Button.h>
+#include <MyGUI_EditBox.h>
+#include <MyGUI_UString.h>
 
 namespace MWGui
 {
 
     TextInputDialog::TextInputDialog()
-      : WindowModal("openmw_text_input.layout")
+        : WindowModal("openmw_text_input.layout")
     {
         // Centre dialog
         center();
@@ -32,12 +33,14 @@ namespace MWGui
         getWidget(okButton, "OKButton");
 
         if (shown)
-            okButton->setCaption(MWBase::Environment::get().getWindowManager()->getGameSettingString("sNext", ""));
+            okButton->setCaption(
+                MyGUI::UString(MWBase::Environment::get().getWindowManager()->getGameSettingString("sNext", {})));
         else
-            okButton->setCaption(MWBase::Environment::get().getWindowManager()->getGameSettingString("sOK", ""));
+            okButton->setCaption(
+                MyGUI::UString(MWBase::Environment::get().getWindowManager()->getGameSettingString("sOK", {})));
     }
 
-    void TextInputDialog::setTextLabel(const std::string &label)
+    void TextInputDialog::setTextLabel(std::string_view label)
     {
         setText("LabelT", label);
     }
@@ -53,16 +56,16 @@ namespace MWGui
 
     void TextInputDialog::onOkClicked(MyGUI::Widget* _sender)
     {
-        if (mTextEdit->getCaption() == "")
+        if (mTextEdit->getCaption().empty())
         {
-            MWBase::Environment::get().getWindowManager()->messageBox ("#{sNotifyMessage37}");
-            MWBase::Environment::get().getWindowManager()->setKeyFocusWidget (mTextEdit);
+            MWBase::Environment::get().getWindowManager()->messageBox("#{sNotifyMessage37}");
+            MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(mTextEdit);
         }
         else
             eventDone(this);
     }
 
-    void TextInputDialog::onTextAccepted(MyGUI::Edit* _sender)
+    void TextInputDialog::onTextAccepted(MyGUI::EditBox* _sender)
     {
         onOkClicked(_sender);
 
@@ -75,10 +78,9 @@ namespace MWGui
         return mTextEdit->getCaption();
     }
 
-    void TextInputDialog::setTextInput(const std::string &text)
+    void TextInputDialog::setTextInput(const std::string& text)
     {
         mTextEdit->setCaption(text);
     }
-
 
 }

@@ -34,7 +34,7 @@ namespace CSMPrefs
 
             // Intercept widget events
             widget->installEventFilter(this);
-            connect(widget, SIGNAL(destroyed()), this, SLOT(widgetDestroyed()));
+            connect(widget, &QWidget::destroyed, this, &ShortcutEventHandler::widgetDestroyed);
         }
 
         // Add to list
@@ -49,7 +49,9 @@ namespace CSMPrefs
         ShortcutMap::iterator shortcutListIt = mWidgetShortcuts.find(widget);
         if (shortcutListIt != mWidgetShortcuts.end())
         {
-            shortcutListIt->second.erase(std::remove(shortcutListIt->second.begin(), shortcutListIt->second.end(), shortcut), shortcutListIt->second.end());
+            shortcutListIt->second.erase(
+                std::remove(shortcutListIt->second.begin(), shortcutListIt->second.end(), shortcut),
+                shortcutListIt->second.end());
         }
     }
 
@@ -60,8 +62,8 @@ namespace CSMPrefs
         {
             QWidget* widget = static_cast<QWidget*>(watched);
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            unsigned int mod = (unsigned int) keyEvent->modifiers();
-            unsigned int key = (unsigned int) keyEvent->key();
+            unsigned int mod = (unsigned int)keyEvent->modifiers();
+            unsigned int key = (unsigned int)keyEvent->key();
 
             if (!keyEvent->isAutoRepeat())
                 return activate(widget, mod, key);
@@ -70,8 +72,8 @@ namespace CSMPrefs
         {
             QWidget* widget = static_cast<QWidget*>(watched);
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            unsigned int mod = (unsigned int) keyEvent->modifiers();
-            unsigned int key = (unsigned int) keyEvent->key();
+            unsigned int mod = (unsigned int)keyEvent->modifiers();
+            unsigned int key = (unsigned int)keyEvent->key();
 
             if (!keyEvent->isAutoRepeat())
                 return deactivate(widget, mod, key);
@@ -80,8 +82,8 @@ namespace CSMPrefs
         {
             QWidget* widget = static_cast<QWidget*>(watched);
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-            unsigned int mod = (unsigned int) mouseEvent->modifiers();
-            unsigned int button = (unsigned int) mouseEvent->button();
+            unsigned int mod = (unsigned int)mouseEvent->modifiers();
+            unsigned int button = (unsigned int)mouseEvent->button();
 
             return activate(widget, mod, button);
         }
@@ -89,8 +91,8 @@ namespace CSMPrefs
         {
             QWidget* widget = static_cast<QWidget*>(watched);
             QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-            unsigned int mod = (unsigned int) mouseEvent->modifiers();
-            unsigned int button = (unsigned int) mouseEvent->button();
+            unsigned int mod = (unsigned int)mouseEvent->modifiers();
+            unsigned int button = (unsigned int)mouseEvent->button();
 
             return deactivate(widget, mod, button);
         }
@@ -98,6 +100,7 @@ namespace CSMPrefs
         {
             QWidget* widget = static_cast<QWidget*>(watched);
             ShortcutMap::iterator shortcutListIt = mWidgetShortcuts.find(widget);
+            assert(shortcutListIt != mWidgetShortcuts.end());
 
             // Deactivate in case events are missed
             for (ShortcutList::iterator it = shortcutListIt->second.begin(); it != shortcutListIt->second.end(); ++it)
@@ -148,7 +151,7 @@ namespace CSMPrefs
 
     bool ShortcutEventHandler::activate(QWidget* widget, unsigned int mod, unsigned int button)
     {
-        std::vector<std::pair<MatchResult, Shortcut*> > potentials;
+        std::vector<std::pair<MatchResult, Shortcut*>> potentials;
         bool used = false;
 
         while (widget)
@@ -178,7 +181,7 @@ namespace CSMPrefs
                 {
                     if (pos < lastPos && (result == Matches_WithMod || pos > 0))
                     {
-                        shortcut->setPosition(pos+1);
+                        shortcut->setPosition(pos + 1);
                     }
                     else if (pos == lastPos)
                     {
@@ -267,8 +270,8 @@ namespace CSMPrefs
 
     bool ShortcutEventHandler::checkModifier(unsigned int mod, unsigned int button, Shortcut* shortcut, bool activate)
     {
-        if (!shortcut->isEnabled() || !shortcut->getModifier() || shortcut->getSecondaryMode() == Shortcut::SM_Ignore ||
-            shortcut->getModifierStatus() == activate)
+        if (!shortcut->isEnabled() || !shortcut->getModifier() || shortcut->getSecondaryMode() == Shortcut::SM_Ignore
+            || shortcut->getModifierStatus() == activate)
             return false;
 
         MatchResult result = match(mod, button, shortcut->getModifier());
@@ -302,8 +305,8 @@ namespace CSMPrefs
         return used;
     }
 
-    ShortcutEventHandler::MatchResult ShortcutEventHandler::match(unsigned int mod, unsigned int button,
-        unsigned int value)
+    ShortcutEventHandler::MatchResult ShortcutEventHandler::match(
+        unsigned int mod, unsigned int button, unsigned int value)
     {
         if ((mod | button) == value)
         {
@@ -319,8 +322,8 @@ namespace CSMPrefs
         }
     }
 
-    bool ShortcutEventHandler::sort(const std::pair<MatchResult, Shortcut*>& left,
-        const std::pair<MatchResult, Shortcut*>& right)
+    bool ShortcutEventHandler::sort(
+        const std::pair<MatchResult, Shortcut*>& left, const std::pair<MatchResult, Shortcut*>& right)
     {
         if (left.first == Matches_WithMod && right.first == Matches_NoMod)
             return true;

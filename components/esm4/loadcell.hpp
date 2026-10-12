@@ -31,7 +31,12 @@
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/exteriorcelllocation.hpp>
+#include <components/esm/refid.hpp>
+#include <components/esm4/reader.hpp>
+#include <components/misc/constants.hpp>
+
 #include "lighting.hpp"
 
 namespace ESM4
@@ -40,61 +45,75 @@ namespace ESM4
     class Writer;
     struct ReaderContext;
     struct CellGroup;
-    typedef std::uint32_t FormId;
 
-    enum CellFlags               // TES4                     TES5
-    {                            // -----------------------  ------------------------------------
-        CELL_Interior = 0x0001,  // Can't travel from here   Interior
-        CELL_HasWater = 0x0002,  // Has water (Int)          Has Water (Int)
-        CELL_NoTravel = 0x0004,  //                          not Can't Travel From Here(Int only)
-        CELL_HideLand = 0x0008,  // Force hide land (Ext)    No LOD Water
-                                 // Oblivion interior (Int)
-        CELL_Public   = 0x0020,  // Public place             Public Area
-        CELL_HandChgd = 0x0040,  // Hand changed             Hand Changed
-        CELL_QuasiExt = 0x0080,  // Behave like exterior     Show Sky
-        CELL_SkyLight = 0x0100   //                          Use Sky Lighting
+    enum CellFlags // TES4                     TES5
+    { // -----------------------  ------------------------------------
+        CELL_Interior = 0x0001, // Can't travel from here   Interior
+        CELL_HasWater = 0x0002, // Has water (Int)          Has Water (Int)
+        CELL_NoTravel = 0x0004, //                          not Can't Travel From Here(Int only)
+        CELL_HideLand = 0x0008, // Force hide land (Ext)    No LOD Water
+                                // Oblivion interior (Int)
+        CELL_Public = 0x0020, // Public place             Public Area
+        CELL_HandChgd = 0x0040, // Hand changed             Hand Changed
+        CELL_QuasiExt = 0x0080, // Behave like exterior     Show Sky
+        CELL_SkyLight = 0x0100 //                          Use Sky Lighting
     };
 
     // Unlike TES3, multiple cells can have the same exterior co-ordinates.
     // The cells need to be organised under world spaces.
     struct Cell
     {
-        FormId mParent;       // world formId (for grouping cells), from the loading sequence
+        static constexpr int sSize = Constants::ESM4CellSizeInUnits;
 
-        FormId mFormId;       // from the header
-        std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
+        ESM::RefId mId; // from the header
+        std::uint32_t mFlags = 0; // from the header, see enum type RecordFlag for details
+
+        ESM::RefId mParent; // world formId (for grouping cells), from the loading sequence
 
         std::string mEditorId;
         std::string mFullName;
-        std::uint16_t mCellFlags; // TES5 can also be 8 bits
+        std::uint16_t mCellFlags = 0; // TES5 can also be 8 bits
 
-        std::int32_t mX;
-        std::int32_t mY;
+        std::int32_t mX = 0;
+        std::int32_t mY = 0;
 
-        FormId mOwner;
-        FormId mGlobal;
-        FormId mClimate;
-        FormId mWater;
-        float  mWaterHeight;
+        ESM::FormId mOwner;
+        ESM::FormId mGlobal;
+        ESM::FormId mClimate;
+        ESM::FormId mWater;
+        float mWaterHeight = sInvalidWaterLevel;
 
-        std::vector<FormId> mRegions;
+        std::vector<ESM::FormId> mRegions;
         Lighting mLighting;
 
-        FormId mLightingTemplate;             // FO3/FONV
-        std::uint32_t mLightingTemplateFlags; // FO3/FONV
+        ESM::FormId mLightingTemplate; // FO3/FONV
+        std::uint32_t mLightingTemplateFlags = 0; // FO3/FONV
 
-        FormId mMusic;         // FO3/FONV
-        FormId mAcousticSpace; // FO3/FONV
+        ESM::FormId mMusic; // FO3/FONV
+        ESM::FormId mAcousticSpace; // FO3/FONV
         // TES4: 0 = default, 1 = public, 2 = dungeon
         // FO3/FONV have more types (not sure how they are used, however)
-        std::uint8_t mMusicType;
+        std::uint8_t mMusicType = 0;
 
-        CellGroup *mCellGroup;
+        CellGroup* mCellGroup = nullptr;
+
+        ESM4::ReaderContext mReaderContext;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
         void blank();
+
+        static constexpr ESM::RecNameInts sRecordId = ESM::REC_CELL4;
+
+        int getGridX() const { return mX; }
+        int getGridY() const { return mY; }
+        bool isExterior() const { return !(mCellFlags & CELL_Interior); }
+        ESM::ExteriorCellLocation getExteriorCellLocation() const
+        {
+            return ESM::ExteriorCellLocation(mX, mY, isExterior() ? mParent : mId);
+        }
+        static float sInvalidWaterLevel;
     };
 }
 

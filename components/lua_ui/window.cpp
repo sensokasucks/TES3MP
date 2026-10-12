@@ -8,14 +8,15 @@ namespace LuaUi
 {
     LuaWindow::LuaWindow()
         : mCaption(nullptr)
-    {}
+    {
+    }
 
     void LuaWindow::updateTemplate()
     {
         for (auto& [w, _] : mActionWidgets)
         {
             w->eventMouseButtonPressed.clear();
-            w->eventMouseDrag.m_event.clear();
+            w->eventMouseDrag.clear();
         }
         mActionWidgets.clear();
 
@@ -56,8 +57,7 @@ namespace LuaUi
         WidgetExtension* ext = mActionWidgets[sender];
 
         mChangeScale = MyGUI::IntCoord(
-            ext->externalValue("move", MyGUI::IntPoint(1, 1)),
-            ext->externalValue("resize", MyGUI::IntSize(0, 0)));
+            ext->externalValue("move", MyGUI::IntPoint(1, 1)), ext->externalValue("resize", MyGUI::IntSize(0, 0)));
     }
 
     void LuaWindow::notifyMouseDrag(MyGUI::Widget* sender, int left, int top, MyGUI::MouseButton id)

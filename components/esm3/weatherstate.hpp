@@ -1,6 +1,7 @@
 #ifndef OPENMW_ESM_WEATHERSTATE_H
 #define OPENMW_ESM_WEATHERSTATE_H
 
+#include <components/esm/refid.hpp>
 #include <map>
 #include <string>
 #include <vector>
@@ -12,21 +13,21 @@ namespace ESM
 
     struct RegionWeatherState
     {
-        int mWeather;
-        std::vector<char> mChances;
+        int32_t mWeather;
+        std::vector<uint8_t> mChances;
     };
 
     struct WeatherState
     {
-        std::string mCurrentRegion;
+        ESM::RefId mCurrentRegion;
         float mTimePassed;
         bool mFastForward;
         float mWeatherUpdateTime;
         float mTransitionFactor;
-        int mCurrentWeather;
-        int mNextWeather;
-        int mQueuedWeather;
-        std::map<std::string, RegionWeatherState> mRegions;
+        int32_t mCurrentWeather;
+        int32_t mNextWeather;
+        int32_t mQueuedWeather;
+        std::map<ESM::RefId, RegionWeatherState> mRegions;
 
         void load(ESMReader& esm);
         void save(ESMWriter& esm) const;

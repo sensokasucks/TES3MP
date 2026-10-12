@@ -30,37 +30,28 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/formid.hpp>
+#include <components/esm/position.hpp>
 
 namespace ESM4
 {
-#pragma pack(push, 1)
-    struct Vector3
-    {
-        float x;
-        float y;
-        float z;
-    };
-
-    // REFR, ACHR, ACRE
-    struct Placement
-    {
-        Vector3 pos;
-        Vector3 rot; // angles are in radian, rz applied first and rx applied last
-    };
-
     // REFR, ACHR, ACRE
     struct EnableParent
     {
-        FormId        parent;
-        std::uint32_t flags; //0x0001 = Set Enable State Opposite Parent, 0x0002 = Pop In
+        ESM::FormId parent;
+        std::uint32_t flags;
+
+        enum Flags
+        {
+            Flag_Inversed = 0x1, // Set enable state opposite to the parent
+            Flag_PopIn = 0x2,
+        };
     };
-#pragma pack(pop)
 
     struct LODReference
     {
-        FormId baseObj;
-        Placement placement;
+        ESM::FormId baseObj;
+        ESM::Position placement;
         float scale;
     };
 }

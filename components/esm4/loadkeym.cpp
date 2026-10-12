@@ -33,45 +33,74 @@
 
 void ESM4::Key::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getLocalizedString(mFullName); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel); break;
-            case ESM4::SUB_ICON: reader.getZString(mIcon);  break;
-            case ESM4::SUB_MICO: reader.getZString(mMiniIcon); break; // FO3
-            case ESM4::SUB_DATA: reader.get(mData);         break;
-            case ESM4::SUB_SCRI: reader.getFormId(mScriptId); break;
-            case ESM4::SUB_MODB: reader.get(mBoundRadius);  break;
-            case ESM4::SUB_YNAM: reader.getFormId(mPickUpSound); break;
-            case ESM4::SUB_ZNAM: reader.getFormId(mDropSound); break;
-            case ESM4::SUB_MODT:
-            case ESM4::SUB_KSIZ:
-            case ESM4::SUB_KWDA:
-            case ESM4::SUB_OBND:
-            case ESM4::SUB_VMAD:
-            {
-                //std::cout << "KEYM " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("ICON"):
+                reader.getZString(mIcon);
+                break;
+            case ESM::fourCC("MICO"):
+                reader.getZString(mMiniIcon);
+                break; // FO3
+            case ESM::fourCC("DATA"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("SCRI"):
+                reader.getFormId(mScriptId);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("YNAM"):
+                reader.getFormId(mPickUpSound);
+                break;
+            case ESM::fourCC("ZNAM"):
+                reader.getFormId(mDropSound);
+                break;
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("KSIZ"):
+            case ESM::fourCC("KWDA"):
+            case ESM::fourCC("OBND"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("DAMC"): // Destructible
+            case ESM::fourCC("DEST"):
+            case ESM::fourCC("DMDC"):
+            case ESM::fourCC("DMDL"):
+            case ESM::fourCC("DMDT"):
+            case ESM::fourCC("DMDS"):
+            case ESM::fourCC("DSTA"):
+            case ESM::fourCC("DSTD"):
+            case ESM::fourCC("DSTF"): // Destructible end
+            case ESM::fourCC("PTRN"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::KEYM::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Key::save(ESM4::Writer& writer) const
+// void ESM4::Key::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Key::blank()
+// void ESM4::Key::blank()
 //{
-//}
+// }

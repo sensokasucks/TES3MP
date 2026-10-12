@@ -1,7 +1,7 @@
 #ifndef WINDOWS_CRASHMONITOR_HPP
 #define WINDOWS_CRASHMONITOR_HPP
 
-#include <components/windows.hpp>
+#include <components/misc/windows.hpp>
 
 #include <atomic>
 #include <unordered_map>
@@ -9,56 +9,54 @@
 namespace Crash
 {
 
-struct CrashSHM;
+    struct CrashSHM;
 
-class CrashMonitor final
-{
-public:
+    class CrashMonitor final
+    {
+    public:
+        CrashMonitor(HANDLE shmHandle);
 
-    CrashMonitor(HANDLE shmHandle);
+        ~CrashMonitor();
 
-    ~CrashMonitor();
+        void run();
 
-    void run();
+    private:
+        HANDLE mAppProcessHandle = nullptr;
+        DWORD mAppMainThreadId = 0;
+        HWND mAppWindowHandle = nullptr;
 
-private:
+        // triggered when the monitor process wants to wake the parent process (received via SHM)
+        HANDLE mSignalAppEvent = nullptr;
+        // triggered when the application wants to wake the monitor process (received via SHM)
+        HANDLE mSignalMonitorEvent = nullptr;
 
-    HANDLE mAppProcessHandle = nullptr;
-    DWORD mAppMainThreadId = 0;
-    HWND mAppWindowHandle = nullptr;
+        CrashSHM* mShm = nullptr;
+        HANDLE mShmHandle = nullptr;
+        HANDLE mShmMutex = nullptr;
 
-    // triggered when the monitor process wants to wake the parent process (received via SHM)
-    HANDLE mSignalAppEvent = nullptr;
-    // triggered when the application wants to wake the monitor process (received via SHM)
-    HANDLE mSignalMonitorEvent = nullptr;
+        DWORD mFreezeMessageBoxThreadId = 0;
+        std::atomic_bool mFreezeAbort;
 
-    CrashSHM* mShm = nullptr;
-    HANDLE mShmHandle = nullptr;
-    HANDLE mShmMutex = nullptr;
+        static std::unordered_map<HWINEVENTHOOK, CrashMonitor*> smEventHookOwners;
 
-    DWORD mFreezeMessageBoxThreadId = 0;
-    std::atomic_bool mFreezeAbort;
+        void signalApp() const;
 
-    static std::unordered_map<HWINEVENTHOOK, CrashMonitor*> smEventHookOwners;
+        bool waitApp(bool thawMode) const;
 
-    void signalApp() const;
+        bool isAppAlive() const;
 
-    bool waitApp() const;
+        bool isAppFrozen();
 
-    bool isAppAlive() const;
+        void shmLock();
 
-    bool isAppFrozen();
+        void shmUnlock();
 
-    void shmLock();
+        void handleCrash(bool isFreeze);
 
-    void shmUnlock();
+        void showFreezeMessageBox();
 
-    void handleCrash(bool isFreeze);
-
-    void showFreezeMessageBox();
-
-    void hideFreezeMessageBox();
-};
+        void hideFreezeMessageBox();
+    };
 
 } // namespace Crash
 

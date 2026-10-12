@@ -8,10 +8,11 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <tuple>
-#include <vector>
 #include <optional>
+#include <tuple>
 #include <type_traits>
+#include <variant>
+#include <vector>
 
 namespace DetourNavigator
 {
@@ -20,10 +21,7 @@ namespace DetourNavigator
         std::int64_t mShapeId;
         ObjectTransform mObjectTransform;
 
-        friend inline auto tie(const DbRefGeometryObject& v)
-        {
-            return std::tie(v.mShapeId, v.mObjectTransform);
-        }
+        friend inline auto tie(const DbRefGeometryObject& v) { return std::tie(v.mShapeId, v.mObjectTransform); }
 
         friend inline bool operator<(const DbRefGeometryObject& l, const DbRefGeometryObject& r)
         {
@@ -32,12 +30,10 @@ namespace DetourNavigator
     };
 
     template <class ResolveMeshSource>
-    inline auto makeDbRefGeometryObjects(const std::vector<MeshSource>& meshSources, ResolveMeshSource&& resolveMeshSource)
-        -> std::conditional_t<
-            Misc::isOptional<std::decay_t<decltype(resolveMeshSource(meshSources.front()))>>,
-            std::optional<std::vector<DbRefGeometryObject>>,
-            std::vector<DbRefGeometryObject>
-        >
+    inline auto makeDbRefGeometryObjects(
+        const std::vector<MeshSource>& meshSources, ResolveMeshSource&& resolveMeshSource)
+        -> std::conditional_t<Misc::isOptional<std::decay_t<decltype(resolveMeshSource(meshSources.front()))>>,
+            std::variant<std::vector<DbRefGeometryObject>, MeshSource>, std::vector<DbRefGeometryObject>>
     {
         std::vector<DbRefGeometryObject> result;
         result.reserve(meshSources.size());
@@ -47,11 +43,11 @@ namespace DetourNavigator
             if constexpr (Misc::isOptional<std::decay_t<decltype(shapeId)>>)
             {
                 if (!shapeId.has_value())
-                    return std::nullopt;
-                result.push_back(DbRefGeometryObject {*shapeId, meshSource.mObjectTransform});
+                    return meshSource;
+                result.push_back(DbRefGeometryObject{ *shapeId, meshSource.mObjectTransform });
             }
             else
-                result.push_back(DbRefGeometryObject {shapeId, meshSource.mObjectTransform});
+                result.push_back(DbRefGeometryObject{ shapeId, meshSource.mObjectTransform });
         }
         std::sort(result.begin(), result.end());
         return result;

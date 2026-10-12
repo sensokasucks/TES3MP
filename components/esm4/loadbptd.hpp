@@ -27,9 +27,12 @@
 #ifndef ESM4_BPTD_H
 #define ESM4_BPTD_H
 
+#include <cstdint>
+#include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -61,22 +64,22 @@ namespace ESM4
             std::uint8_t partType;
 
             std::uint8_t healthPercent;
-            std::int8_t  actorValue; //(Actor Values)
+            std::int8_t actorValue; //(Actor Values)
             std::uint8_t toHitChance;
 
             std::uint8_t explExplosionChance; // %
             std::uint16_t explDebrisCount;
-            FormId explDebris;
-            FormId explExplosion;
+            ESM::FormId32 explDebris;
+            ESM::FormId32 explExplosion;
             float trackingMaxAngle;
             float explDebrisScale;
 
             std::int32_t sevDebrisCount;
-            FormId sevDebris;
-            FormId sevExplosion;
+            ESM::FormId32 sevDebris;
+            ESM::FormId32 sevExplosion;
             float sevDebrisScale;
 
-            //Struct - Gore Effects Positioning
+            // Struct - Gore Effects Positioning
             float transX;
             float transY;
             float transZ;
@@ -84,8 +87,8 @@ namespace ESM4
             float rotY;
             float rotZ;
 
-            FormId sevImpactDataSet;
-            FormId explImpactDataSet;
+            ESM::FormId32 sevImpactDataSet;
+            ESM::FormId32 explImpactDataSet;
             uint8_t sevDecalCount;
             uint8_t explDecalCount;
             uint16_t Unknown;
@@ -106,7 +109,7 @@ namespace ESM4
             void clear();
         };
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -116,9 +119,10 @@ namespace ESM4
         std::vector<BodyPart> mBodyParts;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_BPTD4;
     };
 }
 

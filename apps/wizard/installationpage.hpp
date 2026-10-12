@@ -5,31 +5,34 @@
 
 #include <QWizardPage>
 
-#include "unshield/unshieldworker.hpp"
 #include "ui_installationpage.h"
-#include "inisettings.hpp"
-#include <components/config/gamesettings.hpp>
+#include "unshield/unshieldworker.hpp"
+
+namespace Config
+{
+    class GameSettings;
+}
 
 class QThread;
+class QObject;
+class QWidget;
 
 namespace Wizard
 {
     class MainWizard;
-    class IniSettings;
-    class UnshieldWorker;
 
     class InstallationPage : public QWizardPage, private Ui::InstallationPage
     {
         Q_OBJECT
     public:
-        InstallationPage(QWidget *parent, Config::GameSettings &gameSettings);
+        InstallationPage(QWidget* parent, Config::GameSettings& gameSettings);
         ~InstallationPage() override;
 
         int nextId() const override;
-         bool isComplete() const override;
+        bool isComplete() const override;
 
     private:
-        MainWizard *mWizard;
+        MainWizard* mWizard;
         bool mFinished;
 
         std::unique_ptr<QThread> mThread;
@@ -37,18 +40,17 @@ namespace Wizard
 
         void startInstallation();
 
-        Config::GameSettings &mGameSettings;
+        Config::GameSettings& mGameSettings;
 
     private slots:
         void showFileDialog(Wizard::Component component);
         void showOldVersionDialog();
 
         void installationFinished();
-        void installationError(const QString &text, const QString &details);
+        void installationError(const QString& text, const QString& details);
 
     protected:
         void initializePage() override;
-
     };
 
 }

@@ -31,8 +31,8 @@
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
-#include "dialogue.hpp" // DialType
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -41,26 +41,27 @@ namespace ESM4
 
     struct Dialogue
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
-        std::vector<FormId> mQuests;
-        std::vector<FormId> mQuestsRemoved; // FONV only?
+        std::vector<ESM::FormId> mQuests;
+        std::vector<ESM::FormId> mQuestsRemoved; // FONV only?
         std::string mTopicName;
 
         std::string mTextDumb; // FIXME: temp name
 
         bool mDoAllBeforeRepeat; // TES5 only
-        std::uint8_t mDialType;  // DialType
+        std::uint8_t mDialType; // DialType
         std::uint8_t mDialFlags; // FO3/FONV: 0x1 rumours, 0x2 top-level
 
         float mPriority;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_DIAL4;
     };
 }
 

@@ -2,22 +2,19 @@
 
 #include "dbrefgeometryobject.hpp"
 #include "makenavmesh.hpp"
-#include "offmeshconnectionsmanager.hpp"
 #include "preparednavmeshdata.hpp"
 #include "serialization.hpp"
 #include "settings.hpp"
-#include "tilecachedrecastmeshmanager.hpp"
 
 #include <components/debug/debuglog.hpp>
 
-#include <osg/Vec3f>
 #include <osg/io_utils>
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
-#include <optional>
-#include <functional>
 
 namespace DetourNavigator
 {
@@ -25,7 +22,7 @@ namespace DetourNavigator
     {
         struct Ignore
         {
-            std::string_view mWorldspace;
+            ESM::RefId mWorldspace;
             const TilePosition& mTilePosition;
             std::shared_ptr<NavMeshTileConsumer> mConsumer;
 
@@ -37,15 +34,17 @@ namespace DetourNavigator
         };
     }
 
-    GenerateNavMeshTile::GenerateNavMeshTile(std::string worldspace, const TilePosition& tilePosition,
-            RecastMeshProvider recastMeshProvider, const AgentBounds& agentBounds,
-            const DetourNavigator::Settings& settings, std::weak_ptr<NavMeshTileConsumer> consumer)
-        : mWorldspace(std::move(worldspace))
+    GenerateNavMeshTile::GenerateNavMeshTile(ESM::RefId worldspace, const TilePosition& tilePosition,
+        RecastMeshProvider recastMeshProvider, const AgentBounds& agentBounds,
+        const DetourNavigator::Settings& settings, std::weak_ptr<NavMeshTileConsumer> consumer)
+        : mWorldspace(worldspace)
         , mTilePosition(tilePosition)
         , mRecastMeshProvider(recastMeshProvider)
         , mAgentBounds(agentBounds)
         , mSettings(settings)
-        , mConsumer(std::move(consumer)) {}
+        , mConsumer(std::move(consumer))
+    {
+    }
 
     void GenerateNavMeshTile::doWork()
     {
@@ -61,15 +60,15 @@ namespace DetourNavigator
 
         try
         {
-            Ignore ignore {mWorldspace, mTilePosition, consumer};
+            Ignore ignore{ mWorldspace, mTilePosition, consumer };
 
             const std::shared_ptr<RecastMesh> recastMesh = mRecastMeshProvider.getMesh(mWorldspace, mTilePosition);
 
             if (recastMesh == nullptr || isEmpty(*recastMesh))
                 return;
 
-            const std::vector<DbRefGeometryObject> objects = makeDbRefGeometryObjects(recastMesh->getMeshSources(),
-                [&] (const MeshSource& v) { return consumer->resolveMeshSource(v); });
+            const std::vector<DbRefGeometryObject> objects = makeDbRefGeometryObjects(
+                recastMesh->getMeshSources(), [&](const MeshSource& v) { return consumer->resolveMeshSource(v); });
             std::vector<std::byte> input = serialize(mSettings.mRecast, mAgentBounds, *recastMesh, objects);
             const std::optional<NavMeshTileInfo> info = consumer->find(mWorldspace, mTilePosition, input);
 
@@ -80,7 +79,8 @@ namespace DetourNavigator
                 return;
             }
 
-            const auto data = prepareNavMeshTileData(*recastMesh, mTilePosition, mAgentBounds, mSettings.mRecast);
+            const auto data
+                = prepareNavMeshTileData(*recastMesh, mWorldspace, mTilePosition, mAgentBounds, mSettings.mRecast);
 
             if (data == nullptr)
                 return;
@@ -94,8 +94,8 @@ namespace DetourNavigator
         }
         catch (const std::exception& e)
         {
-            Log(Debug::Warning) << "Failed to generate navmesh for worldspace \"" << mWorldspace
-                                << "\" tile " << mTilePosition << ": " << e.what();
+            Log(Debug::Warning) << "Failed to generate navmesh for worldspace \"" << mWorldspace << "\" tile "
+                                << mTilePosition << ": " << e.what();
             consumer->cancel(e.what());
         }
     }

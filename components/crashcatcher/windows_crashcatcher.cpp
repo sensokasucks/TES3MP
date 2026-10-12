@@ -10,27 +10,29 @@
 #include "windowscrashdumppathhelpers.hpp"
 #include <SDL_messagebox.h>
 
+#include <components/misc/strings/conversion.hpp>
+
 namespace Crash
 {
     namespace
     {
         template <class T, std::size_t N>
-        void writePathToShm(T(&buffer)[N], const std::string& path)
+        void writePathToShm(T (&buffer)[N], const std::filesystem::path& path)
         {
             memset(buffer, 0, sizeof(buffer));
-            size_t length = path.length();
+            const auto str = path.u8string();
+            size_t length = str.length();
             if (length >= sizeof(buffer))
                 length = sizeof(buffer) - 1;
-            strncpy(buffer, path.c_str(), length);
+            strncpy_s(buffer, sizeof(buffer), Misc::StringUtils::u8StringToString(str).c_str(), length);
         }
     }
 
     HANDLE duplicateHandle(HANDLE handle)
     {
         HANDLE duplicate;
-        if (!DuplicateHandle(GetCurrentProcess(), handle,
-                             GetCurrentProcess(), &duplicate,
-                             0, TRUE, DUPLICATE_SAME_ACCESS))
+        if (!DuplicateHandle(
+                GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate, 0, TRUE, DUPLICATE_SAME_ACCESS))
         {
             throw std::runtime_error("Crash monitor could not duplicate handle");
         }
@@ -39,14 +41,15 @@ namespace Crash
 
     CrashCatcher* CrashCatcher::sInstance = nullptr;
 
-    CrashCatcher::CrashCatcher(int argc, char** argv, const std::string& dumpPath, const std::string& crashDumpName, const std::string& freezeDumpName)
+    CrashCatcher::CrashCatcher(int argc, char** argv, const std::filesystem::path& dumpPath,
+        const std::filesystem::path& crashDumpName, const std::filesystem::path& freezeDumpName)
     {
         assert(sInstance == nullptr); // don't allow two instances
 
         sInstance = this;
 
         HANDLE shmHandle = nullptr;
-        for (int i=0; i<argc; ++i)
+        for (int i = 0; i < argc; ++i)
         {
             if (strcmp(argv[i], "--crash-monitor"))
                 continue;
@@ -88,7 +91,7 @@ namespace Crash
             CloseHandle(mShmHandle);
     }
 
-    void CrashCatcher::updateDumpPath(const std::string& dumpPath)
+    void CrashCatcher::updateDumpPath(const std::filesystem::path& dumpPath)
     {
         shmLock();
 
@@ -97,7 +100,8 @@ namespace Crash
         shmUnlock();
     }
 
-    void CrashCatcher::updateDumpNames(const std::string& crashDumpName, const std::string& freezeDumpName)
+    void CrashCatcher::updateDumpNames(
+        const std::filesystem::path& crashDumpName, const std::filesystem::path& freezeDumpName)
     {
         shmLock();
 
@@ -116,13 +120,16 @@ namespace Crash
         mSignalAppEvent = CreateEventW(&attributes, FALSE, FALSE, NULL);
         mSignalMonitorEvent = CreateEventW(&attributes, FALSE, FALSE, NULL);
 
-        mShmHandle = CreateFileMappingW(INVALID_HANDLE_VALUE, &attributes, PAGE_READWRITE, HIWORD(sizeof(CrashSHM)), LOWORD(sizeof(CrashSHM)), NULL);
+        mShmHandle = CreateFileMappingW(INVALID_HANDLE_VALUE, &attributes, PAGE_READWRITE, HIWORD(sizeof(CrashSHM)),
+            LOWORD(sizeof(CrashSHM)), NULL);
         if (mShmHandle == nullptr)
             throw std::runtime_error("Failed to allocate crash catcher shared memory");
 
         mShm = reinterpret_cast<CrashSHM*>(MapViewOfFile(mShmHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(CrashSHM)));
         if (mShm == nullptr)
             throw std::runtime_error("Failed to map crash catcher shared memory");
+
+        mShm->mMonitorStatus = CrashSHM::Status::Uninitialised;
 
         mShmMutex = CreateMutexW(&attributes, FALSE, NULL);
         if (mShmMutex == nullptr)
@@ -142,8 +149,13 @@ namespace Crash
 
     void CrashCatcher::waitMonitor()
     {
-        if (WaitForSingleObject(mSignalAppEvent, CrashCatcherTimeout) != WAIT_OBJECT_0)
+        if (!waitMonitorNoThrow())
             throw std::runtime_error("Waiting for monitor failed");
+    }
+
+    bool CrashCatcher::waitMonitorNoThrow()
+    {
+        return WaitForSingleObject(mSignalAppEvent, CrashCatcherTimeout) == WAIT_OBJECT_0;
     }
 
     void CrashCatcher::signalMonitor()
@@ -156,11 +168,13 @@ namespace Crash
         SetUnhandledExceptionFilter(vectoredExceptionHandler);
     }
 
-    void CrashCatcher::startMonitorProcess(const std::string& dumpPath, const std::string& crashDumpName, const std::string& freezeDumpName)
+    void CrashCatcher::startMonitorProcess(const std::filesystem::path& dumpPath,
+        const std::filesystem::path& crashDumpName, const std::filesystem::path& freezeDumpName)
     {
         std::wstring executablePath;
         DWORD copied = 0;
-        do {
+        do
+        {
             executablePath.resize(executablePath.size() + MAX_PATH);
             copied = GetModuleFileNameW(nullptr, executablePath.data(), static_cast<DWORD>(executablePath.size()));
         } while (copied >= executablePath.size());
@@ -201,10 +215,10 @@ namespace Crash
     {
         switch (info->ExceptionRecord->ExceptionCode)
         {
-        case EXCEPTION_SINGLE_STEP:
-        case EXCEPTION_BREAKPOINT:
-        case DBG_PRINTEXCEPTION_C:
-            return EXCEPTION_EXECUTE_HANDLER;
+            case EXCEPTION_SINGLE_STEP:
+            case EXCEPTION_BREAKPOINT:
+            case DBG_PRINTEXCEPTION_C:
+                return EXCEPTION_EXECUTE_HANDLER;
         }
         if (!sInstance)
             return EXCEPTION_EXECUTE_HANDLER;
@@ -227,11 +241,23 @@ namespace Crash
 
         signalMonitor();
 
-        // must remain until monitor has finished
-        waitMonitor();
+        // give monitor a chance to start dumping
+        // as we're suspended, this might time out even if it's successful, so mMonitorStatus is the source of truth
+        waitMonitorNoThrow();
 
-        std::string message = "TES3MP has encountered a fatal error.\nCrash log saved to '" + getCrashDumpPath(*mShm) + "'.\nPlease report this to https://github.com/TES3MP/TES3MP/issues !";
-        SDL_ShowSimpleMessageBox(0, "Fatal Error", message.c_str(), nullptr);
+        shmLock();
+        CrashSHM::Status monitorStatus = mShm->mMonitorStatus;
+        shmUnlock();
+
+        if (monitorStatus == CrashSHM::Status::DumpedSuccessfully)
+        {
+            std::string message = "TES3MP has encountered a fatal error.\nCrash dump saved to '"
+                + Misc::StringUtils::u8StringToString(getCrashDumpPath(*mShm).u8string())
+                + "'.\nPlease report this to https://github.com/TES3MP/TES3MP/issues !";
+            SDL_ShowSimpleMessageBox(0, "Fatal Error", message.c_str(), nullptr);
+        }
+        else if (monitorStatus == CrashSHM::Status::Dumping)
+            SDL_ShowSimpleMessageBox(0, "Fatal Error", "Timed out while creating crash dump", nullptr);
     }
 
 } // namespace Crash

@@ -5,27 +5,27 @@
 
 namespace ESM
 {
-namespace
-{
-    constexpr NAME currentRegionRecord     = "CREG";
-    constexpr NAME timePassedRecord        = "TMPS";
-    constexpr NAME fastForwardRecord       = "FAST";
-    constexpr NAME weatherUpdateTimeRecord = "WUPD";
-    constexpr NAME transitionFactorRecord  = "TRFC";
-    constexpr NAME currentWeatherRecord    = "CWTH";
-    constexpr NAME nextWeatherRecord       = "NWTH";
-    constexpr NAME queuedWeatherRecord     = "QWTH";
-    constexpr NAME regionNameRecord        = "RGNN";
-    constexpr NAME regionWeatherRecord     = "RGNW";
-    constexpr NAME regionChanceRecord      = "RGNC";
-}
+    namespace
+    {
+        constexpr NAME currentRegionRecord = "CREG";
+        constexpr NAME timePassedRecord = "TMPS";
+        constexpr NAME fastForwardRecord = "FAST";
+        constexpr NAME weatherUpdateTimeRecord = "WUPD";
+        constexpr NAME transitionFactorRecord = "TRFC";
+        constexpr NAME currentWeatherRecord = "CWTH";
+        constexpr NAME nextWeatherRecord = "NWTH";
+        constexpr NAME queuedWeatherRecord = "QWTH";
+        constexpr NAME regionNameRecord = "RGNN";
+        constexpr NAME regionWeatherRecord = "RGNW";
+        constexpr NAME regionChanceRecord = "RGNC";
+    }
 }
 
 namespace ESM
 {
     void WeatherState::load(ESMReader& esm)
     {
-        mCurrentRegion = esm.getHNString(currentRegionRecord);
+        mCurrentRegion = esm.getHNRefId(currentRegionRecord);
         esm.getHNT(mTimePassed, timePassedRecord);
         esm.getHNT(mFastForward, fastForwardRecord);
         esm.getHNT(mWeatherUpdateTime, weatherUpdateTimeRecord);
@@ -36,12 +36,12 @@ namespace ESM
 
         while (esm.isNextSub(regionNameRecord))
         {
-            std::string regionID = esm.getHString();
+            ESM::RefId regionID = esm.getRefId();
             RegionWeatherState region;
             esm.getHNT(region.mWeather, regionWeatherRecord);
             while (esm.isNextSub(regionChanceRecord))
             {
-                char chance;
+                uint8_t chance;
                 esm.getHT(chance);
                 region.mChances.push_back(chance);
             }
@@ -52,7 +52,7 @@ namespace ESM
 
     void WeatherState::save(ESMWriter& esm) const
     {
-        esm.writeHNCString(currentRegionRecord, mCurrentRegion);
+        esm.writeHNCRefId(currentRegionRecord, mCurrentRegion);
         esm.writeHNT(timePassedRecord, mTimePassed);
         esm.writeHNT(fastForwardRecord, mFastForward);
         esm.writeHNT(weatherUpdateTimeRecord, mWeatherUpdateTime);
@@ -61,14 +61,14 @@ namespace ESM
         esm.writeHNT(nextWeatherRecord, mNextWeather);
         esm.writeHNT(queuedWeatherRecord, mQueuedWeather);
 
-        std::map<std::string, RegionWeatherState>::const_iterator it = mRegions.begin();
-        for(; it != mRegions.end(); ++it)
+        auto it = mRegions.begin();
+        for (; it != mRegions.end(); ++it)
         {
-            esm.writeHNCString(regionNameRecord, it->first.c_str());
+            esm.writeHNCRefId(regionNameRecord, it->first);
             esm.writeHNT(regionWeatherRecord, it->second.mWeather);
-            for(size_t i = 0; i < it->second.mChances.size(); ++i)
+            for (const uint8_t& chance : it->second.mChances)
             {
-                esm.writeHNT(regionChanceRecord, it->second.mChances[i]);
+                esm.writeHNT(regionChanceRecord, chance);
             }
         }
     }

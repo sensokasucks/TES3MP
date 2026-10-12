@@ -2,10 +2,10 @@
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVMESHDB_H
 
 #include "tileposition.hpp"
+#include "tilespositionsrange.hpp"
 
-#include <components/detournavigator/tilespositionsrange.hpp>
+#include <components/esm/refid.hpp>
 #include <components/misc/strongtypedef.hpp>
-
 #include <components/sqlite3/db.hpp>
 #include <components/sqlite3/statement.hpp>
 #include <components/sqlite3/transaction.hpp>
@@ -13,14 +13,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <optional>
-#include <stdexcept>
 #include <string_view>
-#include <tuple>
-#include <utility>
 #include <vector>
-#include <memory>
 
 struct sqlite3;
 struct sqlite3_stmt;
@@ -93,8 +88,8 @@ namespace DetourNavigator
         struct DeleteTilesAt
         {
             static std::string_view text() noexcept;
-            static void bind(sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace,
-                const TilePosition& tilePosition);
+            static void bind(
+                sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace, const TilePosition& tilePosition);
         };
 
         struct DeleteTilesAtExcept
@@ -107,8 +102,8 @@ namespace DetourNavigator
         struct DeleteTilesOutsideRange
         {
             static std::string_view text() noexcept;
-            static void bind(sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace,
-                const TilesPositionsRange& range);
+            static void bind(
+                sqlite3& db, sqlite3_stmt& statement, std::string_view worldspace, const TilesPositionsRange& range);
         };
 
         struct GetMaxShapeId
@@ -120,8 +115,8 @@ namespace DetourNavigator
         struct FindShapeId
         {
             static std::string_view text() noexcept;
-            static void bind(sqlite3& db, sqlite3_stmt& statement, std::string_view name,
-                ShapeType type, const Sqlite3::ConstBlob& hash);
+            static void bind(sqlite3& db, sqlite3_stmt& statement, std::string_view name, ShapeType type,
+                const Sqlite3::ConstBlob& hash);
         };
 
         struct InsertShape
@@ -147,22 +142,22 @@ namespace DetourNavigator
 
         TileId getMaxTileId();
 
-        std::optional<Tile> findTile(std::string_view worldspace,
-            const TilePosition& tilePosition, const std::vector<std::byte>& input);
+        std::optional<Tile> findTile(
+            ESM::RefId worldspace, const TilePosition& tilePosition, const std::vector<std::byte>& input);
 
-        std::optional<TileData> getTileData(std::string_view worldspace,
-            const TilePosition& tilePosition, const std::vector<std::byte>& input);
+        std::optional<TileData> getTileData(
+            ESM::RefId worldspace, const TilePosition& tilePosition, const std::vector<std::byte>& input);
 
-        int insertTile(TileId tileId, std::string_view worldspace, const TilePosition& tilePosition,
-            TileVersion version, const std::vector<std::byte>& input, const std::vector<std::byte>& data);
+        int insertTile(TileId tileId, ESM::RefId worldspace, const TilePosition& tilePosition, TileVersion version,
+            const std::vector<std::byte>& input, const std::vector<std::byte>& data);
 
         int updateTile(TileId tileId, TileVersion version, const std::vector<std::byte>& data);
 
-        int deleteTilesAt(std::string_view worldspace, const TilePosition& tilePosition);
+        int deleteTilesAt(ESM::RefId worldspace, const TilePosition& tilePosition);
 
-        int deleteTilesAtExcept(std::string_view worldspace, const TilePosition& tilePosition, TileId excludeTileId);
+        int deleteTilesAtExcept(ESM::RefId worldspace, const TilePosition& tilePosition, TileId excludeTileId);
 
-        int deleteTilesOutsideRange(std::string_view worldspace, const TilesPositionsRange& range);
+        int deleteTilesOutsideRange(ESM::RefId worldspace, const TilesPositionsRange& range);
 
         ShapeId getMaxShapeId();
 

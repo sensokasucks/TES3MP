@@ -1,10 +1,9 @@
 #ifndef DEBUG_DEBUGGING_H
 #define DEBUG_DEBUGGING_H
 
+#include <filesystem>
+#include <functional>
 #include <string_view>
-
-#include <boost/filesystem/fstream.hpp>
-#include <boost/iostreams/stream.hpp>
 
 #include <components/misc/guarded.hpp>
 
@@ -27,18 +26,23 @@ namespace Debug
 
     using LogListener = std::function<void(Debug::Level, std::string_view prefix, std::string_view msg)>;
     void setLogListener(LogListener);
+
+    // Can be used to print messages without timestamps
+    std::ostream& getRawStdout();
+
+    std::ostream& getRawStderr();
+
+    Misc::Locked<std::ostream&> getLockedRawStderr();
+
+    Level getDebugLevel();
+
+    Level getRecastMaxLogLevel();
+
+    // Redirect cout and cerr to the log file
+    void setupLogging(const std::filesystem::path& logDir, std::string_view appName);
+
+    int wrapApplication(
+        int (*innerApplication)(int argc, char* argv[]), int argc, char* argv[], std::string_view appName);
 }
-
-// Can be used to print messages without timestamps
-std::ostream& getRawStdout();
-
-std::ostream& getRawStderr();
-
-Misc::Locked<std::ostream&> getLockedRawStderr();
-
-void setupLogging(const std::string& logDir, std::string_view appName);
-
-int wrapApplication(int (*innerApplication)(int argc, char *argv[]), int argc, char *argv[],
-                    std::string_view appName);
 
 #endif

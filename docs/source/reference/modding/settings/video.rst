@@ -13,8 +13,8 @@ Larger values produce more detailed images within the constraints of your graphi
 but may reduce the frame rate.
 
 The window resolution can be selected from a menu of common screen sizes
-in the Video tab of the Video Panel of the Options menu, or in the Graphics tab of the OpenMW Launcher.
-The horizontal resolution can also be set to a custom value in the Graphics tab of the OpenMW Launcher.
+in the Video tab of the Video Panel of the Options menu, or in the Display tab of the launcher.
+The horizontal resolution can also be set to a custom value in the Display tab of the launcher.
 
 resolution y
 ------------
@@ -28,8 +28,8 @@ Larger values produce more detailed images within the constraints of your graphi
 but may reduce the frame rate.
 
 The window resolution can be selected from a menu of common screen sizes
-in the Video tab of the Video Panel of the Options menu, or in the Graphics tab of the OpenMW Launcher.
-The vertical resolution can also be set to a custom value in the Graphics tab of the OpenMW Launcher.
+in the Video tab of the Video Panel of the Options menu, or in the Display tab of the launcher.
+The vertical resolution can also be set to a custom value in the Display tab of the launcher.
 
 window mode
 -----------
@@ -48,7 +48,7 @@ This setting determines the window mode.
 
 
 This setting can be toggled in game using the dropdown list in the Video tab of the Video panel in the Options menu.
-It can also be toggled with the window mode dropdown in the Graphics tab of the OpenMW Launcher.
+It can also be toggled with the window mode dropdown in the Display tab of the launcher.
 
 screen
 ------
@@ -63,7 +63,7 @@ since this is the only way to control which screen is used,
 but it can also be used to control which screen a normal window or a borderless window opens on as well.
 The screens are numbered in increasing order, beginning with 0.
 
-This setting can be selected from a pull down menu in the Graphics tab of the OpenMW Launcher,
+This setting can be selected from a pull down menu in the Display tab of the OpenMW Launcher,
 but cannot be changed during game play.
 
 minimize on focus loss
@@ -111,36 +111,39 @@ antialiasing
 ------------
 
 :Type:		integer
-:Range:		0, 2, 4, 8, 16
+:Range:		>= 0
 :Default:	0
 
 This setting controls anti-aliasing. Anti-aliasing is a technique designed to improve the appearance of polygon edges,
 so they do not appear to be "jagged".
 Anti-aliasing can smooth these edges at the cost of a minor reduction in the frame rate.
 A value of 0 disables anti-aliasing.
-Other powers of two (e.g. 2, 4, 8, 16) are supported according to the capabilities of your graphics hardware.
+Other values are supported according to the capabilities of your graphics hardware.
 Higher values do a better job of smoothing out the image but have a greater impact on frame rate.
 
 This setting can be configured from a list of valid choices in the Graphics panel of the OpenMW Launcher,
 but cannot be changed during game play
 due to a technical limitation that may be addressed in a future version of OpenMW.
 
-vsync
------
+vsync mode
+----------
 
-:Type:		boolean
-:Range:		True/False
-:Default:	False
+:Type:		integer
+:Range:		0, 1, 2
+:Default:	0
 
 This setting determines whether frame draws are synchronized with the vertical refresh rate of your monitor.
 Enabling this setting can reduce screen tearing,
 a visual defect caused by updating the image buffer in the middle of a screen draw.
-Enabling this option typically implies limiting the framerate to the refresh rate of your monitor,
+Enabling this option (1 or 2) typically implies limiting the framerate to the refresh rate of your monitor,
 but may also introduce additional delays caused by having to wait until the appropriate time
 (the vertical blanking interval) to draw a frame, and a loss in mouse responsiveness known as 'input lag'.
+Mode 2 of this option corresponds to the use of adaptive vsync. Adaptive vsync is turned off if the framerate
+cannot reach your display's refresh rate. This prevents the input lag from becoming unbearable but may lead to tearing.
+Some hardware might not support this mode, in which case traditional vsync will be used.
 
-This setting can be adjusted in game using the VSync button in the Video tab of the Video panel in the Options menu.
-It can also be changed by toggling the Vertical Sync check box in the Graphics tab of the OpenMW Launcher.
+This setting can be adjusted in game using the VSync combo box in the Video tab of the Video panel in the Options menu.
+It can also be changed by toggling the Vertical Sync combo box in the Display tab of the launcher.
 
 framerate limit
 ---------------

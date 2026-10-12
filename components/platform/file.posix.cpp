@@ -1,15 +1,18 @@
 #include "file.hpp"
 
+#include <cassert>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdexcept>
+#include <string.h>
+#include <string>
 #include <sys/types.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <string.h>
-#include <stdexcept>
-#include <string>
-#include <cassert>
 
-namespace Platform::File {
+#include <components/files/conversion.hpp>
+
+namespace Platform::File
+{
 
     static auto getNativeHandle(Handle handle)
     {
@@ -29,7 +32,7 @@ namespace Platform::File {
         return -1;
     }
 
-    Handle open(const char* filename)
+    Handle open(const std::filesystem::path& filename)
     {
 #ifdef O_BINARY
         static const int openFlags = O_RDONLY | O_BINARY;
@@ -37,10 +40,11 @@ namespace Platform::File {
         static const int openFlags = O_RDONLY;
 #endif
 
-        auto handle = ::open(filename, openFlags, 0);
+        auto handle = ::open(filename.c_str(), openFlags, 0);
         if (handle == -1)
         {
-            throw std::runtime_error(std::string("Failed to open '") + filename + "' for reading: " + strerror(errno));
+            throw std::system_error(errno, std::generic_category(),
+                std::string("Failed to open '") + Files::pathToUnicodeString(filename) + "' for reading");
         }
         return static_cast<Handle>(handle);
     }
@@ -59,7 +63,7 @@ namespace Platform::File {
 
         if (::lseek(nativeHandle, position, nativeSeekType) == -1)
         {
-            throw std::runtime_error("An lseek() call failed: " + std::string(strerror(errno)));
+            throw std::system_error(errno, std::generic_category(), "An lseek() call failed");
         }
     }
 
@@ -71,7 +75,6 @@ namespace Platform::File {
         const auto fileSize = tell(handle);
         seek(handle, oldPos, SeekType::Begin);
 
-
         return static_cast<size_t>(fileSize);
     }
 
@@ -82,7 +85,7 @@ namespace Platform::File {
         size_t position = ::lseek(nativeHandle, 0, SEEK_CUR);
         if (position == size_t(-1))
         {
-            throw std::runtime_error("An lseek() call failed: " + std::string(strerror(errno)));
+            throw std::system_error(errno, std::generic_category(), "An lseek() call failed");
         }
         return position;
     }
@@ -94,7 +97,8 @@ namespace Platform::File {
         int amount = ::read(nativeHandle, data, size);
         if (amount == -1)
         {
-            throw std::runtime_error("An attempt to read " + std::to_string(size) + " bytes failed: " + strerror(errno));
+            throw std::system_error(
+                errno, std::generic_category(), "An attempt to read " + std::to_string(size) + " bytes failed");
         }
         return amount;
     }

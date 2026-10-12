@@ -1,47 +1,53 @@
 #ifndef OPENMW_ESM_ALCH_H
 #define OPENMW_ESM_ALCH_H
 
+#include <cstdint>
 #include <string>
 
-#include "effectlist.hpp"
 #include "components/esm/defs.hpp"
+#include "components/esm/refid.hpp"
+#include "effectlist.hpp"
 
 namespace ESM
 {
 
-class ESMReader;
-class ESMWriter;
+    class ESMReader;
+    class ESMWriter;
 
-/*
- * Alchemy item (potions)
- */
+    /*
+     * Alchemy item (potions)
+     */
 
-struct Potion
-{
-    constexpr static RecNameInts sRecordId = REC_ALCH;
-
-
-    /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
-    static std::string_view getRecordType() { return "Potion"; }
-
-    struct ALDTstruct
+    struct Potion
     {
-        float mWeight;
-        int mValue;
-        int mAutoCalc;
-    };
-    ALDTstruct mData;
+        constexpr static RecNameInts sRecordId = REC_ALCH;
 
-    unsigned int mRecordFlags;
-    std::string mId, mName, mModel, mIcon, mScript;
-    EffectList mEffects;
+        /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
+        static std::string_view getRecordType() { return "Potion"; }
 
-    void load(ESMReader &esm, bool &isDeleted);
-    void save(ESMWriter &esm, bool isDeleted = false) const;
+        enum Flags
+        {
+            Autocalc = 1 // Determines value
+        };
 
-    void blank();
-    ///< Set record to default state (does not touch the ID).
+        struct ALDTstruct
+        {
+            float mWeight;
+            int32_t mValue;
+            int32_t mFlags;
+        };
+        ALDTstruct mData;
 
+        uint32_t mRecordFlags;
+        RefId mId, mScript;
+        std::string mName, mModel, mIcon;
+        EffectList mEffects;
+
+        void load(ESMReader& esm, bool& isDeleted);
+        void save(ESMWriter& esm, bool isDeleted = false) const;
+
+        void blank();
+        ///< Set record to default state (does not touch the ID).
     };
 }
 #endif

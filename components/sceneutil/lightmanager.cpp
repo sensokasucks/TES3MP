@@ -1,37 +1,30 @@
 #include "lightmanager.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
-#include <algorithm>
 #include <iterator>
 
-#include <osg/BufferObject>
 #include <osg/BufferIndexBinding>
+#include <osg/BufferObject>
 #include <osg/Endian>
 #include <osg/ValueObject>
 
 #include <osgUtil/CullVisitor>
 
-#include <components/sceneutil/util.hpp>
 #include <components/resource/scenemanager.hpp>
+#include <components/sceneutil/glextensions.hpp>
+#include <components/sceneutil/util.hpp>
+#include <components/shader/shadermanager.hpp>
 
-#include <components/misc/hash.hpp>
-#include <components/misc/stringops.hpp>
 #include <components/misc/constants.hpp>
+#include <components/misc/hash.hpp>
 
 #include <components/debug/debuglog.hpp>
 
 namespace
 {
-    constexpr int maxLightsLowerLimit = 2;
-    constexpr int maxLightsUpperLimit = 64;
     constexpr int ffpMaxLights = 8;
-
-    bool sortLights(const SceneUtil::LightManager::LightSourceViewBound* left, const SceneUtil::LightManager::LightSourceViewBound* right)
-    {
-        static auto constexpr illuminationBias = 81.f;
-        return left->mViewBound.center().length2() - left->mViewBound.radius2()*illuminationBias < right->mViewBound.center().length2() - right->mViewBound.radius2()*illuminationBias;
-    }
 
     void configurePosition(osg::Matrixf& mat, const osg::Vec4& pos)
     {
@@ -76,19 +69,19 @@ namespace SceneUtil
     namespace
     {
         const std::unordered_map<std::string, LightingMethod> lightingMethodSettingMap = {
-            {"legacy", LightingMethod::FFP},
-            {"shaders compatibility", LightingMethod::PerObjectUniform},
-            {"shaders", LightingMethod::SingleUBO},
+            { "legacy", LightingMethod::FFP },
+            { "shaders compatibility", LightingMethod::PerObjectUniform },
+            { "shaders", LightingMethod::SingleUBO },
         };
     }
 
     static int sLightId = 0;
 
-    // Handles a GLSL shared layout by using configured offsets and strides to fill a continuous buffer, making the data upload to GPU simpler.
+    // Handles a GLSL shared layout by using configured offsets and strides to fill a continuous buffer, making the data
+    // upload to GPU simpler.
     class LightBuffer : public osg::Referenced
     {
     public:
-
         enum LayoutOffset
         {
             Diffuse,
@@ -100,7 +93,7 @@ namespace SceneUtil
         };
 
         LightBuffer(int count)
-            : mData(new osg::FloatArray(3*4*count))
+            : mData(new osg::FloatArray(3 * 4 * count))
             , mEndian(osg::getCpuByteOrder())
             , mCount(count)
             , mCachedSunPos(osg::Vec4())
@@ -146,25 +139,13 @@ namespace SceneUtil
             std::memcpy(&(*mData)[getOffset(index, AttenuationRadius)], value.ptr(), sizeof(osg::Vec4f));
         }
 
-        auto& getData()
-        {
-            return mData;
-        }
+        auto& getData() { return mData; }
 
-        void dirty()
-        {
-            mData->dirty();
-        }
+        void dirty() { mData->dirty(); }
 
-        static constexpr int queryBlockSize(int sz)
-        {
-            return 3 * osg::Vec4::num_components * sizeof(GLfloat) * sz;
-        }
+        static constexpr int queryBlockSize(int sz) { return 3 * osg::Vec4::num_components * sizeof(GLfloat) * sz; }
 
-        void setCachedSunPos(const osg::Vec4& pos)
-        {
-            mCachedSunPos = pos;
-        }
+        void setCachedSunPos(const osg::Vec4& pos) { mCachedSunPos = pos; }
 
         void uploadCachedSunPos(const osg::Matrix& viewMat)
         {
@@ -177,10 +158,7 @@ namespace SceneUtil
             return mEndian == osg::BigEndian ? value.asABGR() : value.asRGBA();
         }
 
-        int getOffset(int index, LayoutOffset slot) const
-        {
-            return mOffsets.get(index, slot);
-        }
+        int getOffset(int index, LayoutOffset slot) const { return mOffsets.get(index, slot); }
 
         void configureLayout(int offsetColors, int offsetPosition, int offsetAttenuationRadius, int size, int stride)
         {
@@ -198,40 +176,37 @@ namespace SceneUtil
     private:
         class Offsets
         {
-            public:
-                Offsets()
-                    : mStride(12)
-                {
-                    mValues[Diffuse] = 0;
-                    mValues[Ambient] = 1;
-                    mValues[Specular] = 2;
-                    mValues[DiffuseSign] = 3;
-                    mValues[Position] = 4;
-                    mValues[AttenuationRadius] = 8;
-                }
+        public:
+            Offsets()
+                : mStride(12)
+            {
+                mValues[Diffuse] = 0;
+                mValues[Ambient] = 1;
+                mValues[Specular] = 2;
+                mValues[DiffuseSign] = 3;
+                mValues[Position] = 4;
+                mValues[AttenuationRadius] = 8;
+            }
 
-                Offsets(int offsetColors, int offsetPosition, int offsetAttenuationRadius, int stride)
-                    : mStride((offsetAttenuationRadius + sizeof(GLfloat) * osg::Vec4::num_components + stride) / 4)
-                {
-                    constexpr auto sizeofFloat = sizeof(GLfloat);
-                    const auto diffuseOffset = offsetColors / sizeofFloat;
+            Offsets(int offsetColors, int offsetPosition, int offsetAttenuationRadius, int stride)
+                : mStride((offsetAttenuationRadius + sizeof(GLfloat) * osg::Vec4::num_components + stride) / 4)
+            {
+                constexpr auto sizeofFloat = sizeof(GLfloat);
+                const auto diffuseOffset = offsetColors / sizeofFloat;
 
-                    mValues[Diffuse] = diffuseOffset;
-                    mValues[Ambient] = diffuseOffset + 1;
-                    mValues[Specular] = diffuseOffset + 2;
-                    mValues[DiffuseSign] = diffuseOffset + 3;
-                    mValues[Position] = offsetPosition / sizeofFloat;
-                    mValues[AttenuationRadius] = offsetAttenuationRadius / sizeofFloat;
-                }
+                mValues[Diffuse] = diffuseOffset;
+                mValues[Ambient] = diffuseOffset + 1;
+                mValues[Specular] = diffuseOffset + 2;
+                mValues[DiffuseSign] = diffuseOffset + 3;
+                mValues[Position] = offsetPosition / sizeofFloat;
+                mValues[AttenuationRadius] = offsetAttenuationRadius / sizeofFloat;
+            }
 
-                int get(int index, LayoutOffset slot) const
-                {
-                    return mStride * index + mValues[slot];
-                }
+            int get(int index, LayoutOffset slot) const { return mStride * index + mValues[slot]; }
 
-            private:
-                int mStride;
-                std::array<int, 6> mValues;
+        private:
+            int mStride;
+            std::array<int, 6> mValues;
         };
 
         void configureLayout(const Offsets& offsets, int size)
@@ -242,9 +217,12 @@ namespace SceneUtil
             mData->resizeArray(static_cast<unsigned>(size));
             for (int i = 0; i < mCount; ++i)
             {
-                std::memcpy(&(*mData)[offsets.get(i, Diffuse)], data.data() + getOffset(i, Diffuse), sizeof(osg::Vec4f));
-                std::memcpy(&(*mData)[offsets.get(i, Position)], data.data() + getOffset(i, Position), sizeof(osg::Vec4f));
-                std::memcpy(&(*mData)[offsets.get(i, AttenuationRadius)], data.data() + getOffset(i, AttenuationRadius), sizeof(osg::Vec4f));
+                std::memcpy(
+                    &(*mData)[offsets.get(i, Diffuse)], data.data() + getOffset(i, Diffuse), sizeof(osg::Vec4f));
+                std::memcpy(
+                    &(*mData)[offsets.get(i, Position)], data.data() + getOffset(i, Position), sizeof(osg::Vec4f));
+                std::memcpy(&(*mData)[offsets.get(i, AttenuationRadius)], data.data() + getOffset(i, AttenuationRadius),
+                    sizeof(osg::Vec4f));
             }
             mOffsets = offsets;
         }
@@ -264,22 +242,23 @@ namespace SceneUtil
     LightStateCache* getLightStateCache(size_t contextid, size_t size = 8)
     {
         static std::vector<LightStateCache> cacheVector;
-        if (cacheVector.size() < contextid+1)
-            cacheVector.resize(contextid+1);
+        if (cacheVector.size() < contextid + 1)
+            cacheVector.resize(contextid + 1);
         cacheVector[contextid].lastAppliedLight.resize(size);
         return &cacheVector[contextid];
     }
 
-    void configureStateSetSunOverride(LightManager* lightManager, const osg::Light* light, osg::StateSet* stateset, int mode)
+    void configureStateSetSunOverride(
+        LightManager* lightManager, const osg::Light* light, osg::StateSet* stateset, int mode)
     {
         auto method = lightManager->getLightingMethod();
         switch (method)
         {
-        case LightingMethod::FFP:
+            case LightingMethod::FFP:
             {
                 break;
             }
-        case LightingMethod::PerObjectUniform:
+            case LightingMethod::PerObjectUniform:
             {
                 osg::Matrixf lightMat;
                 configurePosition(lightMat, light->getPosition());
@@ -290,7 +269,7 @@ namespace SceneUtil
                 stateset->addUniform(lightManager->generateLightBufferUniform(lightMat), mode);
                 break;
             }
-        case LightingMethod::SingleUBO:
+            case LightingMethod::SingleUBO:
             {
                 osg::ref_ptr<LightBuffer> buffer = new LightBuffer(lightManager->getMaxLightsInScene());
 
@@ -301,7 +280,9 @@ namespace SceneUtil
 
                 osg::ref_ptr<osg::UniformBufferObject> ubo = new osg::UniformBufferObject;
                 buffer->getData()->setBufferObject(ubo);
-                osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData(), 0, buffer->getData()->getTotalDataSize());
+                osg::ref_ptr<osg::UniformBufferBinding> ubb
+                    = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer),
+                        buffer->getData(), 0, buffer->getData()->getTotalDataSize());
                 stateset->setAttributeAndModes(ubb, mode);
 
                 break;
@@ -312,18 +293,24 @@ namespace SceneUtil
     class DisableLight : public osg::StateAttribute
     {
     public:
-        DisableLight() : mIndex(0) {}
-        DisableLight(int index) : mIndex(index) {}
+        DisableLight()
+            : mIndex(0)
+        {
+        }
+        DisableLight(int index)
+            : mIndex(index)
+        {
+        }
 
-        DisableLight(const DisableLight& copy,const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY)
-            : osg::StateAttribute(copy,copyop), mIndex(copy.mIndex) {}
+        DisableLight(const DisableLight& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY)
+            : osg::StateAttribute(copy, copyop)
+            , mIndex(copy.mIndex)
+        {
+        }
 
         META_StateAttribute(SceneUtil, DisableLight, osg::StateAttribute::LIGHT)
 
-        unsigned int getMember() const override
-        {
-            return mIndex;
-        }
+        unsigned int getMember() const override { return mIndex; }
 
         bool getModeUsage(ModeUsage& usage) const override
         {
@@ -355,16 +342,25 @@ namespace SceneUtil
     class FFPLightStateAttribute : public osg::StateAttribute
     {
     public:
-        FFPLightStateAttribute() : mIndex(0) {}
-        FFPLightStateAttribute(size_t index, const std::vector<osg::ref_ptr<osg::Light>>& lights) : mIndex(index), mLights(lights) {}
-
-        FFPLightStateAttribute(const FFPLightStateAttribute& copy,const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY)
-            : osg::StateAttribute(copy,copyop), mIndex(copy.mIndex), mLights(copy.mLights) {}
-
-        unsigned int getMember() const override
+        FFPLightStateAttribute()
+            : mIndex(0)
         {
-            return mIndex;
         }
+        FFPLightStateAttribute(size_t index, const std::vector<osg::ref_ptr<osg::Light>>& lights)
+            : mIndex(index)
+            , mLights(lights)
+        {
+        }
+
+        FFPLightStateAttribute(
+            const FFPLightStateAttribute& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY)
+            : osg::StateAttribute(copy, copyop)
+            , mIndex(copy.mIndex)
+            , mLights(copy.mLights)
+        {
+        }
+
+        unsigned int getMember() const override { return mIndex; }
 
         bool getModeUsage(ModeUsage& usage) const override
         {
@@ -392,11 +388,11 @@ namespace SceneUtil
 
             for (size_t i = 0; i < mLights.size(); ++i)
             {
-                osg::Light* current = cache->lastAppliedLight[i+mIndex];
+                osg::Light* current = cache->lastAppliedLight[i + mIndex];
                 if (current != mLights[i].get())
                 {
                     applyLight((GLenum)((int)GL_LIGHT0 + i + mIndex), mLights[i].get());
-                    cache->lastAppliedLight[i+mIndex] = mLights[i].get();
+                    cache->lastAppliedLight[i + mIndex] = mLights[i].get();
                 }
             }
 
@@ -411,9 +407,9 @@ namespace SceneUtil
             glLightfv(lightNum, GL_POSITION, light->getPosition().ptr());
             // TODO: enable this once spot lights are supported
             // need to transform SPOT_DIRECTION by the world matrix?
-            //glLightfv(lightNum, GL_SPOT_DIRECTION, light->getDirection().ptr());
-            //glLightf(lightNum, GL_SPOT_EXPONENT, light->getSpotExponent());
-            //glLightf(lightNum, GL_SPOT_CUTOFF, light->getSpotCutoff());
+            // glLightfv(lightNum, GL_SPOT_DIRECTION, light->getDirection().ptr());
+            // glLightf(lightNum, GL_SPOT_EXPONENT, light->getSpotExponent());
+            // glLightf(lightNum, GL_SPOT_CUTOFF, light->getSpotCutoff());
             glLightf(lightNum, GL_CONSTANT_ATTENUATION, light->getConstantAttenuation());
             glLightf(lightNum, GL_LINEAR_ATTENUATION, light->getLinearAttenuation());
             glLightf(lightNum, GL_QUADRATIC_ATTENUATION, light->getQuadraticAttenuation());
@@ -451,7 +447,8 @@ namespace SceneUtil
             // the first light state attribute handles the actual state setting for all lights
             // it's best to batch these up so that we don't need to touch the modelView matrix more than necessary
             // don't use setAttributeAndModes, that does not support light indices!
-            stateset->setAttribute(new FFPLightStateAttribute(mLightManager->getStartLight(), std::move(lights)), osg::StateAttribute::ON);
+            stateset->setAttribute(
+                new FFPLightStateAttribute(mLightManager->getStartLight(), std::move(lights)), osg::StateAttribute::ON);
 
             for (size_t i = 0; i < lightList.size(); ++i)
                 stateset->setMode(GL_LIGHT0 + mLightManager->getStartLight() + i, osg::StateAttribute::ON);
@@ -459,7 +456,8 @@ namespace SceneUtil
             // need to push some dummy attributes to ensure proper state tracking
             // lights need to reset to their default when the StateSet is popped
             for (size_t i = 1; i < lightList.size(); ++i)
-                stateset->setAttribute(mLightManager->getDummies()[i + mLightManager->getStartLight()].get(), osg::StateAttribute::ON);
+                stateset->setAttribute(
+                    mLightManager->getDummies()[i + mLightManager->getStartLight()].get(), osg::StateAttribute::ON);
 
             return stateset;
         }
@@ -471,7 +469,8 @@ namespace SceneUtil
         {
             osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
 
-            osg::ref_ptr<osg::Uniform> indicesUni = new osg::Uniform(osg::Uniform::Type::INT, "PointLightIndex", mLightManager->getMaxLights());
+            osg::ref_ptr<osg::Uniform> indicesUni
+                = new osg::Uniform(osg::Uniform::Type::INT, "PointLightIndex", mLightManager->getMaxLights());
             int pointCount = 0;
 
             for (size_t i = 0; i < lightList.size(); ++i)
@@ -520,7 +519,8 @@ namespace SceneUtil
         osg::ref_ptr<osg::StateSet> generate(const LightManager::LightList& lightList, size_t frameNum) override
         {
             osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
-            osg::ref_ptr<osg::Uniform> data = mLightManager->generateLightBufferUniform(mLightManager->getSunlightBuffer(frameNum));
+            osg::ref_ptr<osg::Uniform> data
+                = mLightManager->generateLightBufferUniform(mLightManager->getSunlightBuffer(frameNum));
 
             for (size_t i = 0; i < lightList.size(); ++i)
             {
@@ -529,9 +529,11 @@ namespace SceneUtil
                 configurePosition(lightMat, light->getPosition() * mViewMatrix);
                 configureAmbient(lightMat, light->getAmbient());
                 configureDiffuse(lightMat, light->getDiffuse());
-                configureAttenuation(lightMat, light->getConstantAttenuation(), light->getLinearAttenuation(), light->getQuadraticAttenuation(), lightList[i]->mLightSource->getRadius());
+                configureSpecular(lightMat, light->getSpecular());
+                configureAttenuation(lightMat, light->getConstantAttenuation(), light->getLinearAttenuation(),
+                    light->getQuadraticAttenuation(), lightList[i]->mLightSource->getRadius());
 
-                data->setElement(i+1, lightMat);
+                data->setElement(i + 1, lightMat);
             }
 
             stateset->addUniform(data);
@@ -552,16 +554,21 @@ namespace SceneUtil
     }
 
     // Set on a LightSource. Adds the light source to its light manager for the current frame.
-    // This allows us to keep track of the current lights in the scene graph without tying creation & destruction to the manager.
+    // This allows us to keep track of the current lights in the scene graph without tying creation & destruction to the
+    // manager.
     class CollectLightCallback : public NodeCallback<CollectLightCallback>
     {
     public:
         CollectLightCallback()
-            : mLightManager(nullptr) { }
+            : mLightManager(nullptr)
+        {
+        }
 
         CollectLightCallback(const CollectLightCallback& copy, const osg::CopyOp& copyop)
             : NodeCallback<CollectLightCallback>(copy, copyop)
-            , mLightManager(nullptr) { }
+            , mLightManager(nullptr)
+        {
+        }
 
         META_Object(SceneUtil, CollectLightCallback)
 
@@ -575,7 +582,8 @@ namespace SceneUtil
                     throw std::runtime_error("can't find parent LightManager");
             }
 
-            mLightManager->addLight(static_cast<LightSource*>(node), osg::computeLocalToWorld(nv->getNodePath()), nv->getTraversalNumber());
+            mLightManager->addLight(
+                static_cast<LightSource*>(node), osg::computeLocalToWorld(nv->getNodePath()), nv->getTraversalNumber());
 
             traverse(node, nv);
         }
@@ -588,7 +596,6 @@ namespace SceneUtil
     class LightManagerUpdateCallback : public SceneUtil::NodeCallback<LightManagerUpdateCallback>
     {
     public:
-
         void operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
             LightManager* lightManager = static_cast<LightManager*>(node);
@@ -598,7 +605,8 @@ namespace SceneUtil
         }
     };
 
-    class LightManagerCullCallback : public SceneUtil::NodeCallback<LightManagerCullCallback, LightManager*, osgUtil::CullVisitor*>
+    class LightManagerCullCallback
+        : public SceneUtil::NodeCallback<LightManagerCullCallback, LightManager*, osgUtil::CullVisitor*>
     {
     public:
         LightManagerCullCallback(LightManager* lightManager)
@@ -609,7 +617,9 @@ namespace SceneUtil
             for (size_t i = 0; i < mUBBs.size(); ++i)
             {
                 auto& buffer = lightManager->getUBOManager()->getLightBuffer(i);
-                mUBBs[i] = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData(), 0, buffer->getData()->getTotalDataSize());
+                mUBBs[i]
+                    = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer),
+                        buffer->getData(), 0, buffer->getData()->getTotalDataSize());
             }
         }
 
@@ -637,7 +647,8 @@ namespace SceneUtil
                 if (auto sun = node->getSunlight())
                 {
                     osg::Matrixf lightMat;
-                    configurePosition(lightMat, sun->getPosition() * (*cv->getCurrentRenderStage()->getInitialViewMatrix()));
+                    configurePosition(
+                        lightMat, sun->getPosition() * (*cv->getCurrentRenderStage()->getInitialViewMatrix()));
                     configureAmbient(lightMat, sun->getAmbient());
                     configureDiffuse(lightMat, sun->getDiffuse());
                     configureSpecular(lightMat, sun->getSpecular());
@@ -665,10 +676,11 @@ namespace SceneUtil
     {
         static const std::string dummyVertSource = generateDummyShader(lightCount);
 
-        // Needed to query the layout of the buffer object. The layout specifier needed to use the std140 layout is not reliably
-        // available, regardless of extensions, until GLSL 140.
+        // Needed to query the layout of the buffer object. The layout specifier needed to use the std140 layout is not
+        // reliably available, regardless of extensions, until GLSL 140.
         mDummyProgram->addShader(new osg::Shader(osg::Shader::VERTEX, dummyVertSource));
-        mDummyProgram->addBindUniformBlock("LightBufferBinding", static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer));
+        mDummyProgram->addBindUniformBlock(
+            "LightBufferBinding", static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer));
 
         for (size_t i = 0; i < mLightBuffers.size(); ++i)
         {
@@ -681,14 +693,19 @@ namespace SceneUtil
         }
     }
 
-    UBOManager::UBOManager(const UBOManager& copy, const osg::CopyOp& copyop) : osg::StateAttribute(copy,copyop), mDummyProgram(copy.mDummyProgram), mInitLayout(copy.mInitLayout) {}
+    UBOManager::UBOManager(const UBOManager& copy, const osg::CopyOp& copyop)
+        : osg::StateAttribute(copy, copyop)
+        , mDummyProgram(copy.mDummyProgram)
+        , mInitLayout(copy.mInitLayout)
+    {
+    }
 
     void UBOManager::releaseGLObjects(osg::State* state) const
     {
         mDummyProgram->releaseGLObjects(state);
     }
 
-    int UBOManager::compare(const StateAttribute &sa) const
+    int UBOManager::compare(const StateAttribute& sa) const
     {
         throw std::runtime_error("LightManagerStateAttribute::compare: unimplemented");
     }
@@ -751,7 +768,8 @@ namespace SceneUtil
 
     void UBOManager::initSharedLayout(osg::GLExtensions* ext, int handle, unsigned int frame) const
     {
-        constexpr std::array<unsigned int, 1> index = { static_cast<unsigned int>(Resource::SceneManager::UBOBinding::LightBuffer) };
+        constexpr std::array<unsigned int, 1> index
+            = { static_cast<unsigned int>(Resource::SceneManager::UBOBinding::LightBuffer) };
         int totalBlockSize = -1;
         int stride = -1;
 
@@ -791,7 +809,7 @@ namespace SceneUtil
         return "";
     }
 
-    LightManager::LightManager(bool ffp)
+    LightManager::LightManager(const LightSettings& settings)
         : mStartLight(0)
         , mLightingMask(~0u)
         , mSun(nullptr)
@@ -799,7 +817,7 @@ namespace SceneUtil
         , mPointLightFadeEnd(0.f)
         , mPointLightFadeStart(0.f)
     {
-        osg::GLExtensions* exts = osg::GLExtensions::Get(0, false);
+        osg::GLExtensions* exts = SceneUtil::glExtensionsReady() ? &SceneUtil::getGLExtensions() : nullptr;
         bool supportsUBO = exts && exts->isUniformBufferObjectSupported;
         bool supportsGPU4 = exts && exts->isGpuShader4Supported;
 
@@ -809,42 +827,39 @@ namespace SceneUtil
 
         setUpdateCallback(new LightManagerUpdateCallback);
 
-        if (ffp)
+        if (settings.mLightingMethod == LightingMethod::FFP)
         {
             initFFP(ffpMaxLights);
-            return;
         }
-
-        std::string lightingMethodString = Settings::Manager::getString("lighting method", "Shaders");
-        auto lightingMethod = LightManager::getLightingMethodFromString(lightingMethodString);
-
-        static bool hasLoggedWarnings = false;
-
-        if (lightingMethod == LightingMethod::SingleUBO && !hasLoggedWarnings)
-        {
-            if (!supportsUBO)
-                Log(Debug::Warning) << "GL_ARB_uniform_buffer_object not supported: switching to shader compatibility lighting mode";
-            if (!supportsGPU4)
-                Log(Debug::Warning) << "GL_EXT_gpu_shader4 not supported: switching to shader compatibility lighting mode";
-            hasLoggedWarnings = true;
-        }
-
-        const int targetLights = std::clamp(Settings::Manager::getInt("max lights", "Shaders"),
-                                            maxLightsLowerLimit, maxLightsUpperLimit);
-
-        if (!supportsUBO || !supportsGPU4 || lightingMethod == LightingMethod::PerObjectUniform)
-            initPerObjectUniform(targetLights);
         else
-            initSingleUBO(targetLights);
+        {
+            static bool hasLoggedWarnings = false;
 
-        updateSettings();
+            if (settings.mLightingMethod == LightingMethod::SingleUBO && !hasLoggedWarnings)
+            {
+                if (!supportsUBO)
+                    Log(Debug::Warning) << "GL_ARB_uniform_buffer_object not supported: switching to shader "
+                                           "compatibility lighting mode";
+                if (!supportsGPU4)
+                    Log(Debug::Warning)
+                        << "GL_EXT_gpu_shader4 not supported: switching to shader compatibility lighting mode";
+                hasLoggedWarnings = true;
+            }
 
-        getOrCreateStateSet()->addUniform(new osg::Uniform("PointLightCount", 0));
+            if (!supportsUBO || !supportsGPU4 || settings.mLightingMethod == LightingMethod::PerObjectUniform)
+                initPerObjectUniform(settings.mMaxLights);
+            else
+                initSingleUBO(settings.mMaxLights);
 
-        addCullCallback(new LightManagerCullCallback(this));
+            getOrCreateStateSet()->addUniform(new osg::Uniform("PointLightCount", 0));
+
+            addCullCallback(new LightManagerCullCallback(this));
+        }
+
+        updateSettings(settings.mLightBoundsMultiplier, settings.mMaximumLightDistance, settings.mLightFadeStart);
     }
 
-    LightManager::LightManager(const LightManager &copy, const osg::CopyOp &copyop)
+    LightManager::LightManager(const LightManager& copy, const osg::CopyOp& copyop)
         : osg::Group(copy, copyop)
         , mStartLight(copy.mStartLight)
         , mLightingMask(copy.mLightingMask)
@@ -897,23 +912,24 @@ namespace SceneUtil
         // exposes bitwise operators
         defines["useGPUShader4"] = std::to_string(getLightingMethod() == LightingMethod::SingleUBO);
         defines["getLight"] = getLightingMethod() == LightingMethod::FFP ? "gl_LightSource" : "LightBuffer";
-        defines["startLight"] =  getLightingMethod() == LightingMethod::SingleUBO ? "0" : "1";
+        defines["startLight"] = getLightingMethod() == LightingMethod::SingleUBO ? "0" : "1";
         defines["endLight"] = getLightingMethod() == LightingMethod::FFP ? defines["maxLights"] : "PointLightCount";
 
         return defines;
     }
 
-    void LightManager::processChangedSettings(const Settings::CategorySettingVector& changed)
+    void LightManager::processChangedSettings(
+        float lightBoundsMultiplier, float maximumLightDistance, float lightFadeStart)
     {
-        updateSettings();
+        updateSettings(lightBoundsMultiplier, maximumLightDistance, lightFadeStart);
     }
 
-    void LightManager::updateMaxLights()
+    void LightManager::updateMaxLights(int maxLights)
     {
         if (usingFFP())
             return;
 
-        setMaxLights(std::clamp(Settings::Manager::getInt("max lights", "Shaders"), maxLightsLowerLimit, maxLightsUpperLimit));
+        setMaxLights(maxLights);
 
         if (getLightingMethod() == LightingMethod::PerObjectUniform)
         {
@@ -925,19 +941,12 @@ namespace SceneUtil
             cache.clear();
     }
 
-    void LightManager::updateSettings()
+    void LightManager::updateSettings(float lightBoundsMultiplier, float maximumLightDistance, float lightFadeStart)
     {
-        if (getLightingMethod() == LightingMethod::FFP)
-            return;
-
-        mPointLightRadiusMultiplier = std::clamp(Settings::Manager::getFloat("light bounds multiplier", "Shaders"), 0.f, 5.f);
-
-        mPointLightFadeEnd = std::max(0.f, Settings::Manager::getFloat("maximum light distance", "Shaders"));
+        mPointLightRadiusMultiplier = lightBoundsMultiplier;
+        mPointLightFadeEnd = maximumLightDistance;
         if (mPointLightFadeEnd > 0)
-        {
-            mPointLightFadeStart = std::clamp(Settings::Manager::getFloat("light fade start", "Shaders"), 0.f, 1.f);
-            mPointLightFadeStart = mPointLightFadeEnd * mPointLightFadeStart;
-        }
+            mPointLightFadeStart = mPointLightFadeEnd * lightFadeStart;
     }
 
     void LightManager::initFFP(int targetLights)
@@ -971,15 +980,15 @@ namespace SceneUtil
         mLightingMethod = method;
         switch (method)
         {
-        case LightingMethod::FFP:
-            mStateSetGenerator = std::make_unique<StateSetGeneratorFFP>();
-            break;
-        case LightingMethod::SingleUBO:
-            mStateSetGenerator = std::make_unique<StateSetGeneratorSingleUBO>();
-            break;
-        case LightingMethod::PerObjectUniform:
-            mStateSetGenerator = std::make_unique<StateSetGeneratorPerObjectUniform>();
-            break;
+            case LightingMethod::FFP:
+                mStateSetGenerator = std::make_unique<StateSetGeneratorFFP>();
+                break;
+            case LightingMethod::SingleUBO:
+                mStateSetGenerator = std::make_unique<StateSetGeneratorSingleUBO>();
+                break;
+            case LightingMethod::PerObjectUniform:
+                mStateSetGenerator = std::make_unique<StateSetGeneratorPerObjectUniform>();
+                break;
         }
         mStateSetGenerator->mLightManager = this;
     }
@@ -998,14 +1007,15 @@ namespace SceneUtil
     {
         mStartLight = start;
 
-        if (!usingFFP()) return;
+        if (!usingFFP())
+            return;
 
         // Set default light state to zero
         // This is necessary because shaders don't respect glDisable(GL_LIGHTX) so in addition to disabling
         // we'll have to set a light state that has no visible effect
         for (int i = start; i < getMaxLights(); ++i)
         {
-            osg::ref_ptr<DisableLight> defaultLight (new DisableLight(i));
+            osg::ref_ptr<DisableLight> defaultLight(new DisableLight(i));
             getOrCreateStateSet()->setAttributeAndModes(defaultLight, osg::StateAttribute::OFF);
         }
     }
@@ -1045,7 +1055,8 @@ namespace SceneUtil
 
     void LightManager::setSunlight(osg::ref_ptr<osg::Light> sun)
     {
-        if (usingFFP()) return;
+        if (usingFFP())
+            return;
 
         mSun = sun;
     }
@@ -1063,7 +1074,8 @@ namespace SceneUtil
         return hash;
     }
 
-    osg::ref_ptr<osg::StateSet> LightManager::getLightListStateSet(const LightList& lightList, size_t frameNum, const osg::RefMatrix* viewMatrix)
+    osg::ref_ptr<osg::StateSet> LightManager::getLightListStateSet(
+        const LightList& lightList, size_t frameNum, const osg::RefMatrix* viewMatrix)
     {
         if (getLightingMethod() == LightingMethod::PerObjectUniform)
         {
@@ -1071,7 +1083,8 @@ namespace SceneUtil
             return mStateSetGenerator->generate(lightList, frameNum);
         }
 
-        // possible optimization: return a StateSet containing all requested lights plus some extra lights (if a suitable one exists)
+        // possible optimization: return a StateSet containing all requested lights plus some extra lights (if a
+        // suitable one exists)
 
         if (getLightingMethod() == LightingMethod::SingleUBO)
         {
@@ -1087,11 +1100,12 @@ namespace SceneUtil
             }
         }
 
-        auto& stateSetCache = mStateSetCache[frameNum%2];
+        auto& stateSetCache = mStateSetCache[frameNum % 2];
 
         LightIdList lightIdList;
         lightIdList.reserve(lightList.size());
-        std::transform(lightList.begin(), lightList.end(), std::back_inserter(lightIdList), [] (const LightSourceViewBound* l) { return l->mLightSource->getId(); });
+        std::transform(lightList.begin(), lightList.end(), std::back_inserter(lightIdList),
+            [](const LightSourceViewBound* l) { return l->mLightSource->getId(); });
 
         auto found = stateSetCache.find(lightIdList);
         if (found != stateSetCache.end())
@@ -1105,11 +1119,12 @@ namespace SceneUtil
         return stateset;
     }
 
-    const std::vector<LightManager::LightSourceViewBound>& LightManager::getLightsInViewSpace(osgUtil::CullVisitor* cv, const osg::RefMatrix* viewMatrix, size_t frameNum)
+    const std::vector<LightManager::LightSourceViewBound>& LightManager::getLightsInViewSpace(
+        osgUtil::CullVisitor* cv, const osg::RefMatrix* viewMatrix, size_t frameNum)
     {
         osg::Camera* camera = cv->getCurrentCamera();
 
-        osg::observer_ptr<osg::Camera> camPtr (camera);
+        osg::observer_ptr<osg::Camera> camPtr(camera);
         auto it = mLightsInViewSpace.find(camPtr);
 
         if (it == mLightsInViewSpace.end())
@@ -1122,7 +1137,7 @@ namespace SceneUtil
 
                 float radius = transform.mLightSource->getRadius();
 
-                osg::BoundingSphere viewBound = osg::BoundingSphere(osg::Vec3f(0,0,0), radius);
+                osg::BoundingSphere viewBound(osg::Vec3f(), radius * mPointLightRadiusMultiplier);
                 transformBoundingSphere(worldViewMat, viewBound);
 
                 if (transform.mLightSource->getLastAppliedFrame() != frameNum && mPointLightFadeEnd != 0.f)
@@ -1135,18 +1150,10 @@ namespace SceneUtil
 
                     auto* light = transform.mLightSource->getLight(frameNum);
                     light->setDiffuse(light->getDiffuse() * fade);
+                    light->setSpecular(light->getSpecular() * fade);
                     transform.mLightSource->setLastAppliedFrame(frameNum);
                 }
 
-                // remove lights culled by this camera
-                if (!usingFFP())
-                {
-                    viewBound._radius *= 2.f;
-                    if (cv->getModelViewCullingStack().front().isCulled(viewBound))
-                        continue;
-                    viewBound._radius /= 2.f;
-                }
-                viewBound._radius *= mPointLightRadiusMultiplier;
                 LightSourceViewBound l;
                 l.mLightSource = transform.mLightSource;
                 l.mViewBound = viewBound;
@@ -1154,28 +1161,40 @@ namespace SceneUtil
             }
 
             const bool fillPPLights = mPPLightBuffer && it->first->getName() == Constants::SceneCamera;
+            const bool sceneLimitReached = getLightingMethod() == LightingMethod::SingleUBO
+                && it->second.size() > static_cast<size_t>(getMaxLightsInScene() - 1);
 
-            if (fillPPLights || getLightingMethod() == LightingMethod::SingleUBO)
+            if (fillPPLights || sceneLimitReached)
             {
-                auto sorter = [] (const LightSourceViewBound& left, const LightSourceViewBound& right) {
-                    return left.mViewBound.center().length2() - left.mViewBound.radius2() < right.mViewBound.center().length2() - right.mViewBound.radius2();
+                auto sorter = [](const LightSourceViewBound& left, const LightSourceViewBound& right) {
+                    return left.mViewBound.center().length2() - left.mViewBound.radius2()
+                        < right.mViewBound.center().length2() - right.mViewBound.radius2();
                 };
 
                 std::sort(it->second.begin(), it->second.end(), sorter);
 
                 if (fillPPLights)
                 {
+                    osg::CullingSet& cullingSet = cv->getModelViewCullingStack().front();
                     for (const auto& bound : it->second)
                     {
                         if (bound.mLightSource->getEmpty())
                             continue;
                         const auto* light = bound.mLightSource->getLight(frameNum);
-                        if (light->getDiffuse().x() >= 0.f)
-                            mPPLightBuffer->setLight(frameNum, light, bound.mLightSource->getRadius());
+                        // Ignore negative lights
+                        if (light->getDiffuse().x() < 0.f)
+                            continue;
+                        const float radius = bound.mLightSource->getRadius();
+                        osg::BoundingSphere frustumBound = bound.mViewBound;
+                        frustumBound.radius() = radius * 2.f;
+                        // Ignore culled lights
+                        if (cullingSet.isCulled(frustumBound))
+                            continue;
+                        mPPLightBuffer->setLight(frameNum, light, radius);
                     }
                 }
 
-                if (it->second.size() > static_cast<size_t>(getMaxLightsInScene() - 1))
+                if (sceneLimitReached)
                     it->second.resize(getMaxLightsInScene() - 1);
             }
         }
@@ -1183,13 +1202,17 @@ namespace SceneUtil
         return it->second;
     }
 
-    void LightManager::updateGPUPointLight(int index, LightSource* lightSource, size_t frameNum,const osg::RefMatrix* viewMatrix)
+    void LightManager::updateGPUPointLight(
+        int index, LightSource* lightSource, size_t frameNum, const osg::RefMatrix* viewMatrix)
     {
         auto* light = lightSource->getLight(frameNum);
         auto& buf = getUBOManager()->getLightBuffer(frameNum);
         buf->setDiffuse(index, light->getDiffuse());
         buf->setAmbient(index, light->getAmbient());
-        buf->setAttenuationRadius(index, osg::Vec4(light->getConstantAttenuation(), light->getLinearAttenuation(), light->getQuadraticAttenuation(), lightSource->getRadius()));
+        buf->setSpecular(index, light->getSpecular());
+        buf->setAttenuationRadius(index,
+            osg::Vec4(light->getConstantAttenuation(), light->getLinearAttenuation(), light->getQuadraticAttenuation(),
+                lightSource->getRadius()));
         buf->setPosition(index, light->getPosition() * (*viewMatrix));
     }
 
@@ -1218,7 +1241,7 @@ namespace SceneUtil
         mId = sLightId++;
     }
 
-    LightSource::LightSource(const LightSource &copy, const osg::CopyOp &copyop)
+    LightSource::LightSource(const LightSource& copy, const osg::CopyOp& copyop)
         : osg::Node(copy, copyop)
         , mRadius(copy.mRadius)
         , mActorFade(copy.mActorFade)
@@ -1230,7 +1253,7 @@ namespace SceneUtil
             mLight[i] = new osg::Light(*copy.mLight[i].get(), copyop);
     }
 
-    void LightListCallback::operator()(osg::Node *node, osgUtil::CullVisitor *cv)
+    void LightListCallback::operator()(osg::Node* node, osgUtil::CullVisitor* cv)
     {
         bool pushedState = pushLightState(node, cv);
         traverse(node, cv);
@@ -1238,7 +1261,7 @@ namespace SceneUtil
             cv->popStateSet();
     }
 
-    bool LightListCallback::pushLightState(osg::Node *node, osgUtil::CullVisitor *cv)
+    bool LightListCallback::pushLightState(osg::Node* node, osgUtil::CullVisitor* cv)
     {
         if (!mLightManager)
         {
@@ -1253,73 +1276,63 @@ namespace SceneUtil
         // Possible optimizations:
         // - organize lights in a quad tree
 
-
-        mLastFrameNumber = cv->getTraversalNumber();
-
         // Don't use Camera::getViewMatrix, that one might be relative to another camera!
         const osg::RefMatrix* viewMatrix = cv->getCurrentRenderStage()->getInitialViewMatrix();
-        const std::vector<LightManager::LightSourceViewBound>& lights = mLightManager->getLightsInViewSpace(cv, viewMatrix, mLastFrameNumber);
 
-        // get the node bounds in view space
-        // NB do not node->getBound() * modelView, that would apply the node's transformation twice
-        osg::BoundingSphere nodeBound;
-        osg::Transform* transform = node->asTransform();
-        if (transform)
+        // Update light list if necessary
+        // This makes sure we don't update it more than once per frame when rendering with multiple cameras
+        if (mLastFrameNumber != cv->getTraversalNumber())
         {
-            for (size_t i = 0; i < transform->getNumChildren(); ++i)
-                nodeBound.expandBy(transform->getChild(i)->getBound());
-        }
-        else
-            nodeBound = node->getBound();
-        osg::Matrixf mat = *cv->getModelViewMatrix();
-        transformBoundingSphere(mat, nodeBound);
+            mLastFrameNumber = cv->getTraversalNumber();
 
-        mLightList.clear();
-        for (size_t i = 0; i < lights.size(); ++i)
-        {
-            const LightManager::LightSourceViewBound& l = lights[i];
+            // Get the node bounds in view space
+            // NB: do not node->getBound() * modelView, that would apply the node's transformation twice
+            osg::BoundingSphere nodeBound;
+            const osg::Transform* transform = node->asTransform();
+            if (transform)
+            {
+                for (size_t i = 0; i < transform->getNumChildren(); ++i)
+                    nodeBound.expandBy(transform->getChild(i)->getBound());
+            }
+            else
+                nodeBound = node->getBound();
 
-            if (mIgnoredLightSources.count(l.mLightSource))
-                continue;
+            transformBoundingSphere(*cv->getModelViewMatrix(), nodeBound);
 
-            if (l.mViewBound.intersects(nodeBound))
-                mLightList.push_back(&l);
+            const std::vector<LightManager::LightSourceViewBound>& lights
+                = mLightManager->getLightsInViewSpace(cv, viewMatrix, mLastFrameNumber);
+
+            mLightList.clear();
+            for (const LightManager::LightSourceViewBound& light : lights)
+            {
+                if (mIgnoredLightSources.contains(light.mLightSource))
+                    continue;
+
+                if (light.mViewBound.intersects(nodeBound))
+                    mLightList.push_back(&light);
+            }
+
+            const size_t maxLights = mLightManager->getMaxLights() - mLightManager->getStartLight();
+
+            if (mLightList.size() > maxLights)
+            {
+                // Sort by proximity to object: prefer closer lights with larger radius
+                std::sort(mLightList.begin(), mLightList.end(),
+                    [&](const SceneUtil::LightManager::LightSourceViewBound* left,
+                        const SceneUtil::LightManager::LightSourceViewBound* right) {
+                        const float leftDist = (nodeBound.center() - left->mViewBound.center()).length2();
+                        const float rightDist = (nodeBound.center() - right->mViewBound.center()).length2();
+                        // A tricky way to compare normalized distance. This avoids division by near zero
+                        return left->mViewBound.radius() * rightDist > right->mViewBound.radius() * leftDist;
+                    });
+
+                mLightList.resize(maxLights);
+            }
         }
 
         if (!mLightList.empty())
         {
-            size_t maxLights = mLightManager->getMaxLights() - mLightManager->getStartLight();
-
-            osg::ref_ptr<osg::StateSet> stateset = nullptr;
-
-            if (mLightList.size() > maxLights)
-            {
-                LightManager::LightList lightList = mLightList;
-
-                if (mLightManager->usingFFP())
-                {
-                    for (auto it = lightList.begin(); it != lightList.end() && lightList.size() > maxLights;)
-                    {
-                        osg::BoundingSphere bs = (*it)->mViewBound;
-                        bs._radius = bs._radius * 2.0;
-                        if (cv->getModelViewCullingStack().front().isCulled(bs))
-                            it = lightList.erase(it);
-                        else
-                            ++it;
-                    }
-                }
-
-                // sort by proximity to camera, then get rid of furthest away lights
-                std::sort(lightList.begin(), lightList.end(), sortLights);
-                while (lightList.size() > maxLights)
-                    lightList.pop_back();
-                stateset = mLightManager->getLightListStateSet(lightList, cv->getTraversalNumber(), cv->getCurrentRenderStage()->getInitialViewMatrix());
-            }
-            else
-                stateset = mLightManager->getLightListStateSet(mLightList, cv->getTraversalNumber(), cv->getCurrentRenderStage()->getInitialViewMatrix());
-
-
-            cv->pushStateSet(stateset);
+            cv->pushStateSet(mLightManager->getLightListStateSet(mLightList, mLastFrameNumber, viewMatrix));
             return true;
         }
         return false;

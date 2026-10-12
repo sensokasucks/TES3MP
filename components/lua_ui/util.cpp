@@ -3,13 +3,13 @@
 #include <MyGUI_FactoryManager.h>
 
 #include "adapter.hpp"
-#include "widget.hpp"
-#include "text.hpp"
-#include "textedit.hpp"
-#include "window.hpp"
-#include "image.hpp"
 #include "container.hpp"
 #include "flex.hpp"
+#include "image.hpp"
+#include "text.hpp"
+#include "textedit.hpp"
+#include "widget.hpp"
+#include "window.hpp"
 
 #include "element.hpp"
 #include "registerscriptsettings.hpp"
@@ -44,10 +44,15 @@ namespace LuaUi
         return types;
     }
 
-    void clearUserInterface()
+    void clearGameInterface()
     {
-        clearSettings();
-        while (!Element::sAllElements.empty())
-            Element::sAllElements.begin()->second->destroy();
+        while (!Element::sGameElements.empty())
+            Element::erase(Element::sGameElements.begin()->second.get());
+    }
+
+    void clearMenuInterface()
+    {
+        while (!Element::sMenuElements.empty())
+            Element::erase(Element::sMenuElements.begin()->second.get());
     }
 }

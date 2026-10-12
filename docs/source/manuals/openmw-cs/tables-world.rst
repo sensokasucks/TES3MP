@@ -1,4 +1,3 @@
-############
 World Tables
 ############
 
@@ -122,22 +121,32 @@ Cells
 
 Cells are the basic world-building units that together make up the game's world. 
 Each of these basic building blocks is a container for other objects to exist in.
-Dividing an expansive world into smaller units is neccessary to be able to 
+Dividing an expansive world into smaller units is necessary to be able to 
 efficiently render and process it. Cells can be one of two types:
     
 Exterior cells
-    These represent the outside world. They all fit on a grid where cells have 
-    unique coordinates and border one another. Each exterior cell contains a part of 
-    the terrain and together they form a seamless, continuous landmass. Entering and 
-    leaving these cells is as simple as walking beyond their boundary after which we 
-    enter its neighbouring cell. It is also possible to move into another interior 
-    or exterior cell through door objects.
+    These represent the outside world. Each exterior cell contains a part of the
+    terrain and together they form a seamless, continuous landmass. Entering and
+    leaving these cells is as simple as walking beyond their boundary after which
+    we enter its neighbouring cell. It is also possible to move into another
+    interior or exterior cell through door objects.
+    
+    They all fit on a grid where exterior cells have unique coordinates and border one
+    another. Their ``ID`` is based on the unique coordinates a cell takes on the
+    exterior world grid and they can optionally also have a ``Name``.
 
 Interior cells
     These represent enclosed spaces such as houses, dungeons, mines, etc. They 
     don't have a terrain, instead their whole environment is made from objects. 
     Interior cells only load when the player is in them. Entering and leaving these 
     cells is possible through door objects or teleportation abilities.
+    
+    Due to internal workings of Morrowind, ``ID`` of interior cells is derived 
+    from their ``Name``. This means interior cells **MUST** have a name and their
+    name needs to be unique. In OpenMW-CS the ``ID`` of exterior cells will be
+    updated and shown the next time the editor is opened. If no names are given to
+    interior cells, their ``ID`` will be broken and they won't show in the Cells
+    table nor work properly in-game.
 
 The Cells table provides you with a list of cells in the game and exposes 
 their various parameters to edit.
@@ -275,5 +284,5 @@ Region Map
 
 The region map shows a grid of exterior cells, their relative positions to one 
 another, and regions they belong to. In summary, it shows the world map. 
-Compared to the cells table which is a list, this view helps vizualize the world.
+Compared to the cells table which is a list, this view helps visualize the world.
 Region map does not show interior cells.

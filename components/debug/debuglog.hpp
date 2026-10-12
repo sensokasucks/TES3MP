@@ -1,40 +1,47 @@
 #ifndef DEBUG_LOG_H
 #define DEBUG_LOG_H
 
+#include <filesystem>
 #include <iostream>
 
 namespace Debug
 {
-    enum Level
+    enum Level : unsigned
     {
         Error = 1,
         Warning = 2,
         Info = 3,
         Verbose = 4,
         Debug = 5,
-        Marker = Debug,
-
-        NoLevel = 6 // Do not filter messages in this case
+        All = 6,
     };
-
-    extern Level CurrentDebugLevel;
 }
 
 class Log
 {
 public:
+    static Debug::Level sMinDebugLevel;
+    static bool sWriteLevel;
+
     explicit Log(Debug::Level level);
     ~Log();
 
-    // Perfect forwarding wrappers to give the chain of objects to cout
-    template<typename T>
-    Log& operator<<(T&& rhs)
+    template <typename T>
+    Log& operator<<(const T& rhs)
     {
         if (mShouldLog)
-            std::cout << std::forward<T>(rhs);
+            std::cout << rhs;
 
         return *this;
     }
+
+    Log& operator<<(const std::filesystem::path& rhs);
+
+    Log& operator<<(const std::u8string& rhs);
+
+    Log& operator<<(std::u8string_view rhs);
+
+    Log& operator<<(const char8_t* rhs);
 
 private:
     const bool mShouldLog;

@@ -8,31 +8,30 @@
 namespace ESM
 {
 
-    void Transport::add(ESMReader &esm)
+    void Transport::add(ESMReader& esm)
     {
         if (esm.retSubName().toInt() == fourCC("DODT"))
         {
             Dest dodt;
-            esm.getHExact(&dodt.mPos, 24);
+            esm.getSubComposite(dodt.mPos);
             mList.push_back(dodt);
         }
         else if (esm.retSubName().toInt() == fourCC("DNAM"))
         {
-            const std::string name = esm.getHString();
+            std::string name = esm.getHString();
             if (mList.empty())
                 Log(Debug::Warning) << "Encountered DNAM record without DODT record, skipped.";
             else
-                mList.back().mCellName = name;
+                mList.back().mCellName = std::move(name);
         }
     }
 
-    void Transport::save(ESMWriter &esm) const
+    void Transport::save(ESMWriter& esm) const
     {
-        typedef std::vector<Dest>::const_iterator DestIter;
-        for (DestIter it = mList.begin(); it != mList.end(); ++it)
+        for (const Dest& dest : mList)
         {
-            esm.writeHNT("DODT", it->mPos, sizeof(it->mPos));
-            esm.writeHNOCString("DNAM", it->mCellName);
+            esm.writeNamedComposite("DODT", dest.mPos);
+            esm.writeHNOCString("DNAM", dest.mCellName);
         }
     }
 

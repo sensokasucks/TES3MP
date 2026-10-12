@@ -27,27 +27,25 @@
 #include "loadroad.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: for debugging only
 
-#include "formid.hpp" // FIXME: for workaround
 #include "reader.hpp"
+#include <components/esm/refid.hpp> // FIXME: for workaround
 //#include "writer.hpp"
 
 void ESM4::Road::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
     mParent = reader.currWorld();
 
-    mEditorId = formIdToString(mFormId); // FIXME: quick workaround to use existing code
+    mEditorId = ESM::RefId(mId).serializeText(); // FIXME: quick workaround to use existing code
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_PGRP:
+            case ESM::fourCC("PGRP"):
             {
                 std::size_t numNodes = subHdr.dataSize / sizeof(PGRP);
 
@@ -59,10 +57,10 @@ void ESM4::Road::load(ESM4::Reader& reader)
 
                 break;
             }
-            case ESM4::SUB_PGRR:
+            case ESM::fourCC("PGRR"):
             {
-                static PGRR link;
-                static RDRP linkPt;
+                PGRR link;
+                RDRP linkPt;
 
                 for (std::size_t i = 0; i < mNodes.size(); ++i)
                 {
@@ -89,8 +87,8 @@ void ESM4::Road::load(ESM4::Reader& reader)
                         }
 
                         if (!found)
-                            throw std::runtime_error("ESM4::ROAD::PGRR - Unknown link point "
-                                + std::to_string(j) + "at node " + std::to_string(i) + ".");
+                            throw std::runtime_error("ESM4::ROAD::PGRR - Unknown link point " + std::to_string(j)
+                                + "at node " + std::to_string(i) + ".");
                     }
                 }
 
@@ -102,10 +100,10 @@ void ESM4::Road::load(ESM4::Reader& reader)
     }
 }
 
-//void ESM4::Road::save(ESM4::Writer& writer) const
+// void ESM4::Road::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Road::blank()
+// void ESM4::Road::blank()
 //{
-//}
+// }

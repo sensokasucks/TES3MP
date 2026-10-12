@@ -1,9 +1,13 @@
 #ifndef MWGUI_CLASS_H
 #define MWGUI_CLASS_H
 
+#include <array>
+#include <memory>
+
 #include <MyGUI_EditBox.h>
 
 #include <components/esm/attr.hpp>
+#include <components/esm/refid.hpp>
 #include <components/esm3/loadclas.hpp>
 
 #include "widgets.hpp"
@@ -11,7 +15,7 @@
 
 namespace MWGui
 {
-    void setClassImage(MyGUI::ImageBox* imageBox, const std::string& classId);
+    void setClassImage(MyGUI::ImageBox* imageBox, const ESM::RefId& classId);
 
     class InfoBoxDialog : public WindowModal
     {
@@ -20,16 +24,16 @@ namespace MWGui
 
         typedef std::vector<std::string> ButtonList;
 
-        void setText(const std::string &str);
+        void setText(const std::string& str);
         std::string getText() const;
-        void setButtons(ButtonList &buttons);
+        void setButtons(ButtonList& buttons);
 
         void onOpen() override;
 
         bool exit() override { return false; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate1<int> EventHandle_Int;
+        typedef MyGUI::delegates::MultiDelegate<int> EventHandle_Int;
 
         /** Event : Button was clicked.\n
             signature : void method(int index)\n
@@ -40,7 +44,6 @@ namespace MWGui
         void onButtonClicked(MyGUI::Widget* _sender);
 
     private:
-
         void fitToText(MyGUI::TextBox* widget);
         void layoutVertically(MyGUI::Widget* widget, int margin);
         MyGUI::Widget* mTextBox;
@@ -69,13 +72,12 @@ namespace MWGui
     public:
         GenerateClassResultDialog();
 
-        std::string getClassId() const;
-        void setClassId(const std::string &classId);
+        void setClassId(const ESM::RefId& classId);
 
         bool exit() override { return false; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Back button clicked.\n
             signature : void method()\n
@@ -93,9 +95,9 @@ namespace MWGui
 
     private:
         MyGUI::ImageBox* mClassImage;
-        MyGUI::TextBox*  mClassName;
+        MyGUI::TextBox* mClassName;
 
-        std::string mCurrentClassId;
+        ESM::RefId mCurrentClassId;
     };
 
     class PickClassDialog : public WindowModal
@@ -103,8 +105,8 @@ namespace MWGui
     public:
         PickClassDialog();
 
-        const std::string &getClassId() const { return mCurrentClassId; }
-        void setClassId(const std::string &classId);
+        const ESM::RefId& getClassId() const { return mCurrentClassId; }
+        void setClassId(const ESM::RefId& classId);
 
         void setNextButtonShow(bool shown);
         void onOpen() override;
@@ -112,7 +114,7 @@ namespace MWGui
         bool exit() override { return false; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Back button clicked.\n
             signature : void method()\n
@@ -136,13 +138,13 @@ namespace MWGui
         void updateStats();
 
         MyGUI::ImageBox* mClassImage;
-        MyGUI::ListBox*  mClassList;
-        MyGUI::TextBox*  mSpecializationName;
+        MyGUI::ListBox* mClassList;
+        MyGUI::TextBox* mSpecializationName;
         Widgets::MWAttributePtr mFavoriteAttribute[2];
-        Widgets::MWSkillPtr   mMajorSkill[5];
-        Widgets::MWSkillPtr   mMinorSkill[5];
+        Widgets::MWSkillPtr mMajorSkill[5];
+        Widgets::MWSkillPtr mMinorSkill[5];
 
-        std::string mCurrentClassId;
+        ESM::RefId mCurrentClassId;
     };
 
     class SelectSpecializationDialog : public WindowModal
@@ -156,7 +158,7 @@ namespace MWGui
         ESM::Class::Specialization getSpecializationId() const { return mSpecializationId; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Cancel button clicked.\n
             signature : void method()\n
@@ -182,14 +184,14 @@ namespace MWGui
     {
     public:
         SelectAttributeDialog();
-        ~SelectAttributeDialog();
+        ~SelectAttributeDialog() override = default;
 
         bool exit() override;
 
-        ESM::Attribute::AttributeID getAttributeId() const { return mAttributeId; }
+        ESM::RefId getAttributeId() const { return mAttributeId; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Cancel button clicked.\n
             signature : void method()\n
@@ -206,7 +208,7 @@ namespace MWGui
         void onCancelClicked(MyGUI::Widget* _sender);
 
     private:
-        ESM::Attribute::AttributeID mAttributeId;
+        ESM::RefId mAttributeId;
     };
 
     class SelectSkillDialog : public WindowModal
@@ -217,10 +219,10 @@ namespace MWGui
 
         bool exit() override;
 
-        ESM::Skill::SkillEnum getSkillId() const { return mSkillId; }
+        ESM::RefId getSkillId() const { return mSkillId; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Cancel button clicked.\n
             signature : void method()\n
@@ -237,11 +239,7 @@ namespace MWGui
         void onCancelClicked(MyGUI::Widget* _sender);
 
     private:
-        Widgets::MWSkillPtr mCombatSkill[9];
-        Widgets::MWSkillPtr mMagicSkill[9];
-        Widgets::MWSkillPtr mStealthSkill[9];
-
-        ESM::Skill::SkillEnum mSkillId;
+        ESM::RefId mSkillId;
     };
 
     class DescriptionDialog : public WindowModal
@@ -251,7 +249,7 @@ namespace MWGui
         ~DescriptionDialog();
 
         std::string getTextInput() const { return mTextEdit->getCaption(); }
-        void setTextInput(const std::string &text) { mTextEdit->setCaption(text); }
+        void setTextInput(const std::string& text) { mTextEdit->setCaption(text); }
 
         /** Event : Dialog finished, OK button clicked.\n
             signature : void method()\n
@@ -276,14 +274,14 @@ namespace MWGui
         std::string getName() const;
         std::string getDescription() const;
         ESM::Class::Specialization getSpecializationId() const;
-        std::vector<int> getFavoriteAttributes() const;
-        std::vector<ESM::Skill::SkillEnum> getMajorSkills() const;
-        std::vector<ESM::Skill::SkillEnum> getMinorSkills() const;
+        std::vector<ESM::RefId> getFavoriteAttributes() const;
+        std::vector<ESM::RefId> getMajorSkills() const;
+        std::vector<ESM::RefId> getMinorSkills() const;
 
         void setNextButtonShow(bool shown);
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Back button clicked.\n
             signature : void method()\n
@@ -314,23 +312,23 @@ namespace MWGui
         void update();
 
     private:
-        MyGUI::EditBox*                   mEditName;
-        MyGUI::TextBox*                  mSpecializationName;
-        Widgets::MWAttributePtr          mFavoriteAttribute0, mFavoriteAttribute1;
-        Widgets::MWSkillPtr              mMajorSkill[5];
-        Widgets::MWSkillPtr              mMinorSkill[5];
+        MyGUI::EditBox* mEditName;
+        MyGUI::TextBox* mSpecializationName;
+        Widgets::MWAttributePtr mFavoriteAttribute0, mFavoriteAttribute1;
+        std::array<Widgets::MWSkillPtr, 5> mMajorSkill;
+        std::array<Widgets::MWSkillPtr, 5> mMinorSkill;
         std::vector<Widgets::MWSkillPtr> mSkills;
-        std::string                      mDescription;
+        std::string mDescription;
 
-        SelectSpecializationDialog       *mSpecDialog;
-        SelectAttributeDialog            *mAttribDialog;
-        SelectSkillDialog                *mSkillDialog;
-        DescriptionDialog                *mDescDialog;
+        std::unique_ptr<SelectSpecializationDialog> mSpecDialog;
+        std::unique_ptr<SelectAttributeDialog> mAttribDialog;
+        std::unique_ptr<SelectSkillDialog> mSkillDialog;
+        std::unique_ptr<DescriptionDialog> mDescDialog;
 
-        ESM::Class::Specialization       mSpecializationId;
+        ESM::Class::Specialization mSpecializationId;
 
-        Widgets::MWAttributePtr              mAffectedAttribute;
-        Widgets::MWSkillPtr              mAffectedSkill;
+        Widgets::MWAttributePtr mAffectedAttribute;
+        Widgets::MWSkillPtr mAffectedSkill;
     };
 }
 #endif

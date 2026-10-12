@@ -1,8 +1,8 @@
 #ifndef MGUI_CONTAINER_H
 #define MGUI_CONTAINER_H
 
-#include "windowbase.hpp"
 #include "referenceinterface.hpp"
+#include "windowbase.hpp"
 
 #include "itemmodel.hpp"
 
@@ -18,7 +18,6 @@ namespace MWGui
     class ItemView;
     class SortFilterItemModel;
 }
-
 
 namespace MWGui
 {
@@ -60,7 +59,10 @@ namespace MWGui
 
         void onDeleteCustomData(const MWWorld::Ptr& ptr) override;
 
-        void treatNextOpenAsLoot() { mTreatNextOpenAsLoot = true; };
+        void treatNextOpenAsLoot() { mTreatNextOpenAsLoot = true; }
+
+        std::string_view getWindowIdForLua() const override { return "Container"; }
+
     private:
         DragAndDrop* mDragAndDrop;
 

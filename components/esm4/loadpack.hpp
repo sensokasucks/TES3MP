@@ -31,7 +31,8 @@
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -44,29 +45,30 @@ namespace ESM4
         struct PKDT // data
         {
             std::uint32_t flags;
-            std::int32_t  type;
+            std::int32_t type;
         };
 
         struct PSDT // schedule
         {
-            std::uint8_t month;      // Any = 0xff
-            std::uint8_t dayOfWeek;  // Any = 0xff
-            std::uint8_t date;       // Any = 0
-            std::uint8_t time;       // Any = 0xff
+            std::uint8_t month; // Any = 0xff
+            std::uint8_t dayOfWeek; // Any = 0xff
+            std::uint8_t date; // Any = 0
+            std::uint8_t time; // Any = 0xff
             std::uint32_t duration;
         };
 
         struct PLDT // location
         {
-            std::int32_t type = 0xff; // 0 = near ref, 1 = in cell, 2 = current loc, 3 = editor loc, 4 = obj id, 5 = obj type, 0xff = no location data
-            FormId location;   // uint32_t if type = 5
+            std::int32_t type = 0xff; // 0 = near ref, 1 = in cell, 2 = current loc, 3 = editor loc, 4 = obj id, 5 = obj
+                                      // type, 0xff = no location data
+            ESM::FormId32 location; // uint32_t if type = 5
             std::int32_t radius;
         };
 
         struct PTDT // target
         {
             std::int32_t type = 0xff; // 0 = specific ref, 1 = obj id, 2 = obj type, 0xff = no target data
-            FormId target;   // uint32_t if type = 2
+            ESM::FormId32 target; // uint32_t if type = 2
             std::int32_t distance;
         };
 
@@ -80,13 +82,13 @@ namespace ESM4
             std::uint8_t unknown3; // probably padding
             float compValue;
             std::int32_t fnIndex;
-            FormId param1;
-            FormId param2;
+            ESM::FormId32 param1;
+            ESM::FormId32 param2;
             std::uint32_t unknown4; // probably padding
         };
 #pragma pack(pop)
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -98,9 +100,10 @@ namespace ESM4
         std::vector<CTDA> mConditions;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_PACK4;
     };
 }
 

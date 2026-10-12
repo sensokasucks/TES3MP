@@ -1,30 +1,34 @@
 #ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_ASYNCNAVMESHUPDATER_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_ASYNCNAVMESHUPDATER_H
 
+#include "agentbounds.hpp"
+#include "changetype.hpp"
+#include "guardednavmeshcacheitem.hpp"
 #include "navmeshcacheitem.hpp"
+#include "navmeshdb.hpp"
+#include "navmeshtilescache.hpp"
 #include "offmeshconnectionsmanager.hpp"
+#include "sharednavmeshcacheitem.hpp"
+#include "stats.hpp"
 #include "tilecachedrecastmeshmanager.hpp"
 #include "tileposition.hpp"
-#include "navmeshtilescache.hpp"
 #include "waitconditiontype.hpp"
-#include "navmeshdb.hpp"
-#include "changetype.hpp"
-#include "agentbounds.hpp"
 
-#include <osg/Vec3f>
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/index/rtree.hpp>
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <deque>
+#include <iosfwd>
+#include <list>
 #include <memory>
 #include <mutex>
-#include <deque>
+#include <optional>
 #include <set>
 #include <thread>
 #include <tuple>
-#include <list>
-#include <optional>
-#include <iosfwd>
 
 class dtNavMesh;
 
@@ -46,13 +50,10 @@ namespace DetourNavigator
         const std::size_t mId;
         const AgentBounds mAgentBounds;
         const std::weak_ptr<GuardedNavMeshCacheItem> mNavMeshCacheItem;
-        const std::string mWorldspace;
+        const ESM::RefId mWorldspace;
         const TilePosition mChangedTile;
-        const std::chrono::steady_clock::time_point mProcessTime;
-        unsigned mTryNumber = 0;
+        std::chrono::steady_clock::time_point mProcessTime;
         ChangeType mChangeType;
-        int mDistanceToPlayer;
-        const int mDistanceToOrigin;
         JobState mState = JobState::Initial;
         std::vector<std::byte> mInput;
         std::shared_ptr<RecastMesh> mRecastMesh;
@@ -60,11 +61,64 @@ namespace DetourNavigator
         std::unique_ptr<PreparedNavMeshData> mGeneratedNavMeshData;
 
         Job(const AgentBounds& agentBounds, std::weak_ptr<GuardedNavMeshCacheItem> navMeshCacheItem,
-            std::string_view worldspace, const TilePosition& changedTile, ChangeType changeType, int distanceToPlayer,
+            ESM::RefId worldspace, const TilePosition& changedTile, ChangeType changeType,
             std::chrono::steady_clock::time_point processTime);
     };
 
     using JobIt = std::list<Job>::iterator;
+
+    class SpatialJobQueue
+    {
+    public:
+        std::size_t size() const { return mSize; }
+
+        void clear();
+
+        void push(JobIt job);
+
+        std::optional<JobIt> pop(TilePosition playerTile);
+
+        void update(TilePosition playerTile, int maxTiles, std::vector<JobIt>& removing);
+
+    private:
+        using IndexPoint = boost::geometry::model::point<int, 2, boost::geometry::cs::cartesian>;
+        using UpdatingMap = std::map<TilePosition, std::deque<JobIt>>;
+        using IndexValue = std::pair<IndexPoint, UpdatingMap::iterator>;
+
+        std::size_t mSize = 0;
+        UpdatingMap mValues;
+        boost::geometry::index::rtree<IndexValue, boost::geometry::index::linear<4>> mIndex;
+    };
+
+    class JobQueue
+    {
+    public:
+        JobQueueStats getStats() const
+        {
+            return JobQueueStats{
+                .mRemoving = mRemoving.size(),
+                .mUpdating = mUpdating.size(),
+                .mDelayed = mDelayed.size(),
+            };
+        }
+
+        bool hasJob(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now()) const;
+
+        void clear();
+
+        void push(JobIt job, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
+
+        std::optional<JobIt> pop(
+            TilePosition playerTile, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
+
+        void update(TilePosition playerTile, int maxTiles,
+            std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
+
+    private:
+        std::vector<JobIt> mRemoving;
+        SpatialJobQueue mUpdating;
+        std::deque<JobIt> mDelayed;
+    };
 
     enum class JobStatus
     {
@@ -82,16 +136,18 @@ namespace DetourNavigator
 
         std::optional<JobIt> pop();
 
-        void update(TilePosition playerTile, int maxTiles);
+        void update(TilePosition playerTile);
 
         void stop();
 
-        std::size_t size() const;
+        DbJobQueueStats getStats() const;
 
     private:
         mutable std::mutex mMutex;
         std::condition_variable mHasJob;
-        std::deque<JobIt> mJobs;
+        SpatialJobQueue mReading;
+        std::deque<JobIt> mWriting;
+        TilePosition mPlayerTile;
         bool mShouldStop = false;
     };
 
@@ -100,22 +156,16 @@ namespace DetourNavigator
     class DbWorker
     {
     public:
-        struct Stats
-        {
-            std::size_t mJobs = 0;
-            std::size_t mGetTileCount = 0;
-        };
-
-        DbWorker(AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db,
-            TileVersion version, const RecastSettings& recastSettings, bool writeToDb);
+        DbWorker(AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db, TileVersion version,
+            const RecastSettings& recastSettings, bool writeToDb);
 
         ~DbWorker();
 
-        Stats getStats() const;
+        DbWorkerStats getStats() const;
 
         void enqueueJob(JobIt job);
 
-        void updateJobs(TilePosition playerTile, int maxTiles) { mQueue.update(playerTile, maxTiles); }
+        void update(TilePosition playerTile) { mQueue.update(playerTile); }
 
         void stop();
 
@@ -128,8 +178,8 @@ namespace DetourNavigator
         TileId mNextTileId;
         ShapeId mNextShapeId;
         DbJobQueue mQueue;
-        std::atomic_bool mShouldStop {false};
-        std::atomic_size_t mGetTileCount {0};
+        std::atomic_bool mShouldStop{ false };
+        std::atomic_size_t mGetTileCount{ 0 };
         std::thread mThread;
 
         inline void run() noexcept;
@@ -144,30 +194,19 @@ namespace DetourNavigator
     class AsyncNavMeshUpdater
     {
     public:
-        struct Stats
-        {
-            std::size_t mJobs = 0;
-            std::size_t mWaiting = 0;
-            std::size_t mPushed = 0;
-            std::size_t mProcessing = 0;
-            std::size_t mDbGetTileHits = 0;
-            std::optional<DbWorker::Stats> mDb;
-            NavMeshTilesCache::Stats mCache;
-        };
-
         AsyncNavMeshUpdater(const Settings& settings, TileCachedRecastMeshManager& recastMeshManager,
             OffMeshConnectionsManager& offMeshConnectionsManager, std::unique_ptr<NavMeshDb>&& db);
         ~AsyncNavMeshUpdater();
 
         void post(const AgentBounds& agentBounds, const SharedNavMeshCacheItem& navMeshCacheItem,
-            const TilePosition& playerTile, std::string_view worldspace,
+            const TilePosition& playerTile, ESM::RefId worldspace,
             const std::map<TilePosition, ChangeType>& changedTiles);
 
-        void wait(Loading::Listener& listener, WaitConditionType waitConditionType);
+        void wait(WaitConditionType waitConditionType, Loading::Listener* listener);
 
         void stop();
 
-        Stats getStats() const;
+        AsyncNavMeshUpdaterStats getStats() const;
 
         void enqueueJob(JobIt job);
 
@@ -183,7 +222,7 @@ namespace DetourNavigator
         std::condition_variable mDone;
         std::condition_variable mProcessed;
         std::list<Job> mJobs;
-        std::deque<JobIt> mWaiting;
+        JobQueue mWaiting;
         std::set<std::tuple<AgentBounds, TilePosition>> mPushed;
         Misc::ScopeGuarded<TilePosition> mPlayerTile;
         NavMeshTilesCache mNavMeshTilesCache;
@@ -192,7 +231,7 @@ namespace DetourNavigator
         std::set<std::tuple<AgentBounds, TilePosition>> mPresentTiles;
         std::vector<std::thread> mThreads;
         std::unique_ptr<DbWorker> mDbWorker;
-        std::atomic_size_t mDbGetTileHits {0};
+        std::atomic_size_t mDbGetTileHits{ 0 };
 
         void process() noexcept;
 
@@ -205,28 +244,22 @@ namespace DetourNavigator
         inline JobStatus handleUpdateNavMeshStatus(UpdateNavMeshStatus status, const Job& job,
             const GuardedNavMeshCacheItem& navMeshCacheItem, const RecastMesh& recastMesh);
 
-        JobIt getNextJob();
+        inline JobIt getNextJob() noexcept;
 
         void postThreadJob(JobIt job, std::deque<JobIt>& queue);
 
-        void writeDebugFiles(const Job& job, const RecastMesh* recastMesh) const;
+        bool lockTile(std::size_t jobId, const AgentBounds& agentBounds, const TilePosition& changedTile);
 
-        void repost(JobIt job);
-
-        bool lockTile(const AgentBounds& agentBounds, const TilePosition& changedTile);
-
-        void unlockTile(const AgentBounds& agentBounds, const TilePosition& changedTile);
+        void unlockTile(std::size_t jobId, const AgentBounds& agentBounds, const TilePosition& changedTile);
 
         inline std::size_t getTotalJobs() const;
 
-        void cleanupLastUpdates();
+        inline void cleanupLastUpdates() noexcept;
 
-        int waitUntilJobsDoneForNotPresentTiles(const std::size_t initialJobsLeft, std::size_t& maxJobsLeft, Loading::Listener& listener);
+        inline void waitUntilJobsDoneForNotPresentTiles(Loading::Listener* listener);
 
-        void waitUntilAllJobsDone();
+        inline void waitUntilAllJobsDone();
     };
-
-    void reportStats(const AsyncNavMeshUpdater::Stats& stats, unsigned int frameNumber, osg::Stats& out);
 }
 
 #endif

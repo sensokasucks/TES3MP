@@ -1,25 +1,19 @@
 #ifndef OPENMW_COMPONENTS_SCENEUTIL_LIGHTMANAGER_H
 #define OPENMW_COMPONENTS_SCENEUTIL_LIGHTMANAGER_H
 
+#include <array>
+#include <memory>
 #include <set>
 #include <unordered_map>
-#include <memory>
-#include <array>
 
-#include <osg/Light>
 #include <osg/Group>
+#include <osg/Light>
 #include <osg/NodeVisitor>
 #include <osg/observer_ptr>
 
-#include <components/shader/shadermanager.hpp>
-
-#include <components/settings/settings.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 
-namespace osgUtil
-{
-    class CullVisitor;
-}
+#include "lightingmethod.hpp"
 
 namespace SceneUtil
 {
@@ -37,7 +31,8 @@ namespace SceneUtil
             for (size_t i = 0; i < 2; ++i)
             {
                 mIndex[i] = 0;
-                mUniformBuffers[i] = new osg::Uniform(osg::Uniform::FLOAT_VEC4, "omw_PointLights", sMaxPPLightsArraySize);
+                mUniformBuffers[i]
+                    = new osg::Uniform(osg::Uniform::FLOAT_VEC4, "omw_PointLights", sMaxPPLightsArraySize);
                 mUniformCount[i] = new osg::Uniform("omw_PointLightsCount", static_cast<int>(0));
             }
         }
@@ -55,10 +50,7 @@ namespace SceneUtil
             mUniformCount[frameId]->dirty();
         }
 
-        void clear(size_t frame)
-        {
-            mIndex[frame % 2] = 0;
-        }
+        void clear(size_t frame) { mIndex[frame % 2] = 0; }
 
         void setLight(size_t frame, const osg::Light* light, float radius)
         {
@@ -72,7 +64,9 @@ namespace SceneUtil
 
             mUniformBuffers[frameId]->setElement(i + 0, light->getPosition());
             mUniformBuffers[frameId]->setElement(i + 1, light->getDiffuse());
-            mUniformBuffers[frameId]->setElement(i + 2, osg::Vec4f(light->getConstantAttenuation(), light->getLinearAttenuation(), light->getQuadraticAttenuation(), radius));
+            mUniformBuffers[frameId]->setElement(i + 2,
+                osg::Vec4f(light->getConstantAttenuation(), light->getLinearAttenuation(),
+                    light->getQuadraticAttenuation(), radius));
 
             mIndex[frameId]++;
         }
@@ -89,21 +83,17 @@ namespace SceneUtil
         std::array<osg::ref_ptr<osg::Uniform>, 2> mUniformCount;
     };
 
-    enum class LightingMethod
-    {
-        FFP,
-        PerObjectUniform,
-        SingleUBO,
-    };
-
     /// LightSource managed by a LightManager.
-    /// @par Typically used for point lights. Spot lights are not supported yet. Directional lights affect the whole scene
-    ///     so do not need to be managed by a LightManager - so for directional lights use a plain osg::LightSource instead.
+    /// @par Typically used for point lights. Spot lights are not supported yet. Directional lights affect the whole
+    /// scene
+    ///     so do not need to be managed by a LightManager - so for directional lights use a plain osg::LightSource
+    ///     instead.
     /// @note LightSources must be decorated by a LightManager node in order to have an effect. Typical use would
     ///     be one LightManager as the root of the scene graph.
     /// @note One needs to attach LightListCallback's to the scene to have objects receive lighting from LightSources.
     ///     See the documentation of LightListCallback for more information.
-    /// @note The position of the contained osg::Light is automatically updated based on the LightSource's world position.
+    /// @note The position of the contained osg::Light is automatically updated based on the LightSource's world
+    /// position.
     class LightSource : public osg::Node
     {
         // double buffered osg::Light's, since one of them may be in use by the draw thread at any given time
@@ -121,51 +111,29 @@ namespace SceneUtil
         bool mEmpty = false;
 
     public:
-
         META_Node(SceneUtil, LightSource)
 
         LightSource();
 
         LightSource(const LightSource& copy, const osg::CopyOp& copyop);
 
-        float getRadius() const
-        {
-            return mRadius;
-        }
+        float getRadius() const { return mRadius; }
 
         /// The LightSource will affect objects within this radius.
-        void setRadius(float radius)
-        {
-            mRadius = radius;
-        }
+        void setRadius(float radius) { mRadius = radius; }
 
-        void setActorFade(float alpha)
-        {
-            mActorFade = alpha;
-        }
+        void setActorFade(float alpha) { mActorFade = alpha; }
 
-        float getActorFade() const
-        {
-            return mActorFade;
-        }
+        float getActorFade() const { return mActorFade; }
 
-        void setEmpty(bool empty)
-        {
-            mEmpty = empty;
-        }
+        void setEmpty(bool empty) { mEmpty = empty; }
 
-        bool getEmpty() const
-        {
-            return mEmpty;
-        }
+        bool getEmpty() const { return mEmpty; }
 
         /// Get the osg::Light safe for modification in the given frame.
         /// @par May be used externally to animate the light's color/attenuation properties,
         /// and is used internally to synchronize the light's position with the position of the LightSource.
-        osg::Light* getLight(size_t frame)
-        {
-            return mLight[frame % 2];
-        }
+        osg::Light* getLight(size_t frame) { return mLight[frame % 2]; }
 
         /// @warning It is recommended not to replace an existing osg::Light, because there might still be
         /// references to it in the light StateSet cache that are associated with this LightSource's ID.
@@ -178,27 +146,18 @@ namespace SceneUtil
         }
 
         /// Get the unique ID for this light source.
-        int getId() const
-        {
-            return mId;
-        }
+        int getId() const { return mId; }
 
-        void setLastAppliedFrame(unsigned int lastAppliedFrame)
-        {
-            mLastAppliedFrame = lastAppliedFrame;
-        }
+        void setLastAppliedFrame(unsigned int lastAppliedFrame) { mLastAppliedFrame = lastAppliedFrame; }
 
-        unsigned int getLastAppliedFrame() const
-        {
-            return mLastAppliedFrame;
-        }
+        unsigned int getLastAppliedFrame() const { return mLastAppliedFrame; }
     };
 
     class UBOManager : public osg::StateAttribute
     {
     public:
-        UBOManager(int lightCount=1);
-        UBOManager(const UBOManager& copy, const osg::CopyOp& copyop=osg::CopyOp::SHALLOW_COPY);
+        UBOManager(int lightCount = 1);
+        UBOManager(const UBOManager& copy, const osg::CopyOp& copyop = osg::CopyOp::SHALLOW_COPY);
 
         void releaseGLObjects(osg::State* state) const override;
 
@@ -208,7 +167,7 @@ namespace SceneUtil
 
         void apply(osg::State& state) const override;
 
-        auto& getLightBuffer(size_t frameNum) { return mLightBuffers[frameNum%2]; }
+        auto& getLightBuffer(size_t frameNum) { return mLightBuffers[frameNum % 2]; }
 
     private:
         std::string generateDummyShader(int maxLightsInScene);
@@ -221,7 +180,17 @@ namespace SceneUtil
         osg::ref_ptr<LightBuffer> mTemplate;
     };
 
-    /// @brief Decorator node implementing the rendering of any number of LightSources that can be anywhere in the subgraph.
+    struct LightSettings
+    {
+        LightingMethod mLightingMethod = LightingMethod::FFP;
+        int mMaxLights = 0;
+        float mMaximumLightDistance = 0;
+        float mLightFadeStart = 0;
+        float mLightBoundsMultiplier = 0;
+    };
+
+    /// @brief Decorator node implementing the rendering of any number of LightSources that can be anywhere in the
+    /// subgraph.
     class LightManager : public osg::Group
     {
     public:
@@ -246,7 +215,7 @@ namespace SceneUtil
 
         META_Node(SceneUtil, LightManager)
 
-        LightManager(bool ffp = true);
+        explicit LightManager(const LightSettings& settings = LightSettings{});
 
         LightManager(const LightManager& copy, const osg::CopyOp& copyop);
 
@@ -257,7 +226,8 @@ namespace SceneUtil
         void setLightingMask(size_t mask);
         size_t getLightingMask() const;
 
-        /// Set the first light index that should be used by this manager, typically the number of directional lights in the scene.
+        /// Set the first light index that should be used by this manager, typically the number of directional lights in
+        /// the scene.
         void setStartLight(int start);
         int getStartLight() const;
 
@@ -267,9 +237,11 @@ namespace SceneUtil
         /// Internal use only, called automatically by the LightSource's UpdateCallback
         void addLight(LightSource* lightSource, const osg::Matrixf& worldMat, size_t frameNum);
 
-        const std::vector<LightSourceViewBound>& getLightsInViewSpace(osgUtil::CullVisitor* cv, const osg::RefMatrix* viewMatrix, size_t frameNum);
+        const std::vector<LightSourceViewBound>& getLightsInViewSpace(
+            osgUtil::CullVisitor* cv, const osg::RefMatrix* viewMatrix, size_t frameNum);
 
-        osg::ref_ptr<osg::StateSet> getLightListStateSet(const LightList& lightList, size_t frameNum, const osg::RefMatrix* viewMatrix);
+        osg::ref_ptr<osg::StateSet> getLightListStateSet(
+            const LightList& lightList, size_t frameNum, const osg::RefMatrix* viewMatrix);
 
         void setSunlight(osg::ref_ptr<osg::Light> sun);
         osg::ref_ptr<osg::Light> getSunlight();
@@ -284,21 +256,21 @@ namespace SceneUtil
 
         auto& getDummies() { return mDummies; }
 
-        auto& getLightIndexMap(size_t frameNum) { return mLightIndexMaps[frameNum%2]; }
+        auto& getLightIndexMap(size_t frameNum) { return mLightIndexMaps[frameNum % 2]; }
 
         auto& getUBOManager() { return mUBOManager; }
 
-        osg::Matrixf getSunlightBuffer(size_t frameNum) const { return mSunlightBuffers[frameNum%2]; }
-        void setSunlightBuffer(const osg::Matrixf& buffer, size_t frameNum) { mSunlightBuffers[frameNum%2] = buffer; }
+        osg::Matrixf getSunlightBuffer(size_t frameNum) const { return mSunlightBuffers[frameNum % 2]; }
+        void setSunlightBuffer(const osg::Matrixf& buffer, size_t frameNum) { mSunlightBuffers[frameNum % 2] = buffer; }
 
         SupportedMethods getSupportedLightingMethods() { return mSupported; }
 
         std::map<std::string, std::string> getLightDefines() const;
 
-        void processChangedSettings(const Settings::CategorySettingVector& changed);
+        void processChangedSettings(float lightBoundsMultiplier, float maximumLightDistance, float lightFadeStart);
 
         /// Not thread safe, it is the responsibility of the caller to stop/start threading on the viewer
-        void updateMaxLights();
+        void updateMaxLights(int maxLights);
 
         osg::ref_ptr<osg::Uniform> generateLightBufferUniform(const osg::Matrixf& sun);
 
@@ -312,12 +284,13 @@ namespace SceneUtil
         void initPerObjectUniform(int targetLights);
         void initSingleUBO(int targetLights);
 
-        void updateSettings();
+        void updateSettings(float lightBoundsMultiplier, float maximumLightDistance, float lightFadeStart);
 
         void setLightingMethod(LightingMethod method);
         void setMaxLights(int value);
 
-        void updateGPUPointLight(int index, LightSource* lightSource, size_t frameNum, const osg::RefMatrix* viewMatrix);
+        void updateGPUPointLight(
+            int index, LightSource* lightSource, size_t frameNum, const osg::RefMatrix* viewMatrix);
 
         std::vector<LightSourceTransform> mLights;
 
@@ -378,13 +351,16 @@ namespace SceneUtil
         LightListCallback()
             : mLightManager(nullptr)
             , mLastFrameNumber(0)
-        {}
+        {
+        }
         LightListCallback(const LightListCallback& copy, const osg::CopyOp& copyop)
-            : osg::Object(copy, copyop), SceneUtil::NodeCallback<LightListCallback, osg::Node*, osgUtil::CullVisitor*>(copy, copyop)
+            : osg::Object(copy, copyop)
+            , SceneUtil::NodeCallback<LightListCallback, osg::Node*, osgUtil::CullVisitor*>(copy, copyop)
             , mLightManager(copy.mLightManager)
             , mLastFrameNumber(0)
             , mIgnoredLightSources(copy.mIgnoredLightSources)
-        {}
+        {
+        }
 
         META_Object(SceneUtil, LightListCallback)
 
@@ -401,7 +377,8 @@ namespace SceneUtil
         std::set<SceneUtil::LightSource*> mIgnoredLightSources;
     };
 
-    void configureStateSetSunOverride(LightManager* lightManager, const osg::Light* light, osg::StateSet* stateset, int mode = osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
+    void configureStateSetSunOverride(LightManager* lightManager, const osg::Light* light, osg::StateSet* stateset,
+        int mode = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
 }
 

@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Spell::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Spell::SPDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mCost, v.mFlags);
+    }
+
+    void Spell::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -20,20 +28,18 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
                 case fourCC("SPDT"):
-                    esm.getHTSized<12>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("ENAM"):
-                    ENAMstruct s;
-                    esm.getHTSized<24>(s);
-                    mEffects.mList.push_back(s);
+                    mEffects.add(esm);
                     break;
                 case SREC_DELE:
                     esm.skipHSub();
@@ -51,9 +57,9 @@ namespace ESM
             esm.fail("Missing SPDT subrecord");
     }
 
-    void Spell::save(ESMWriter &esm, bool isDeleted) const
+    void Spell::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -62,7 +68,7 @@ namespace ESM
         }
 
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("SPDT", mData, 12);
+        esm.writeNamedComposite("SPDT", mData);
         mEffects.save(esm);
     }
 

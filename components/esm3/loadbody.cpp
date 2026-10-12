@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void BodyPart::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<BodyPart::BYDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mPart, v.mVampire, v.mFlags, v.mType);
+    }
+
+    void BodyPart::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,17 +26,17 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
                 case fourCC("FNAM"):
-                    mRace = esm.getHString();
+                    mRace = esm.getRefId();
                     break;
                 case fourCC("BYDT"):
-                    esm.getHTSized<4>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case SREC_DELE:
@@ -47,9 +55,9 @@ namespace ESM
             esm.fail("Missing BYDT subrecord");
     }
 
-    void BodyPart::save(ESMWriter &esm, bool isDeleted) const
+    void BodyPart::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -58,8 +66,8 @@ namespace ESM
         }
 
         esm.writeHNCString("MODL", mModel);
-        esm.writeHNOCString("FNAM", mRace);
-        esm.writeHNT("BYDT", mData, 4);
+        esm.writeHNOCRefId("FNAM", mRace);
+        esm.writeNamedComposite("BYDT", mData);
     }
 
     void BodyPart::blank()
@@ -71,6 +79,11 @@ namespace ESM
         mData.mType = 0;
 
         mModel.clear();
-        mRace.clear();
+        mRace = ESM::RefId();
+    }
+
+    bool isFirstPersonBodyPart(const BodyPart& value)
+    {
+        return value.mId.endsWith("1st");
     }
 }

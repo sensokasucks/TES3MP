@@ -1,26 +1,28 @@
 #include "asyncnavmeshupdater.hpp"
+#include "dbrefgeometryobject.hpp"
 #include "debug.hpp"
 #include "makenavmesh.hpp"
+#include "navmeshdbutils.hpp"
+#include "serialization.hpp"
 #include "settings.hpp"
 #include "version.hpp"
-#include "serialization.hpp"
-#include "navmeshdbutils.hpp"
-#include "dbrefgeometryobject.hpp"
 
 #include <components/debug/debuglog.hpp>
-#include <components/misc/thread.hpp>
 #include <components/loadinglistener/loadinglistener.hpp>
-
-#include <BulletCollision/CollisionShapes/btBoxShape.h>
+#include <components/misc/strings/conversion.hpp>
+#include <components/misc/strings/format.hpp>
+#include <components/misc/thread.hpp>
 
 #include <DetourNavMesh.h>
 
-#include <osg/Stats>
 #include <osg/io_utils>
 
+#include <boost/geometry.hpp>
+
 #include <algorithm>
-#include <numeric>
+#include <optional>
 #include <set>
+#include <tuple>
 #include <type_traits>
 
 namespace DetourNavigator
@@ -32,55 +34,21 @@ namespace DetourNavigator
             return std::abs(lhs.x() - rhs.x()) + std::abs(lhs.y() - rhs.y());
         }
 
-        int getMinDistanceTo(const TilePosition& position, int maxDistance,
-                             const std::set<std::tuple<AgentBounds, TilePosition>>& pushedTiles,
-                             const std::set<std::tuple<AgentBounds, TilePosition>>& presentTiles)
+        bool isAbsentTileTooClose(const TilePosition& position, int distance,
+            const std::set<std::tuple<AgentBounds, TilePosition>>& pushedTiles,
+            const std::set<std::tuple<AgentBounds, TilePosition>>& presentTiles,
+            const Misc::ScopeGuarded<std::set<std::tuple<AgentBounds, TilePosition>>>& processingTiles)
         {
-            int result = maxDistance;
-            for (const auto& [agentBounds, tile] : pushedTiles)
-                if (presentTiles.find(std::tie(agentBounds, tile)) == presentTiles.end())
-                    result = std::min(result, getManhattanDistance(position, tile));
-            return result;
-        }
-
-        auto getPriority(const Job& job) noexcept
-        {
-            return std::make_tuple(-static_cast<std::underlying_type_t<JobState>>(job.mState), job.mProcessTime,
-                                   job.mChangeType, job.mTryNumber, job.mDistanceToPlayer, job.mDistanceToOrigin);
-        }
-
-        struct LessByJobPriority
-        {
-            bool operator()(JobIt lhs, JobIt rhs) const noexcept
-            {
-                return getPriority(*lhs) < getPriority(*rhs);
-            }
-        };
-
-        void insertPrioritizedJob(JobIt job, std::deque<JobIt>& queue)
-        {
-            const auto it = std::upper_bound(queue.begin(), queue.end(), job, LessByJobPriority {});
-            queue.insert(it, job);
-        }
-
-        auto getDbPriority(const Job& job) noexcept
-        {
-            return std::make_tuple(static_cast<std::underlying_type_t<JobState>>(job.mState),
-                                   job.mChangeType, job.mDistanceToPlayer, job.mDistanceToOrigin);
-        }
-
-        struct LessByJobDbPriority
-        {
-            bool operator()(JobIt lhs, JobIt rhs) const noexcept
-            {
-                return getDbPriority(*lhs) < getDbPriority(*rhs);
-            }
-        };
-
-        void insertPrioritizedDbJob(JobIt job, std::deque<JobIt>& queue)
-        {
-            const auto it = std::upper_bound(queue.begin(), queue.end(), job, LessByJobDbPriority {});
-            queue.insert(it, job);
+            const auto isAbsentAndCloserThan = [&](const std::tuple<AgentBounds, TilePosition>& v) {
+                return presentTiles.find(v) == presentTiles.end()
+                    && getManhattanDistance(position, std::get<1>(v)) < distance;
+            };
+            if (std::any_of(pushedTiles.begin(), pushedTiles.end(), isAbsentAndCloserThan))
+                return true;
+            if (const auto locked = processingTiles.lockConst();
+                std::any_of(locked->begin(), locked->end(), isAbsentAndCloserThan))
+                return true;
+            return false;
         }
 
         auto getAgentAndTile(const Job& job) noexcept
@@ -88,28 +56,54 @@ namespace DetourNavigator
             return std::make_tuple(job.mAgentBounds, job.mChangedTile);
         }
 
-        std::unique_ptr<DbWorker> makeDbWorker(AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db, const Settings& settings)
+        std::unique_ptr<DbWorker> makeDbWorker(
+            AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db, const Settings& settings)
         {
             if (db == nullptr)
                 return nullptr;
             return std::make_unique<DbWorker>(updater, std::move(db), TileVersion(navMeshFormatVersion),
-                                              settings.mRecast, settings.mWriteToNavMeshDb);
-        }
-
-        void updateJobs(std::deque<JobIt>& jobs, TilePosition playerTile, int maxTiles)
-        {
-            for (JobIt job : jobs)
-            {
-                job->mDistanceToPlayer = getManhattanDistance(job->mChangedTile, playerTile);
-                if (!shouldAddTile(job->mChangedTile, playerTile, maxTiles))
-                    job->mChangeType = ChangeType::remove;
-            }
+                settings.mRecast, settings.mWriteToNavMeshDb);
         }
 
         std::size_t getNextJobId()
         {
-            static std::atomic_size_t nextJobId {1};
+            static std::atomic_size_t nextJobId{ 1 };
             return nextJobId.fetch_add(1);
+        }
+
+        bool isWritingDbJob(const Job& job)
+        {
+            return job.mGeneratedNavMeshData != nullptr;
+        }
+
+        std::string makeRevision(const Version& version)
+        {
+            return Misc::StringUtils::format(".%zu.%zu", version.mGeneration, version.mRevision);
+        }
+
+        void writeDebugRecastMesh(
+            const Settings& settings, const TilePosition& tilePosition, const RecastMesh& recastMesh)
+        {
+            if (!settings.mEnableWriteRecastMeshToFile)
+                return;
+            std::string revision;
+            if (settings.mEnableRecastMeshFileNameRevision)
+                revision = makeRevision(recastMesh.getVersion());
+            writeToFile(recastMesh,
+                Misc::StringUtils::format(
+                    "%s%d.%d.", settings.mRecastMeshPathPrefix, tilePosition.x(), tilePosition.y()),
+                revision, settings.mRecast);
+        }
+
+        void writeDebugNavMesh(
+            const Settings& settings, const GuardedNavMeshCacheItem& navMeshCacheItem, const Version& version)
+        {
+            if (!settings.mEnableWriteNavMeshToFile)
+                return;
+            std::string revision;
+            if (settings.mEnableNavMeshFileNameRevision)
+                revision = makeRevision(version);
+            writeToFile(navMeshCacheItem.lockConst()->getImpl(), settings.mNavMeshPathPrefix, revision);
         }
     }
 
@@ -117,15 +111,18 @@ namespace DetourNavigator
     {
         switch (value)
         {
-            case JobStatus::Done: return stream << "JobStatus::Done";
-            case JobStatus::Fail: return stream << "JobStatus::Fail";
-            case JobStatus::MemoryCacheMiss: return stream << "JobStatus::MemoryCacheMiss";
+            case JobStatus::Done:
+                return stream << "JobStatus::Done";
+            case JobStatus::Fail:
+                return stream << "JobStatus::Fail";
+            case JobStatus::MemoryCacheMiss:
+                return stream << "JobStatus::MemoryCacheMiss";
         }
-        return stream << "JobStatus::" << static_cast<std::underlying_type_t<JobState>>(value);
+        return stream << "JobStatus::" << static_cast<std::underlying_type_t<JobStatus>>(value);
     }
 
     Job::Job(const AgentBounds& agentBounds, std::weak_ptr<GuardedNavMeshCacheItem> navMeshCacheItem,
-        std::string_view worldspace, const TilePosition& changedTile, ChangeType changeType, int distanceToPlayer,
+        ESM::RefId worldspace, const TilePosition& changedTile, ChangeType changeType,
         std::chrono::steady_clock::time_point processTime)
         : mId(getNextJobId())
         , mAgentBounds(agentBounds)
@@ -134,13 +131,150 @@ namespace DetourNavigator
         , mChangedTile(changedTile)
         , mProcessTime(processTime)
         , mChangeType(changeType)
-        , mDistanceToPlayer(distanceToPlayer)
-        , mDistanceToOrigin(getManhattanDistance(changedTile, TilePosition {0, 0}))
     {
     }
 
+    void SpatialJobQueue::clear()
+    {
+        mValues.clear();
+        mIndex.clear();
+        mSize = 0;
+    }
+
+    void SpatialJobQueue::push(JobIt job)
+    {
+        auto it = mValues.find(job->mChangedTile);
+
+        if (it == mValues.end())
+        {
+            it = mValues.emplace_hint(it, job->mChangedTile, std::deque<JobIt>());
+            mIndex.insert(IndexValue(IndexPoint(job->mChangedTile.x(), job->mChangedTile.y()), it));
+        }
+
+        it->second.push_back(job);
+
+        ++mSize;
+    }
+
+    std::optional<JobIt> SpatialJobQueue::pop(TilePosition playerTile)
+    {
+        const IndexPoint point(playerTile.x(), playerTile.y());
+        const auto it = mIndex.qbegin(boost::geometry::index::nearest(point, 1));
+
+        if (it == mIndex.qend())
+            return std::nullopt;
+
+        const UpdatingMap::iterator mapIt = it->second;
+        std::deque<JobIt>& tileJobs = mapIt->second;
+        JobIt result = tileJobs.front();
+        tileJobs.pop_front();
+
+        --mSize;
+
+        if (tileJobs.empty())
+        {
+            mValues.erase(mapIt);
+            mIndex.remove(*it);
+        }
+
+        return result;
+    }
+
+    void SpatialJobQueue::update(TilePosition playerTile, int maxTiles, std::vector<JobIt>& removing)
+    {
+        for (auto it = mValues.begin(); it != mValues.end();)
+        {
+            if (shouldAddTile(it->first, playerTile, maxTiles))
+            {
+                ++it;
+                continue;
+            }
+
+            for (JobIt job : it->second)
+            {
+                job->mChangeType = ChangeType::remove;
+                removing.push_back(job);
+            }
+
+            mSize -= it->second.size();
+            mIndex.remove(IndexValue(IndexPoint(it->first.x(), it->first.y()), it));
+            it = mValues.erase(it);
+        }
+    }
+
+    bool JobQueue::hasJob(std::chrono::steady_clock::time_point now) const
+    {
+        return !mRemoving.empty() || mUpdating.size() > 0
+            || (!mDelayed.empty() && mDelayed.front()->mProcessTime <= now);
+    }
+
+    void JobQueue::clear()
+    {
+        mRemoving.clear();
+        mDelayed.clear();
+        mUpdating.clear();
+    }
+
+    void JobQueue::push(JobIt job, std::chrono::steady_clock::time_point now)
+    {
+        if (job->mProcessTime > now)
+        {
+            mDelayed.push_back(job);
+            return;
+        }
+
+        if (job->mChangeType == ChangeType::remove)
+        {
+            mRemoving.push_back(job);
+            return;
+        }
+
+        mUpdating.push(job);
+    }
+
+    std::optional<JobIt> JobQueue::pop(TilePosition playerTile, std::chrono::steady_clock::time_point now)
+    {
+        if (!mRemoving.empty())
+        {
+            const JobIt result = mRemoving.back();
+            mRemoving.pop_back();
+            return result;
+        }
+
+        if (const std::optional<JobIt> result = mUpdating.pop(playerTile))
+            return result;
+
+        if (mDelayed.empty() || mDelayed.front()->mProcessTime > now)
+            return std::nullopt;
+
+        const JobIt result = mDelayed.front();
+        mDelayed.pop_front();
+        return result;
+    }
+
+    void JobQueue::update(TilePosition playerTile, int maxTiles, std::chrono::steady_clock::time_point now)
+    {
+        mUpdating.update(playerTile, maxTiles, mRemoving);
+
+        while (!mDelayed.empty() && mDelayed.front()->mProcessTime <= now)
+        {
+            const JobIt job = mDelayed.front();
+            mDelayed.pop_front();
+
+            if (shouldAddTile(job->mChangedTile, playerTile, maxTiles))
+            {
+                mUpdating.push(job);
+            }
+            else
+            {
+                job->mChangeType = ChangeType::remove;
+                mRemoving.push_back(job);
+            }
+        }
+    }
+
     AsyncNavMeshUpdater::AsyncNavMeshUpdater(const Settings& settings, TileCachedRecastMeshManager& recastMeshManager,
-            OffMeshConnectionsManager& offMeshConnectionsManager, std::unique_ptr<NavMeshDb>&& db)
+        OffMeshConnectionsManager& offMeshConnectionsManager, std::unique_ptr<NavMeshDb>&& db)
         : mSettings(settings)
         , mRecastMeshManager(recastMeshManager)
         , mOffMeshConnectionsManager(offMeshConnectionsManager)
@@ -158,8 +292,7 @@ namespace DetourNavigator
     }
 
     void AsyncNavMeshUpdater::post(const AgentBounds& agentBounds, const SharedNavMeshCacheItem& navMeshCacheItem,
-        const TilePosition& playerTile, std::string_view worldspace,
-        const std::map<TilePosition, ChangeType>& changedTiles)
+        const TilePosition& playerTile, ESM::RefId worldspace, const std::map<TilePosition, ChangeType>& changedTiles)
     {
         bool playerTileChanged = false;
         {
@@ -171,72 +304,58 @@ namespace DetourNavigator
         if (!playerTileChanged && changedTiles.empty())
             return;
 
-        const dtNavMeshParams params = *navMeshCacheItem->lockConst()->getImpl().getParams();
-        const int maxTiles = std::min(mSettings.get().mMaxTilesNumber, params.maxTiles);
-
         std::unique_lock lock(mMutex);
 
         if (playerTileChanged)
-            updateJobs(mWaiting, playerTile, maxTiles);
+        {
+            Log(Debug::Debug) << "Player tile has been changed to " << playerTile;
+            mWaiting.update(playerTile, mSettings.get().mMaxTilesNumber);
+        }
 
         for (const auto& [changedTile, changeType] : changedTiles)
         {
             if (mPushed.emplace(agentBounds, changedTile).second)
             {
-                const auto processTime = changeType == ChangeType::update
-                    ? mLastUpdates[std::tie(agentBounds, changedTile)] + mSettings.get().mMinUpdateInterval
-                    : std::chrono::steady_clock::time_point();
+                const auto processTime = [&, changedTile = changedTile, changeType = changeType] {
+                    if (changeType != ChangeType::update)
+                        return std::chrono::steady_clock::time_point();
+                    const auto lastUpdate = mLastUpdates.find(std::tie(agentBounds, changedTile));
+                    if (lastUpdate == mLastUpdates.end())
+                        return std::chrono::steady_clock::time_point();
+                    return lastUpdate->second + mSettings.get().mMinUpdateInterval;
+                }();
 
-                const JobIt it = mJobs.emplace(mJobs.end(), agentBounds, navMeshCacheItem, worldspace,
-                    changedTile, changeType, getManhattanDistance(changedTile, playerTile), processTime);
+                const JobIt it = mJobs.emplace(
+                    mJobs.end(), agentBounds, navMeshCacheItem, worldspace, changedTile, changeType, processTime);
 
                 Log(Debug::Debug) << "Post job " << it->mId << " for agent=(" << it->mAgentBounds << ")"
-                    << " changedTile=(" << it->mChangedTile << ")";
+                                  << " changedTile=(" << it->mChangedTile << ")"
+                                  << " changeType=" << it->mChangeType;
 
-                if (playerTileChanged)
-                    mWaiting.push_back(it);
-                else
-                    insertPrioritizedJob(it, mWaiting);
+                mWaiting.push(it);
             }
         }
 
-        if (playerTileChanged)
-            std::sort(mWaiting.begin(), mWaiting.end(), LessByJobPriority {});
-
         Log(Debug::Debug) << "Posted " << mJobs.size() << " navigator jobs";
 
-        if (!mWaiting.empty())
+        if (mWaiting.hasJob())
             mHasJob.notify_all();
 
         lock.unlock();
 
         if (playerTileChanged && mDbWorker != nullptr)
-            mDbWorker->updateJobs(playerTile, maxTiles);
+            mDbWorker->update(playerTile);
     }
 
-    void AsyncNavMeshUpdater::wait(Loading::Listener& listener, WaitConditionType waitConditionType)
+    void AsyncNavMeshUpdater::wait(WaitConditionType waitConditionType, Loading::Listener* listener)
     {
-        if (mSettings.get().mWaitUntilMinDistanceToPlayer == 0)
-            return;
-        listener.setLabel("#{Navigation:BuildingNavigationMesh}");
-        const std::size_t initialJobsLeft = getTotalJobs();
-        std::size_t maxProgress = initialJobsLeft + mThreads.size();
-        listener.setProgressRange(maxProgress);
         switch (waitConditionType)
         {
             case WaitConditionType::requiredTilesPresent:
-            {
-                const int minDistanceToPlayer = waitUntilJobsDoneForNotPresentTiles(initialJobsLeft, maxProgress, listener);
-                if (minDistanceToPlayer < mSettings.get().mWaitUntilMinDistanceToPlayer)
-                {
-                    mProcessingTiles.wait(mProcessed, [] (const auto& v) { return v.empty(); });
-                    listener.setProgress(maxProgress);
-                }
+                waitUntilJobsDoneForNotPresentTiles(listener);
                 break;
-            }
             case WaitConditionType::allJobsDone:
                 waitUntilAllJobsDone();
-                listener.setProgress(maxProgress);
                 break;
         }
     }
@@ -255,61 +374,69 @@ namespace DetourNavigator
                 thread.join();
     }
 
-    int AsyncNavMeshUpdater::waitUntilJobsDoneForNotPresentTiles(const std::size_t initialJobsLeft, std::size_t& maxProgress, Loading::Listener& listener)
+    void AsyncNavMeshUpdater::waitUntilJobsDoneForNotPresentTiles(Loading::Listener* listener)
     {
+        const int maxDistanceToPlayer = mSettings.get().mWaitUntilMinDistanceToPlayer;
+        if (maxDistanceToPlayer <= 0)
+            return;
+        const std::size_t initialJobsLeft = getTotalJobs();
+        std::size_t maxProgress = initialJobsLeft;
         std::size_t prevJobsLeft = initialJobsLeft;
         std::size_t jobsDone = 0;
         std::size_t jobsLeft = 0;
-        const int maxDistanceToPlayer = mSettings.get().mWaitUntilMinDistanceToPlayer;
         const TilePosition playerPosition = *mPlayerTile.lockConst();
-        int minDistanceToPlayer = 0;
-        const auto isDone = [&]
-        {
+        const auto isDone = [&] {
             jobsLeft = mJobs.size();
             if (jobsLeft == 0)
-            {
-                minDistanceToPlayer = 0;
                 return true;
-            }
-            minDistanceToPlayer = getMinDistanceTo(playerPosition, maxDistanceToPlayer, mPushed, mPresentTiles);
-            return minDistanceToPlayer >= maxDistanceToPlayer;
+            return !isAbsentTileTooClose(playerPosition, maxDistanceToPlayer, mPushed, mPresentTiles, mProcessingTiles);
         };
         std::unique_lock<std::mutex> lock(mMutex);
-        while (!mDone.wait_for(lock, std::chrono::milliseconds(250), isDone))
+        if (!isAbsentTileTooClose(playerPosition, maxDistanceToPlayer, mPushed, mPresentTiles, mProcessingTiles)
+            || mJobs.empty())
+            return;
+        const Loading::ScopedLoad load(listener);
+        if (listener != nullptr)
         {
+            listener->setLabel("#{OMWEngine:BuildingNavigationMesh}");
+            listener->setProgressRange(maxProgress);
+        }
+        while (!mDone.wait_for(lock, std::chrono::milliseconds(20), isDone))
+        {
+            if (listener == nullptr)
+                continue;
             if (maxProgress < jobsLeft)
             {
-                maxProgress = jobsLeft + mThreads.size();
-                listener.setProgressRange(maxProgress);
-                listener.setProgress(jobsDone);
+                maxProgress = jobsLeft;
+                listener->setProgressRange(maxProgress);
+                listener->setProgress(jobsDone);
             }
             else if (jobsLeft < prevJobsLeft)
             {
                 const std::size_t newJobsDone = prevJobsLeft - jobsLeft;
                 jobsDone += newJobsDone;
                 prevJobsLeft = jobsLeft;
-                listener.increaseProgress(newJobsDone);
+                listener->increaseProgress(newJobsDone);
             }
         }
-        return minDistanceToPlayer;
     }
 
     void AsyncNavMeshUpdater::waitUntilAllJobsDone()
     {
         {
             std::unique_lock<std::mutex> lock(mMutex);
-            mDone.wait(lock, [this] { return mJobs.size() == 0; });
+            mDone.wait(lock, [this] { return mJobs.empty(); });
         }
-        mProcessingTiles.wait(mProcessed, [] (const auto& v) { return v.empty(); });
+        mProcessingTiles.wait(mProcessed, [](const auto& v) { return v.empty(); });
     }
 
-    AsyncNavMeshUpdater::Stats AsyncNavMeshUpdater::getStats() const
+    AsyncNavMeshUpdaterStats AsyncNavMeshUpdater::getStats() const
     {
-        Stats result;
+        AsyncNavMeshUpdaterStats result;
         {
             const std::lock_guard<std::mutex> lock(mMutex);
             result.mJobs = mJobs.size();
-            result.mWaiting = mWaiting.size();
+            result.mWaiting = mWaiting.getStats();
             result.mPushed = mPushed.size();
         }
         result.mProcessing = mProcessingTiles.lockConst()->size();
@@ -320,48 +447,31 @@ namespace DetourNavigator
         return result;
     }
 
-    void reportStats(const AsyncNavMeshUpdater::Stats& stats, unsigned int frameNumber, osg::Stats& out)
-    {
-        out.setAttribute(frameNumber, "NavMesh Jobs", static_cast<double>(stats.mJobs));
-        out.setAttribute(frameNumber, "NavMesh Waiting", static_cast<double>(stats.mWaiting));
-        out.setAttribute(frameNumber, "NavMesh Pushed", static_cast<double>(stats.mPushed));
-        out.setAttribute(frameNumber, "NavMesh Processing", static_cast<double>(stats.mProcessing));
-
-        if (stats.mDb.has_value())
-        {
-            out.setAttribute(frameNumber, "NavMesh DbJobs", static_cast<double>(stats.mDb->mJobs));
-
-            if (stats.mDb->mGetTileCount > 0)
-                out.setAttribute(frameNumber, "NavMesh DbCacheHitRate", static_cast<double>(stats.mDbGetTileHits)
-                                    / static_cast<double>(stats.mDb->mGetTileCount) * 100.0);
-        }
-
-        reportStats(stats.mCache, frameNumber, out);
-    }
-
     void AsyncNavMeshUpdater::process() noexcept
     {
         Log(Debug::Debug) << "Start process navigator jobs by thread=" << std::this_thread::get_id();
         Misc::setCurrentThreadIdlePriority();
         while (!mShouldStop)
         {
-            try
+            if (JobIt job = getNextJob(); job != mJobs.end())
             {
-                if (JobIt job = getNextJob(); job != mJobs.end())
+                try
                 {
                     const JobStatus status = processJob(*job);
-                    Log(Debug::Debug) << "Processed job " << job->mId << " with status=" << status;
+                    Log(Debug::Debug) << "Processed job " << job->mId << " with status=" << status
+                                      << " changeType=" << job->mChangeType;
                     switch (status)
                     {
                         case JobStatus::Done:
-                            unlockTile(job->mAgentBounds, job->mChangedTile);
+                            unlockTile(job->mId, job->mAgentBounds, job->mChangedTile);
                             if (job->mGeneratedNavMeshData != nullptr)
                                 mDbWorker->enqueueJob(job);
                             else
                                 removeJob(job);
                             break;
                         case JobStatus::Fail:
-                            repost(job);
+                            unlockTile(job->mId, job->mAgentBounds, job->mChangedTile);
+                            removeJob(job);
                             break;
                         case JobStatus::MemoryCacheMiss:
                         {
@@ -370,12 +480,20 @@ namespace DetourNavigator
                         }
                     }
                 }
-                else
-                    cleanupLastUpdates();
+                catch (const std::exception& e)
+                {
+                    Log(Debug::Warning) << "Failed to process navmesh job " << job->mId
+                                        << " for worldspace=" << job->mWorldspace << " agent=" << job->mAgentBounds
+                                        << " changedTile=(" << job->mChangedTile << ")"
+                                        << " changeType=" << job->mChangeType
+                                        << " by thread=" << std::this_thread::get_id() << ": " << e.what();
+                    unlockTile(job->mId, job->mAgentBounds, job->mChangedTile);
+                    removeJob(job);
+                }
             }
-            catch (const std::exception& e)
+            else
             {
-                Log(Debug::Error) << "AsyncNavMeshUpdater::process exception: " << e.what();
+                cleanupLastUpdates();
             }
         }
         Log(Debug::Debug) << "Stop navigator jobs processing by thread=" << std::this_thread::get_id();
@@ -383,7 +501,10 @@ namespace DetourNavigator
 
     JobStatus AsyncNavMeshUpdater::processJob(Job& job)
     {
-        Log(Debug::Debug) << "Processing job " << job.mId << " by thread=" << std::this_thread::get_id();
+        Log(Debug::Debug) << "Processing job " << job.mId << "  for worldspace=" << job.mWorldspace
+                          << " agent=" << job.mAgentBounds << ""
+                          << " changedTile=(" << job.mChangedTile << ")"
+                          << " changeType=" << job.mChangeType << " by thread=" << std::this_thread::get_id();
 
         const auto navMeshCacheItem = job.mNavMeshCacheItem.lock();
 
@@ -391,11 +512,11 @@ namespace DetourNavigator
             return JobStatus::Done;
 
         const auto playerTile = *mPlayerTile.lockConst();
-        const auto params = *navMeshCacheItem->lockConst()->getImpl().getParams();
 
-        if (!shouldAddTile(job.mChangedTile, playerTile, std::min(mSettings.get().mMaxTilesNumber, params.maxTiles)))
+        if (!shouldAddTile(job.mChangedTile, playerTile, mSettings.get().mMaxTilesNumber))
         {
             Log(Debug::Debug) << "Ignore add tile by job " << job.mId << ": too far from player";
+            job.mChangeType = ChangeType::remove;
             navMeshCacheItem->lock()->removeTile(job.mChangedTile);
             return JobStatus::Done;
         }
@@ -431,7 +552,17 @@ namespace DetourNavigator
             return JobStatus::Done;
         }
 
-        NavMeshTilesCache::Value cachedNavMeshData = mNavMeshTilesCache.get(job.mAgentBounds, job.mChangedTile, *recastMesh);
+        try
+        {
+            writeDebugRecastMesh(mSettings, job.mChangedTile, *recastMesh);
+        }
+        catch (const std::exception& e)
+        {
+            Log(Debug::Warning) << "Failed to write debug recast mesh: " << e.what();
+        }
+
+        NavMeshTilesCache::Value cachedNavMeshData
+            = mNavMeshTilesCache.get(job.mAgentBounds, job.mChangedTile, *recastMesh);
         std::unique_ptr<PreparedNavMeshData> preparedNavMeshData;
         const PreparedNavMeshData* preparedNavMeshDataPtr = nullptr;
 
@@ -447,7 +578,8 @@ namespace DetourNavigator
                 return JobStatus::MemoryCacheMiss;
             }
 
-            preparedNavMeshData = prepareNavMeshTileData(*recastMesh, job.mChangedTile, job.mAgentBounds, mSettings.get().mRecast);
+            preparedNavMeshData = prepareNavMeshTileData(
+                *recastMesh, job.mWorldspace, job.mChangedTile, job.mAgentBounds, mSettings.get().mRecast);
 
             if (preparedNavMeshData == nullptr)
             {
@@ -462,16 +594,20 @@ namespace DetourNavigator
             }
             else
             {
-                cachedNavMeshData = mNavMeshTilesCache.set(job.mAgentBounds, job.mChangedTile,
-                                                           *recastMesh, std::move(preparedNavMeshData));
+                cachedNavMeshData = mNavMeshTilesCache.set(
+                    job.mAgentBounds, job.mChangedTile, *recastMesh, std::move(preparedNavMeshData));
                 preparedNavMeshDataPtr = cachedNavMeshData ? &cachedNavMeshData.get() : preparedNavMeshData.get();
             }
         }
 
         const auto offMeshConnections = mOffMeshConnectionsManager.get().get(job.mChangedTile);
 
-        const UpdateNavMeshStatus status = navMeshCacheItem.lock()->updateTile(job.mChangedTile, std::move(cachedNavMeshData),
-            makeNavMeshTileData(*preparedNavMeshDataPtr, offMeshConnections, job.mAgentBounds, job.mChangedTile, mSettings.get().mRecast));
+        assert(preparedNavMeshDataPtr != nullptr);
+
+        const UpdateNavMeshStatus status
+            = navMeshCacheItem.lock()->updateTile(job.mChangedTile, std::move(cachedNavMeshData),
+                makeNavMeshTileData(*preparedNavMeshDataPtr, offMeshConnections, job.mAgentBounds, job.mChangedTile,
+                    mSettings.get().mRecast));
 
         return handleUpdateNavMeshStatus(status, job, navMeshCacheItem, *recastMesh);
     }
@@ -494,7 +630,8 @@ namespace DetourNavigator
 
         if (preparedNavMeshData == nullptr)
         {
-            preparedNavMeshData = prepareNavMeshTileData(*job.mRecastMesh, job.mChangedTile, job.mAgentBounds, mSettings.get().mRecast);
+            preparedNavMeshData = prepareNavMeshTileData(
+                *job.mRecastMesh, job.mWorldspace, job.mChangedTile, job.mAgentBounds, mSettings.get().mRecast);
             generatedNavMeshData = true;
         }
 
@@ -505,33 +642,34 @@ namespace DetourNavigator
             return JobStatus::Done;
         }
 
-        auto cachedNavMeshData = mNavMeshTilesCache.set(job.mAgentBounds, job.mChangedTile, *job.mRecastMesh,
-                                                        std::move(preparedNavMeshData));
+        auto cachedNavMeshData = mNavMeshTilesCache.set(
+            job.mAgentBounds, job.mChangedTile, *job.mRecastMesh, std::move(preparedNavMeshData));
 
         const auto offMeshConnections = mOffMeshConnectionsManager.get().get(job.mChangedTile);
 
-        const PreparedNavMeshData* preparedNavMeshDataPtr = cachedNavMeshData ? &cachedNavMeshData.get() : preparedNavMeshData.get();
-        assert (preparedNavMeshDataPtr != nullptr);
+        const PreparedNavMeshData* preparedNavMeshDataPtr
+            = cachedNavMeshData ? &cachedNavMeshData.get() : preparedNavMeshData.get();
+        assert(preparedNavMeshDataPtr != nullptr);
 
-        const UpdateNavMeshStatus status = navMeshCacheItem.lock()->updateTile(job.mChangedTile, std::move(cachedNavMeshData),
-            makeNavMeshTileData(*preparedNavMeshDataPtr, offMeshConnections, job.mAgentBounds, job.mChangedTile, mSettings.get().mRecast));
+        const UpdateNavMeshStatus status
+            = navMeshCacheItem.lock()->updateTile(job.mChangedTile, std::move(cachedNavMeshData),
+                makeNavMeshTileData(*preparedNavMeshDataPtr, offMeshConnections, job.mAgentBounds, job.mChangedTile,
+                    mSettings.get().mRecast));
 
         const JobStatus result = handleUpdateNavMeshStatus(status, job, navMeshCacheItem, *job.mRecastMesh);
 
-        if (result == JobStatus::Done && job.mChangeType != ChangeType::update
-                && mDbWorker != nullptr && mSettings.get().mWriteToNavMeshDb && generatedNavMeshData)
+        if (result == JobStatus::Done && job.mChangeType != ChangeType::update && mDbWorker != nullptr
+            && mSettings.get().mWriteToNavMeshDb && generatedNavMeshData)
             job.mGeneratedNavMeshData = std::make_unique<PreparedNavMeshData>(*preparedNavMeshDataPtr);
 
         return result;
     }
 
-    JobStatus AsyncNavMeshUpdater::handleUpdateNavMeshStatus(UpdateNavMeshStatus status,
-        const Job& job, const GuardedNavMeshCacheItem& navMeshCacheItem, const RecastMesh& recastMesh)
+    JobStatus AsyncNavMeshUpdater::handleUpdateNavMeshStatus(UpdateNavMeshStatus status, const Job& job,
+        const GuardedNavMeshCacheItem& navMeshCacheItem, const RecastMesh& recastMesh)
     {
         const Version navMeshVersion = navMeshCacheItem.lockConst()->getVersion();
-        mRecastMeshManager.get().reportNavMeshChange(job.mChangedTile,
-            Version {recastMesh.getGeneration(), recastMesh.getRevision()},
-            navMeshVersion);
+        mRecastMeshManager.get().reportNavMeshChange(job.mChangedTile, recastMesh.getVersion(), navMeshVersion);
 
         if (status == UpdateNavMeshStatus::removed || status == UpdateNavMeshStatus::lost)
         {
@@ -544,21 +682,26 @@ namespace DetourNavigator
             mPresentTiles.insert(std::make_tuple(job.mAgentBounds, job.mChangedTile));
         }
 
-        writeDebugFiles(job, &recastMesh);
+        try
+        {
+            writeDebugNavMesh(mSettings, navMeshCacheItem, navMeshVersion);
+        }
+        catch (const std::exception& e)
+        {
+            Log(Debug::Warning) << "Failed to write debug navmesh: " << e.what();
+        }
 
         return isSuccess(status) ? JobStatus::Done : JobStatus::Fail;
     }
 
-    JobIt AsyncNavMeshUpdater::getNextJob()
+    JobIt AsyncNavMeshUpdater::getNextJob() noexcept
     {
         std::unique_lock<std::mutex> lock(mMutex);
 
         bool shouldStop = false;
-        const auto hasJob = [&]
-        {
-            shouldStop = mShouldStop;
-            return shouldStop
-                || (!mWaiting.empty() && mWaiting.front()->mProcessTime <= std::chrono::steady_clock::now());
+        const auto hasJob = [&] {
+            shouldStop = mShouldStop.load();
+            return shouldStop || mWaiting.hasJob();
         };
 
         if (!mHasJob.wait_for(lock, std::chrono::milliseconds(10), hasJob))
@@ -571,18 +714,26 @@ namespace DetourNavigator
         if (shouldStop)
             return mJobs.end();
 
-        const JobIt job = mWaiting.front();
+        const TilePosition playerTile = *mPlayerTile.lockConst();
 
-        mWaiting.pop_front();
+        JobIt job = mJobs.end();
+
+        if (const std::optional<JobIt> nextJob = mWaiting.pop(playerTile))
+            job = *nextJob;
+
+        if (job == mJobs.end())
+            return job;
+
+        Log(Debug::Debug) << "Pop job " << job->mId << " by thread=" << std::this_thread::get_id();
 
         if (job->mRecastMesh != nullptr)
             return job;
 
-        if (!lockTile(job->mAgentBounds, job->mChangedTile))
+        if (!lockTile(job->mId, job->mAgentBounds, job->mChangedTile))
         {
-            Log(Debug::Debug) << "Failed to lock tile by " << job->mId;
-            ++job->mTryNumber;
-            insertPrioritizedJob(job, mWaiting);
+            Log(Debug::Debug) << "Failed to lock tile by job " << job->mId;
+            job->mProcessTime = std::chrono::steady_clock::now() + mSettings.get().mMinUpdateInterval;
+            mWaiting.push(job);
             return mJobs.end();
         }
 
@@ -593,60 +744,21 @@ namespace DetourNavigator
         return job;
     }
 
-    void AsyncNavMeshUpdater::writeDebugFiles(const Job& job, const RecastMesh* recastMesh) const
+    bool AsyncNavMeshUpdater::lockTile(
+        std::size_t jobId, const AgentBounds& agentBounds, const TilePosition& changedTile)
     {
-        std::string revision;
-        std::string recastMeshRevision;
-        std::string navMeshRevision;
-        if ((mSettings.get().mEnableWriteNavMeshToFile || mSettings.get().mEnableWriteRecastMeshToFile)
-                && (mSettings.get().mEnableRecastMeshFileNameRevision || mSettings.get().mEnableNavMeshFileNameRevision))
-        {
-            revision = "." + std::to_string((std::chrono::steady_clock::now()
-                - std::chrono::steady_clock::time_point()).count());
-            if (mSettings.get().mEnableRecastMeshFileNameRevision)
-                recastMeshRevision = revision;
-            if (mSettings.get().mEnableNavMeshFileNameRevision)
-                navMeshRevision = revision;
-        }
-        if (recastMesh && mSettings.get().mEnableWriteRecastMeshToFile)
-            writeToFile(*recastMesh, mSettings.get().mRecastMeshPathPrefix + std::to_string(job.mChangedTile.x())
-                        + "_" + std::to_string(job.mChangedTile.y()) + "_", recastMeshRevision, mSettings.get().mRecast);
-        if (mSettings.get().mEnableWriteNavMeshToFile)
-            if (const auto shared = job.mNavMeshCacheItem.lock())
-                writeToFile(shared->lockConst()->getImpl(), mSettings.get().mNavMeshPathPrefix, navMeshRevision);
-    }
-
-    void AsyncNavMeshUpdater::repost(JobIt job)
-    {
-        unlockTile(job->mAgentBounds, job->mChangedTile);
-
-        if (mShouldStop || job->mTryNumber > 2)
-            return;
-
-        const std::lock_guard<std::mutex> lock(mMutex);
-
-        if (mPushed.emplace(job->mAgentBounds, job->mChangedTile).second)
-        {
-            ++job->mTryNumber;
-            insertPrioritizedJob(job, mWaiting);
-            mHasJob.notify_all();
-            return;
-        }
-
-        mJobs.erase(job);
-    }
-
-    bool AsyncNavMeshUpdater::lockTile(const AgentBounds& agentBounds, const TilePosition& changedTile)
-    {
-        Log(Debug::Debug) << "Locking tile agent=" << agentBounds << " changedTile=(" << changedTile << ")";
+        Log(Debug::Debug) << "Locking tile by job " << jobId << " agent=" << agentBounds << " changedTile=("
+                          << changedTile << ")";
         return mProcessingTiles.lock()->emplace(agentBounds, changedTile).second;
     }
 
-    void AsyncNavMeshUpdater::unlockTile(const AgentBounds& agentBounds, const TilePosition& changedTile)
+    void AsyncNavMeshUpdater::unlockTile(
+        std::size_t jobId, const AgentBounds& agentBounds, const TilePosition& changedTile)
     {
         auto locked = mProcessingTiles.lock();
         locked->erase(std::tie(agentBounds, changedTile));
-        Log(Debug::Debug) << "Unlocked tile agent=" << agentBounds << " changedTile=(" << changedTile << ")";
+        Log(Debug::Debug) << "Unlocked tile by job " << jobId << " agent=" << agentBounds << " changedTile=("
+                          << changedTile << ")";
         if (locked->empty())
             mProcessed.notify_all();
     }
@@ -657,7 +769,7 @@ namespace DetourNavigator
         return mJobs.size();
     }
 
-    void AsyncNavMeshUpdater::cleanupLastUpdates()
+    void AsyncNavMeshUpdater::cleanupLastUpdates() noexcept
     {
         const auto now = std::chrono::steady_clock::now();
 
@@ -676,7 +788,7 @@ namespace DetourNavigator
     {
         Log(Debug::Debug) << "Enqueueing job " << job->mId << " by thread=" << std::this_thread::get_id();
         const std::lock_guard lock(mMutex);
-        insertPrioritizedJob(job, mWaiting);
+        mWaiting.push(job);
         mHasJob.notify_all();
     }
 
@@ -690,44 +802,62 @@ namespace DetourNavigator
     void DbJobQueue::push(JobIt job)
     {
         const std::lock_guard lock(mMutex);
-        insertPrioritizedDbJob(job, mJobs);
+        if (isWritingDbJob(*job))
+            mWriting.push_back(job);
+        else
+            mReading.push(job);
         mHasJob.notify_all();
     }
 
     std::optional<JobIt> DbJobQueue::pop()
     {
         std::unique_lock lock(mMutex);
-        mHasJob.wait(lock, [&] { return mShouldStop || !mJobs.empty(); });
-        if (mJobs.empty())
+
+        const auto hasJob = [&] { return mShouldStop || mReading.size() > 0 || mWriting.size() > 0; };
+
+        mHasJob.wait(lock, hasJob);
+
+        if (mShouldStop)
             return std::nullopt;
-        const JobIt job = mJobs.front();
-        mJobs.pop_front();
+
+        if (const std::optional<JobIt> job = mReading.pop(mPlayerTile))
+            return job;
+
+        if (mWriting.empty())
+            return std::nullopt;
+
+        const JobIt job = mWriting.front();
+        mWriting.pop_front();
+
         return job;
     }
 
-    void DbJobQueue::update(TilePosition playerTile, int maxTiles)
+    void DbJobQueue::update(TilePosition playerTile)
     {
         const std::lock_guard lock(mMutex);
-        updateJobs(mJobs, playerTile, maxTiles);
-        std::sort(mJobs.begin(), mJobs.end(), LessByJobDbPriority {});
+        mPlayerTile = playerTile;
     }
 
     void DbJobQueue::stop()
     {
         const std::lock_guard lock(mMutex);
-        mJobs.clear();
+        mReading.clear();
+        mWriting.clear();
         mShouldStop = true;
         mHasJob.notify_all();
     }
 
-    std::size_t DbJobQueue::size() const
+    DbJobQueueStats DbJobQueue::getStats() const
     {
         const std::lock_guard lock(mMutex);
-        return mJobs.size();
+        return DbJobQueueStats{
+            .mReadingJobs = mReading.size(),
+            .mWritingJobs = mWriting.size(),
+        };
     }
 
-    DbWorker::DbWorker(AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db,
-        TileVersion version, const RecastSettings& recastSettings, bool writeToDb)
+    DbWorker::DbWorker(AsyncNavMeshUpdater& updater, std::unique_ptr<NavMeshDb>&& db, TileVersion version,
+        const RecastSettings& recastSettings, bool writeToDb)
         : mUpdater(updater)
         , mRecastSettings(recastSettings)
         , mDb(std::move(db))
@@ -750,12 +880,12 @@ namespace DetourNavigator
         mQueue.push(job);
     }
 
-    DbWorker::Stats DbWorker::getStats() const
+    DbWorkerStats DbWorker::getStats() const
     {
-        Stats result;
-        result.mJobs = mQueue.size();
-        result.mGetTileCount = mGetTileCount.load(std::memory_order_relaxed);
-        return result;
+        return DbWorkerStats{
+            .mJobs = mQueue.getStats(),
+            .mGetTileCount = mGetTileCount.load(std::memory_order_relaxed),
+        };
     }
 
     void DbWorker::stop()
@@ -784,8 +914,7 @@ namespace DetourNavigator
 
     void DbWorker::processJob(JobIt job)
     {
-        const auto process = [&] (auto f)
-        {
+        const auto process = [&](auto f) {
             try
             {
                 f(job);
@@ -799,31 +928,52 @@ namespace DetourNavigator
                     if (message.find("database or disk is full") != std::string_view::npos)
                     {
                         mWriteToDb = false;
-                        Log(Debug::Warning) << "Writes to navmeshdb are disabled because file size limit is reached or disk is full";
+                        Log(Debug::Warning)
+                            << "Writes to navmeshdb are disabled because file size limit is reached or disk is full";
                     }
                     else if (message.find("database is locked") != std::string_view::npos)
                     {
                         mWriteToDb = false;
-                        Log(Debug::Warning) << "Writes to navmeshdb are disabled to avoid concurrent writes from multiple processes";
+                        Log(Debug::Warning)
+                            << "Writes to navmeshdb are disabled to avoid concurrent writes from multiple processes";
+                    }
+                    else if (message.find("UNIQUE constraint failed: tiles.tile_id") != std::string_view::npos)
+                    {
+                        Log(Debug::Warning) << "Found duplicate navmeshdb tile_id, please report the "
+                                               "issue to https://gitlab.com/OpenMW/openmw/-/issues, attach openmw.log: "
+                                            << mNextTileId;
+                        try
+                        {
+                            mNextTileId = TileId(mDb->getMaxTileId() + 1);
+                            Log(Debug::Info) << "Updated navmeshdb tile_id to: " << mNextTileId;
+                        }
+                        catch (const std::exception& e)
+                        {
+                            mWriteToDb = false;
+                            Log(Debug::Warning)
+                                << "Failed to update next tile_id, writes to navmeshdb are disabled: " << e.what();
+                        }
                     }
                 }
             }
         };
 
-        if (job->mGeneratedNavMeshData != nullptr)
+        if (isWritingDbJob(*job))
         {
-            process([&] (JobIt job) { processWritingJob(job); });
+            process([&](JobIt job) { processWritingJob(job); });
             mUpdater.removeJob(job);
             return;
         }
 
-        process([&] (JobIt job) { processReadingJob(job); });
+        process([&](JobIt job) { processReadingJob(job); });
         job->mState = JobState::WithDbResult;
         mUpdater.enqueueJob(job);
     }
 
     void DbWorker::processReadingJob(JobIt job)
     {
+        ++mGetTileCount;
+
         Log(Debug::Debug) << "Processing db read job " << job->mId;
 
         if (job->mInput.empty())
@@ -832,21 +982,40 @@ namespace DetourNavigator
             if (mWriteToDb)
             {
                 const auto objects = makeDbRefGeometryObjects(job->mRecastMesh->getMeshSources(),
-                    [&] (const MeshSource& v) { return resolveMeshSource(*mDb, v, mNextShapeId); });
+                    [&](const MeshSource& v) { return resolveMeshSource(*mDb, v, mNextShapeId); });
                 job->mInput = serialize(mRecastSettings, job->mAgentBounds, *job->mRecastMesh, objects);
             }
             else
             {
-                const auto objects = makeDbRefGeometryObjects(job->mRecastMesh->getMeshSources(),
-                    [&] (const MeshSource& v) { return resolveMeshSource(*mDb, v); });
-                if (!objects.has_value())
+                struct HandleResult
+                {
+                    const RecastSettings& mRecastSettings;
+                    Job& mJob;
+
+                    bool operator()(const std::vector<DbRefGeometryObject>& objects) const
+                    {
+                        mJob.mInput = serialize(mRecastSettings, mJob.mAgentBounds, *mJob.mRecastMesh, objects);
+                        return true;
+                    }
+
+                    bool operator()(const MeshSource& meshSource) const
+                    {
+                        Log(Debug::Debug) << "No object for mesh source (fileName=\"" << meshSource.mShape->mFileName
+                                          << "\", areaType=" << meshSource.mAreaType
+                                          << ", fileHash=" << Misc::StringUtils::toHex(meshSource.mShape->mFileHash)
+                                          << ") for job " << mJob.mId;
+                        return false;
+                    }
+                };
+
+                const auto result = makeDbRefGeometryObjects(job->mRecastMesh->getMeshSources(),
+                    [&](const MeshSource& v) { return resolveMeshSource(*mDb, v); });
+                if (!std::visit(HandleResult{ mRecastSettings, *job }, result))
                     return;
-                job->mInput = serialize(mRecastSettings, job->mAgentBounds, *job->mRecastMesh, *objects);
             }
         }
 
         job->mCachedTileData = mDb->getTileData(job->mWorldspace, job->mChangedTile, job->mInput);
-        ++mGetTileCount;
     }
 
     void DbWorker::processWritingJob(JobIt job)
@@ -862,8 +1031,9 @@ namespace DetourNavigator
         if (job->mInput.empty())
         {
             Log(Debug::Debug) << "Serializing input for job " << job->mId;
-            const std::vector<DbRefGeometryObject> objects = makeDbRefGeometryObjects(job->mRecastMesh->getMeshSources(),
-                [&] (const MeshSource& v) { return resolveMeshSource(*mDb, v, mNextShapeId); });
+            const std::vector<DbRefGeometryObject> objects
+                = makeDbRefGeometryObjects(job->mRecastMesh->getMeshSources(),
+                    [&](const MeshSource& v) { return resolveMeshSource(*mDb, v, mNextShapeId); });
             job->mInput = serialize(mRecastSettings, job->mAgentBounds, *job->mRecastMesh, objects);
         }
 
@@ -884,8 +1054,8 @@ namespace DetourNavigator
 
         job->mGeneratedNavMeshData->mUserId = mNextTileId;
         Log(Debug::Debug) << "Insert db tile by job " << job->mId;
-        mDb->insertTile(mNextTileId, job->mWorldspace, job->mChangedTile,
-                        mVersion, job->mInput, serialize(*job->mGeneratedNavMeshData));
+        mDb->insertTile(mNextTileId, job->mWorldspace, job->mChangedTile, mVersion, job->mInput,
+            serialize(*job->mGeneratedNavMeshData));
         ++mNextTileId;
     }
 }

@@ -1,12 +1,21 @@
 #include "loadweap.hpp"
 
+#include <components/esm/defs.hpp>
+#include <components/misc/concepts.hpp>
+
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    void Weapon::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Weapon::WPDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mType, v.mHealth, v.mSpeed, v.mReach, v.mEnchant, v.mChop, v.mSlash, v.mThrust,
+            v.mFlags);
+    }
+
+    void Weapon::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -19,7 +28,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -29,17 +38,17 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("WPDT"):
-                    esm.getHTSized<32>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
                     break;
                 case fourCC("ENAM"):
-                    mEnchant = esm.getHString();
+                    mEnchant = esm.getRefId();
                     break;
                 case SREC_DELE:
                     esm.skipHSub();
@@ -55,9 +64,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing WPDT subrecord");
     }
-    void Weapon::save(ESMWriter &esm, bool isDeleted) const
+    void Weapon::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -67,10 +76,10 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("WPDT", mData, 32);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeNamedComposite("WPDT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("ITEX", mIcon);
-        esm.writeHNOCString("ENAM", mEnchant);
+        esm.writeHNOCRefId("ENAM", mEnchant);
     }
 
     void Weapon::blank()
@@ -83,15 +92,15 @@ namespace ESM
         mData.mSpeed = 0;
         mData.mReach = 0;
         mData.mEnchant = 0;
-        mData.mChop[0] = mData.mChop[1] = 0;
-        mData.mSlash[0] = mData.mSlash[1] = 0;
-        mData.mThrust[0] = mData.mThrust[1] = 0;
+        mData.mChop.fill(0);
+        mData.mSlash.fill(0);
+        mData.mThrust.fill(0);
         mData.mFlags = 0;
 
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mEnchant.clear();
-        mScript.clear();
+        mEnchant = ESM::RefId();
+        mScript = ESM::RefId();
     }
 }

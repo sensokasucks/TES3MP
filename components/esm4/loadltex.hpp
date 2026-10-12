@@ -30,7 +30,8 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -39,7 +40,7 @@ namespace ESM4
 
     struct LandTexture
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -48,24 +49,36 @@ namespace ESM4
         std::uint8_t mHavokRestitution;
 
         std::uint8_t mTextureSpecular; // default 30
-        FormId mGrass;
+        std::vector<ESM::FormId> mGrass;
 
         // ------ TES4 only -----
 
         std::string mTextureFile;
         std::uint8_t mHavokMaterial;
 
-        // ------ TES5 only -----
+        // ------ TES5, FO4 -----
 
-        FormId mTexture;
-        FormId mMaterial;
+        ESM::FormId mTexture;
+        ESM::FormId mMaterial;
+
+        // ----------------------
+
+        // ------ SSE -----------
+
+        enum MaterialFlags
+        {
+            Flag_IsSnow = 0x1,
+        };
+
+        std::uint32_t mMaterialFlags;
 
         // ----------------------
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_LTEX4;
     };
 }
 

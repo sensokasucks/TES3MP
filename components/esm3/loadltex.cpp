@@ -1,12 +1,12 @@
 #include "loadltex.hpp"
 
+#include "components/esm/defs.hpp"
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    void LandTexture::load(ESMReader &esm, bool &isDeleted)
+    void LandTexture::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
 
@@ -18,7 +18,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("INTV"):
@@ -43,9 +43,9 @@ namespace ESM
         if (!hasIndex)
             esm.fail("Missing INTV subrecord");
     }
-    void LandTexture::save(ESMWriter &esm, bool isDeleted) const
+    void LandTexture::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
         esm.writeHNT("INTV", mIndex);
         esm.writeHNCString("DATA", mTexture);
 
@@ -57,7 +57,7 @@ namespace ESM
 
     void LandTexture::blank()
     {
-        mId.clear();
+        mId = ESM::RefId();
         mTexture.clear();
     }
 }

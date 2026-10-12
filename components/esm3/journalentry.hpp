@@ -1,6 +1,9 @@
 #ifndef OPENMW_ESM_JOURNALENTRY_H
 #define OPENMW_ESM_JOURNALENTRY_H
 
+#include <components/esm/refid.hpp>
+
+#include <cstdint>
 #include <string>
 
 namespace ESM
@@ -19,17 +22,18 @@ namespace ESM
             Type_Quest = 2
         };
 
-        int mType;
-        std::string mTopic;
-        std::string mInfo;
+        int32_t mType;
+        ESM::RefId mTopic;
+        ESM::RefId mInfo;
         std::string mText;
-        std::string mActorName; // Could also be Actor ID to allow switching of localisation, but since mText is plaintext anyway...
-        int mDay; // time stamp
-        int mMonth;
-        int mDayOfMonth;
+        std::string mActorName; // Could also be Actor ID to allow switching of localisation, but since mText is
+                                // plaintext anyway...
+        int32_t mDay; // time stamp
+        int32_t mMonth;
+        int32_t mDayOfMonth;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 }
 

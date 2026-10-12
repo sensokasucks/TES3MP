@@ -29,68 +29,77 @@
 #include "loadpgre.hpp"
 
 #include <stdexcept>
-#include <iostream> // FIXME: for debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::PlacedGrenade::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_NAME:
-            case ESM4::SUB_XEZN:
-            case ESM4::SUB_XRGD:
-            case ESM4::SUB_XRGB:
-            case ESM4::SUB_XPRD:
-            case ESM4::SUB_XPPA:
-            case ESM4::SUB_INAM:
-            case ESM4::SUB_TNAM:
-            case ESM4::SUB_XOWN:
-            case ESM4::SUB_XRNK:
-            case ESM4::SUB_XCNT:
-            case ESM4::SUB_XRDS:
-            case ESM4::SUB_XHLP:
-            case ESM4::SUB_XPWR:
-            case ESM4::SUB_XDCR:
-            case ESM4::SUB_XLKR:
-            case ESM4::SUB_XCLP:
-            case ESM4::SUB_XAPD:
-            case ESM4::SUB_XAPR:
-            case ESM4::SUB_XATO:
-            case ESM4::SUB_XESP:
-            case ESM4::SUB_XEMI:
-            case ESM4::SUB_XMBR:
-            case ESM4::SUB_XIBS:
-            case ESM4::SUB_XSCL:
-            case ESM4::SUB_DATA:
-            {
-                //std::cout << "PGRE " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("NAME"):
+            case ESM::fourCC("XEZN"):
+            case ESM::fourCC("XRGD"):
+            case ESM::fourCC("XRGB"):
+            case ESM::fourCC("XPRD"):
+            case ESM::fourCC("XPPA"):
+            case ESM::fourCC("INAM"):
+            case ESM::fourCC("TNAM"):
+            case ESM::fourCC("XOWN"):
+            case ESM::fourCC("XRNK"):
+            case ESM::fourCC("XCNT"):
+            case ESM::fourCC("XRDS"):
+            case ESM::fourCC("XHLP"):
+            case ESM::fourCC("XPWR"):
+            case ESM::fourCC("XDCR"):
+            case ESM::fourCC("XLKR"):
+            case ESM::fourCC("XLKT"): // FO4
+            case ESM::fourCC("XCLP"):
+            case ESM::fourCC("XAPD"):
+            case ESM::fourCC("XAPR"):
+            case ESM::fourCC("XATO"):
+            case ESM::fourCC("XESP"):
+            case ESM::fourCC("XEMI"):
+            case ESM::fourCC("XMBR"):
+            case ESM::fourCC("XIBS"):
+            case ESM::fourCC("XSCL"):
+            case ESM::fourCC("DATA"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("MNAM"): // FO4
+            case ESM::fourCC("XAMC"): // FO4
+            case ESM::fourCC("XASP"): // FO4
+            case ESM::fourCC("XATP"): // FO4
+            case ESM::fourCC("XCVR"): // FO4
+            case ESM::fourCC("XFVC"): // FO4
+            case ESM::fourCC("XHTW"): // FO4
+            case ESM::fourCC("XIS2"): // FO4
+            case ESM::fourCC("XLOD"): // FO4
+            case ESM::fourCC("XLRL"): // FO4
+            case ESM::fourCC("XLRT"): // FO4
+            case ESM::fourCC("XLYR"): // FO4
+            case ESM::fourCC("XMSP"): // FO4
+            case ESM::fourCC("XRFG"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
-                std::cout << "PGRE " << ESM::printName(subHdr.typeId) << " skipping..."
-                          << subHdr.dataSize << std::endl;
-                reader.skipSubRecordData();
-                //throw std::runtime_error("ESM4::PGRE::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
+                throw std::runtime_error("ESM4::PGRE::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::PlacedGrenade::save(ESM4::Writer& writer) const
+// void ESM4::PlacedGrenade::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::PlacedGrenade::blank()
+// void ESM4::PlacedGrenade::blank()
 //{
-//}
+// }

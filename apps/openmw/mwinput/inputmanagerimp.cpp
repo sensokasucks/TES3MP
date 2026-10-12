@@ -2,12 +2,13 @@
 
 #include <osgViewer/ViewerEventHandlers>
 
-#include <components/sdlutil/sdlinputwrapper.hpp>
-#include <components/esm3/esmwriter.hpp>
 #include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
+#include <components/sdlutil/sdlinputwrapper.hpp>
+#include <components/settings/values.hpp>
 
-#include "../mwbase/windowmanager.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
 
 #include "../mwworld/esmstore.hpp"
@@ -16,28 +17,26 @@
 #include "bindingsmanager.hpp"
 #include "controllermanager.hpp"
 #include "controlswitch.hpp"
+#include "gyromanager.hpp"
 #include "keyboardmanager.hpp"
 #include "mousemanager.hpp"
 #include "sensormanager.hpp"
-#include "gyromanager.hpp"
 
 namespace MWInput
 {
-    InputManager::InputManager(
-            SDL_Window* window,
-            osg::ref_ptr<osgViewer::Viewer> viewer,
-            osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler,
-            osgViewer::ScreenCaptureHandler::CaptureOperation *screenCaptureOperation,
-            const std::string& userFile, bool userFileExists, const std::string& userControllerBindingsFile,
-            const std::string& controllerBindingsFile, bool grab)
+    InputManager::InputManager(SDL_Window* window, osg::ref_ptr<osgViewer::Viewer> viewer,
+        osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler, const std::filesystem::path& userFile,
+        bool userFileExists, const std::filesystem::path& userControllerBindingsFile,
+        const std::filesystem::path& controllerBindingsFile, bool grab)
         : mControlsDisabled(false)
         , mInputWrapper(std::make_unique<SDLUtil::InputWrapper>(window, viewer, grab))
         , mBindingsManager(std::make_unique<BindingsManager>(userFile, userFileExists))
         , mControlSwitch(std::make_unique<ControlSwitch>())
-        , mActionManager(std::make_unique<ActionManager>(mBindingsManager.get(), screenCaptureOperation, viewer, screenCaptureHandler))
+        , mActionManager(std::make_unique<ActionManager>(mBindingsManager.get(), viewer, screenCaptureHandler))
         , mKeyboardManager(std::make_unique<KeyboardManager>(mBindingsManager.get()))
         , mMouseManager(std::make_unique<MouseManager>(mBindingsManager.get(), mInputWrapper.get(), window))
-        , mControllerManager(std::make_unique<ControllerManager>(mBindingsManager.get(), mActionManager.get(), mMouseManager.get(), userControllerBindingsFile, controllerBindingsFile))
+        , mControllerManager(std::make_unique<ControllerManager>(
+              mBindingsManager.get(), mMouseManager.get(), userControllerBindingsFile, controllerBindingsFile))
         , mSensorManager(std::make_unique<SensorManager>())
         , mGyroManager(std::make_unique<GyroManager>())
     {
@@ -56,11 +55,6 @@ namespace MWInput
 
     InputManager::~InputManager() {}
 
-    void InputManager::setAttemptJump(bool jumping)
-    {
-        mActionManager->setAttemptJump(jumping);
-    }
-
     void InputManager::update(float dt, bool disableControls, bool disableEvents)
     {
         mControlsDisabled = disableControls;
@@ -78,19 +72,19 @@ namespace MWInput
 
         mMouseManager->updateCursorMode();
 
-        bool controllerMove = mControllerManager->update(dt);
+        mControllerManager->update(dt);
         mMouseManager->update(dt);
         mSensorManager->update(dt);
-        mActionManager->update(dt, controllerMove);
+        mActionManager->update(dt);
 
-        if (mGyroManager->isEnabled())
+        if (Settings::input().mEnableGyroscope)
         {
             bool controllerAvailable = mControllerManager->isGyroAvailable();
             bool sensorAvailable = mSensorManager->isGyroAvailable();
             if (controllerAvailable || sensorAvailable)
             {
-                mGyroManager->update(dt,
-                    controllerAvailable ? mControllerManager->getGyroValues() : mSensorManager->getGyroValues());
+                mGyroManager->update(
+                    dt, controllerAvailable ? mControllerManager->getGyroValues() : mSensorManager->getGyroValues());
             }
         }
     }
@@ -105,6 +99,11 @@ namespace MWInput
         mControllerManager->setGamepadGuiCursorEnabled(enabled);
     }
 
+    bool InputManager::isGamepadGuiCursorEnabled()
+    {
+        return mControllerManager->gamepadGuiCursorEnabled();
+    }
+
     void InputManager::changeInputMode(bool guiMode)
     {
         mControllerManager->setGuiCursorEnabled(guiMode);
@@ -114,16 +113,15 @@ namespace MWInput
         if (guiMode)
             MWBase::Environment::get().getWindowManager()->showCrosshair(false);
 
-        bool isCursorVisible = guiMode && (!mControllerManager->joystickLastUsed() || mControllerManager->gamepadGuiCursorEnabled());
+        bool isCursorVisible
+            = guiMode && (!mControllerManager->joystickLastUsed() || mControllerManager->gamepadGuiCursorEnabled());
         MWBase::Environment::get().getWindowManager()->setCursorVisible(isCursorVisible);
         // if not in gui mode, the camera decides whether to show crosshair or not.
     }
 
     void InputManager::processChangedSettings(const Settings::CategorySettingVector& changed)
     {
-        mMouseManager->processChangedSettings(changed);
         mSensorManager->processChangedSettings(changed);
-        mGyroManager->processChangedSettings(changed);
     }
 
     bool InputManager::getControlSwitch(std::string_view sw)
@@ -146,7 +144,7 @@ namespace MWInput
         return mActionManager->getIdleTime() > 0.5;
     }
 
-    std::string InputManager::getActionDescription(int action) const
+    std::string_view InputManager::getActionDescription(int action) const
     {
         return mBindingsManager->getActionDescription(action);
     }
@@ -191,12 +189,12 @@ namespace MWInput
         return mMouseManager->getMouseMoveY();
     }
 
-    std::vector<int> InputManager::getActionKeySorting()
+    const std::initializer_list<int>& InputManager::getActionKeySorting()
     {
         return mBindingsManager->getActionKeySorting();
     }
 
-    std::vector<int> InputManager::getActionControllerSorting()
+    const std::initializer_list<int>& InputManager::getActionControllerSorting()
     {
         return mBindingsManager->getActionControllerSorting();
     }

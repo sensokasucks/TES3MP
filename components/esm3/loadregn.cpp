@@ -2,10 +2,11 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
+#include <components/esm/common.hpp>
 
 namespace ESM
 {
-    void Region::load(ESMReader &esm, bool &isDeleted)
+    void Region::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -17,7 +18,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("FNAM"):
@@ -27,15 +28,14 @@ namespace ESM
                 {
                     esm.getSubHeader();
                     // Cold weather not included before 1.3
-                    if (esm.getSubSize() == sizeof(mData))
+                    if (esm.getSubSize() == mData.mProbabilities.size())
                     {
-                        esm.getT(mData);
+                        esm.getT(mData.mProbabilities);
                     }
-                    else if (esm.getSubSize() == sizeof(mData) - 2)
+                    else if (esm.getSubSize() == mData.mProbabilities.size() - 2)
                     {
-                        mData.mSnow = 0;
-                        mData.mBlizzard = 0;
-                        esm.getExact(&mData, sizeof(mData) - 2);
+                        mData.mProbabilities.fill(0);
+                        esm.getExact(&mData.mProbabilities, esm.getSubSize());
                     }
                     else
                     {
@@ -44,7 +44,7 @@ namespace ESM
                     break;
                 }
                 case fourCC("BNAM"):
-                    mSleepList = esm.getHString();
+                    mSleepList = esm.getRefId();
                     break;
                 case fourCC("CNAM"):
                     esm.getHT(mMapColor);
@@ -53,7 +53,7 @@ namespace ESM
                 {
                     esm.getSubHeader();
                     SoundRef sr;
-                    sr.mSound.assign(esm.getString(32));
+                    sr.mSound = esm.getMaybeFixedRefIdSize(32);
                     esm.getT(sr.mChance);
                     mSoundList.push_back(sr);
                     break;
@@ -72,9 +72,9 @@ namespace ESM
             esm.fail("Missing NAME subrecord");
     }
 
-    void Region::save(ESMWriter &esm, bool isDeleted) const
+    void Region::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -84,18 +84,18 @@ namespace ESM
 
         esm.writeHNOCString("FNAM", mName);
 
-        if (esm.getVersion() == VER_12)
-            esm.writeHNT("WEAT", mData, sizeof(mData) - 2);
+        if (esm.getVersion() == VER_120)
+            esm.writeHNT("WEAT", mData.mProbabilities, mData.mProbabilities.size() - 2);
         else
-            esm.writeHNT("WEAT", mData);
+            esm.writeHNT("WEAT", mData.mProbabilities);
 
-        esm.writeHNOCString("BNAM", mSleepList);
+        esm.writeHNOCRefId("BNAM", mSleepList);
 
         esm.writeHNT("CNAM", mMapColor);
         for (std::vector<SoundRef>::const_iterator it = mSoundList.begin(); it != mSoundList.end(); ++it)
         {
             esm.startSubRecord("SNAM");
-            esm.writeFixedSizeString(it->mSound, 32);
+            esm.writeMaybeFixedSizeRefId(it->mSound, 32);
             esm.writeT(it->mChance);
             esm.endRecord("SNAM");
         }
@@ -104,13 +104,12 @@ namespace ESM
     void Region::blank()
     {
         mRecordFlags = 0;
-        mData.mClear = mData.mCloudy = mData.mFoggy = mData.mOvercast = mData.mRain =
-            mData.mThunder = mData.mAsh = mData.mBlight = mData.mSnow = mData.mBlizzard = 0;
+        mData.mProbabilities.fill(0);
 
         mMapColor = 0;
 
         mName.clear();
-        mSleepList.clear();
+        mSleepList = ESM::RefId();
         mSoundList.clear();
     }
 }

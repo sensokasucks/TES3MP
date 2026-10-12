@@ -3,20 +3,26 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
+    template <Misc::SameAsWithoutCvref<Armor::AODTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mWeight, v.mValue, v.mHealth, v.mEnchant, v.mArmor);
+    }
 
-    void PartReferenceList::add(ESMReader &esm)
+    void PartReferenceList::add(ESMReader& esm)
     {
         PartReference pr;
         esm.getHT(pr.mPart); // The INDX byte
-        pr.mMale = esm.getHNOString("BNAM");
-        pr.mFemale = esm.getHNOString("CNAM");
+        pr.mMale = esm.getHNORefId("BNAM");
+        pr.mFemale = esm.getHNORefId("CNAM");
         mParts.push_back(pr);
-
     }
 
-    void PartReferenceList::load(ESMReader &esm)
+    void PartReferenceList::load(ESMReader& esm)
     {
         mParts.clear();
         while (esm.isNextSub("INDX"))
@@ -25,17 +31,17 @@ namespace ESM
         }
     }
 
-    void PartReferenceList::save(ESMWriter &esm) const
+    void PartReferenceList::save(ESMWriter& esm) const
     {
         for (std::vector<PartReference>::const_iterator it = mParts.begin(); it != mParts.end(); ++it)
         {
             esm.writeHNT("INDX", it->mPart);
-            esm.writeHNOString("BNAM", it->mMale);
-            esm.writeHNOString("CNAM", it->mFemale);
+            esm.writeHNORefId("BNAM", it->mMale);
+            esm.writeHNORefId("CNAM", it->mFemale);
         }
     }
 
-    void Armor::load(ESMReader &esm, bool &isDeleted)
+    void Armor::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -50,7 +56,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -60,17 +66,17 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("AODT"):
-                    esm.getHTSized<24>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
                     break;
                 case fourCC("ENAM"):
-                    mEnchant = esm.getHString();
+                    mEnchant = esm.getRefId();
                     break;
                 case fourCC("INDX"):
                     mParts.add(esm);
@@ -91,9 +97,9 @@ namespace ESM
             esm.fail("Missing AODT subrecord");
     }
 
-    void Armor::save(ESMWriter &esm, bool isDeleted) const
+    void Armor::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -103,11 +109,11 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNOCString("SCRI", mScript);
-        esm.writeHNT("AODT", mData, 24);
+        esm.writeHNOCRefId("SCRI", mScript);
+        esm.writeNamedComposite("AODT", mData);
         esm.writeHNOCString("ITEX", mIcon);
         mParts.save(esm);
-        esm.writeHNOCString("ENAM", mEnchant);
+        esm.writeHNOCRefId("ENAM", mEnchant);
     }
 
     void Armor::blank()
@@ -123,7 +129,7 @@ namespace ESM
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
-        mEnchant.clear();
+        mScript = ESM::RefId();
+        mEnchant = ESM::RefId();
     }
 }

@@ -29,7 +29,11 @@
 
 #include <cstdint>
 
-#include "reference.hpp" // FormId, Placement, EnableParent
+#include "reference.hpp" // EnableParent
+
+#include <components/esm/defs.hpp>
+#include <components/esm/position.hpp>
+#include <components/esm/refid.hpp>
 
 namespace ESM4
 {
@@ -38,26 +42,27 @@ namespace ESM4
 
     enum MapMarkerType
     {
-        Map_None          = 0x00, // ?
-        Map_Camp          = 0x01,
-        Map_Cave          = 0x02,
-        Map_City          = 0x03,
-        Map_ElvenRuin     = 0x04,
-        Map_FortRuin      = 0x05,
-        Map_Mine          = 0x06,
-        Map_Landmark      = 0x07,
-        Map_Tavern        = 0x08,
-        Map_Settlement    = 0x09,
+        Map_None = 0x00, // ?
+        Map_Camp = 0x01,
+        Map_Cave = 0x02,
+        Map_City = 0x03,
+        Map_ElvenRuin = 0x04,
+        Map_FortRuin = 0x05,
+        Map_Mine = 0x06,
+        Map_Landmark = 0x07,
+        Map_Tavern = 0x08,
+        Map_Settlement = 0x09,
         Map_DaedricShrine = 0x0A,
-        Map_OblivionGate  = 0x0B,
-        Map_Unknown       = 0x0C // ? (door icon)
+        Map_OblivionGate = 0x0B,
+        Map_Unknown = 0x0C // ? (door icon)
     };
 
     struct TeleportDest
     {
-        FormId   destDoor;
-        Placement destPos;
-        std::uint32_t flags; // 0x01 no alarm (only in TES5)
+        ESM::FormId destDoor;
+        ESM::Position destPos;
+        std::uint32_t flags = 0; // 0x01 no alarm (only in TES5)
+        ESM::FormId transitionInterior;
     };
 
     struct RadioStationData
@@ -66,50 +71,52 @@ namespace ESM4
         // 0 radius, 1 everywhere, 2 worldspace and linked int, 3 linked int, 4 current cell only
         std::uint32_t broadcastRange;
         float staticPercentage;
-        FormId posReference; // only used if broadcastRange == 0
+        ESM::FormId posReference; // only used if broadcastRange == 0
     };
 
     struct Reference
     {
-        FormId mParent;       // cell FormId (currently persistent refs only), from the loading sequence
-                              // NOTE: for exterior cells it will be the dummy cell FormId
+        ESM::FormId mId; // from the header
 
-        FormId mFormId;       // from the header
+        ESM::RefId mParent; // cell FormId, from the loading sequence
+                            // NOTE: for exterior cells it will be the dummy cell FormId
+
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
         std::string mFullName;
-        FormId      mBaseObj;
+        ESM::FormId mBaseObj;
 
-        Placement mPlacement;
-        float    mScale = 1.0f;
-        FormId   mOwner;
-        FormId   mGlobal;
+        ESM::Position mPos;
+        float mScale = 1.0f;
+        ESM::FormId mOwner;
+        ESM::FormId mGlobal;
         std::int32_t mFactionRank = -1;
 
-        bool mInitiallyDisabled; // TODO may need to check mFlags & 0x800 (initially disabled)
-        bool mIsMapMarker;
+        bool mIsMapMarker = false;
         std::uint16_t mMapMarker;
 
         EnableParent mEsp;
 
-        std::uint32_t mCount = 1; // only if > 1
+        std::int32_t mCount = 1; // only if > 1
 
-        FormId mAudioLocation;
+        ESM::FormId mAudioLocation;
 
         RadioStationData mRadio;
 
         TeleportDest mDoor;
         bool mIsLocked;
         std::int8_t mLockLevel;
-        FormId mKey;
+        ESM::FormId mKey;
 
-        FormId mTargetRef;
+        ESM::FormId mTargetRef;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
         void blank();
+
+        static constexpr ESM::RecNameInts sRecordId = ESM::REC_REFR4;
     };
 }
 

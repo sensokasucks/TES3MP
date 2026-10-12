@@ -30,7 +30,8 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -43,10 +44,10 @@ namespace ESM4
         // unused fields are probably packing
         struct Data
         {
-            std::uint8_t  density;
-            std::uint8_t  minSlope;
-            std::uint8_t  maxSlope;
-            std::uint8_t  unused;
+            std::uint8_t density;
+            std::uint8_t minSlope;
+            std::uint8_t maxSlope;
+            std::uint8_t unused;
             std::uint16_t distanceFromWater;
             std::uint16_t unused2;
             /*
@@ -69,13 +70,13 @@ namespace ESM4
             0x02 Uniform Scaling
             0x04 Fit to Slope
             */
-            std::uint8_t  flags;
-            std::uint8_t  unused3;
+            std::uint8_t flags;
+            std::uint8_t unused3;
             std::uint16_t unused4;
         };
 #pragma pack(pop)
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -86,9 +87,10 @@ namespace ESM4
         Data mData;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_GRAS4;
     };
 }
 

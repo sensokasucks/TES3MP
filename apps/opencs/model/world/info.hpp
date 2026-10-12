@@ -7,7 +7,8 @@ namespace CSMWorld
 {
     struct Info : public ESM::DialInfo
     {
-        std::string mTopicId;
+        ESM::RefId mTopicId;
+        ESM::RefId mOriginalId;
     };
 }
 

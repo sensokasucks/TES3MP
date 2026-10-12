@@ -27,84 +27,120 @@
 #include "loadachr.hpp"
 
 #include <stdexcept>
-//#include <iostream>
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::ActorCharacter::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
-    mParent = reader.currCell(); // NOTE: only for persistent achr? (aren't they all persistent?)
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
+    mParent = reader.currCell();
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getZString(mFullName); break;
-            case ESM4::SUB_NAME: reader.getFormId(mBaseObj);   break;
-            case ESM4::SUB_DATA: reader.get(mPlacement); break;
-            case ESM4::SUB_XSCL: reader.get(mScale);     break;
-            case ESM4::SUB_XOWN: reader.get(mOwner);     break;
-            case ESM4::SUB_XESP:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getZString(mFullName);
+                break;
+            case ESM::fourCC("NAME"):
+                reader.getFormId(mBaseObj);
+                break;
+            case ESM::fourCC("DATA"):
+                reader.get(mPos);
+                break;
+            case ESM::fourCC("XSCL"):
+                reader.get(mScale);
+                break;
+            case ESM::fourCC("XOWN"):
             {
-                reader.get(mEsp);
-                reader.adjustFormId(mEsp.parent);
+                switch (subHdr.dataSize)
+                {
+                    case 4:
+                        reader.getFormId(mOwner);
+                        break;
+                    case 12:
+                    {
+                        reader.getFormId(mOwner);
+                        std::uint32_t dummy;
+                        reader.get(dummy); // Unknown
+                        reader.get(dummy); // No crime flag, FO4
+                        break;
+                    }
+                    default:
+                        reader.skipSubRecordData();
+                        break;
+                }
                 break;
             }
-            case ESM4::SUB_XRGD: // ragdoll
-            case ESM4::SUB_XRGB: // ragdoll biped
+            case ESM::fourCC("XESP"):
+                reader.getFormId(mEsp.parent);
+                reader.get(mEsp.flags);
+                break;
+            case ESM::fourCC("XCNT"):
             {
-                //std::cout << "ACHR " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
-                reader.skipSubRecordData();
+                reader.get(mCount);
                 break;
             }
-            case ESM4::SUB_XHRS: // horse formId
-            case ESM4::SUB_XMRC: // merchant container formId
+            case ESM::fourCC("XRGD"): // ragdoll
+            case ESM::fourCC("XRGB"): // ragdoll biped
+            case ESM::fourCC("XHRS"): // horse formId
+            case ESM::fourCC("XMRC"): // merchant container formId
             // TES5
-            case ESM4::SUB_XAPD: // activation parent
-            case ESM4::SUB_XAPR: // active parent
-            case ESM4::SUB_XEZN: // encounter zone
-            case ESM4::SUB_XHOR:
-            case ESM4::SUB_XLCM: // levelled creature
-            case ESM4::SUB_XLCN: // location
-            case ESM4::SUB_XLKR: // location route?
-            case ESM4::SUB_XLRT: // location type
+            case ESM::fourCC("XAPD"): // activation parent
+            case ESM::fourCC("XAPR"): // active parent
+            case ESM::fourCC("XEZN"): // encounter zone
+            case ESM::fourCC("XHOR"):
+            case ESM::fourCC("XLCM"): // levelled creature
+            case ESM::fourCC("XLCN"): // location
+            case ESM::fourCC("XLKR"): // location route?
+            case ESM::fourCC("XLRT"): // location type
             //
-            case ESM4::SUB_XPRD:
-            case ESM4::SUB_XPPA:
-            case ESM4::SUB_INAM:
-            case ESM4::SUB_PDTO:
+            case ESM::fourCC("XPRD"):
+            case ESM::fourCC("XPPA"):
+            case ESM::fourCC("INAM"):
+            case ESM::fourCC("PDTO"):
             //
-            case ESM4::SUB_XIS2:
-            case ESM4::SUB_XPCI: // formId
-            case ESM4::SUB_XLOD:
-            case ESM4::SUB_VMAD:
-            case ESM4::SUB_XLRL: // Unofficial Skyrim Patch
-            case ESM4::SUB_XRDS: // FO3
-            case ESM4::SUB_XIBS: // FO3
-            case ESM4::SUB_SCHR: // FO3
-            case ESM4::SUB_TNAM: // FO3
-            case ESM4::SUB_XATO: // FONV
-            {
-                //std::cout << "ACHR " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("XIS2"):
+            case ESM::fourCC("XPCI"): // formId
+            case ESM::fourCC("XLOD"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("XLRL"): // Unofficial Skyrim Patch
+            case ESM::fourCC("XRDS"): // FO3
+            case ESM::fourCC("XIBS"): // FO3
+            case ESM::fourCC("SCHR"): // FO3
+            case ESM::fourCC("TNAM"): // FO3
+            case ESM::fourCC("XATO"): // FONV
+            case ESM::fourCC("MNAM"): // FO4
+            case ESM::fourCC("XATP"): // FO4
+            case ESM::fourCC("XEMI"): // FO4
+            case ESM::fourCC("XFVC"): // FO4
+            case ESM::fourCC("XHLT"): // FO4
+            case ESM::fourCC("XHTW"): // FO4
+            case ESM::fourCC("XLKT"): // FO4
+            case ESM::fourCC("XLYR"): // FO4
+            case ESM::fourCC("XMBR"): // FO4
+            case ESM::fourCC("XMSP"): // FO4
+            case ESM::fourCC("XPLK"): // FO4
+            case ESM::fourCC("XRFG"): // FO4
+            case ESM::fourCC("XRNK"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
-                throw std::runtime_error("ESM4::ACHR::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
+                throw std::runtime_error("ESM4 ACHR/ACRE load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::ActorCharacter::save(ESM4::Writer& writer) const
+// void ESM4::ActorCharacter::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::ActorCharacter::blank()
+// void ESM4::ActorCharacter::blank()
 //{
-//}
+// }

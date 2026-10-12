@@ -1,8 +1,8 @@
 #include "loadlevlist.hpp"
 
+#include "components/esm/defs.hpp"
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
@@ -19,7 +19,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("DATA"):
@@ -30,7 +30,7 @@ namespace ESM
                     break;
                 case fourCC("INDX"):
                 {
-                    int length = 0;
+                    uint32_t length = 0;
                     esm.getHT(length);
                     mList.resize(length);
 
@@ -42,8 +42,8 @@ namespace ESM
                     // that does something with that list.
                     for (size_t i = 0; i < mList.size(); i++)
                     {
-                        LevelItem &li = mList[i];
-                        li.mId = esm.getHNString(recName);
+                        LevelItem& li = mList[i];
+                        li.mId = esm.getHNRefId(recName);
                         esm.getHNT(li.mLevel, "INTV");
                     }
 
@@ -77,7 +77,7 @@ namespace ESM
 
     void LevelledListBase::save(ESMWriter& esm, NAME recName, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -87,12 +87,12 @@ namespace ESM
 
         esm.writeHNT("DATA", mFlags);
         esm.writeHNT("NNAM", mChanceNone);
-        esm.writeHNT<int>("INDX", mList.size());
+        esm.writeHNT("INDX", static_cast<uint32_t>(mList.size()));
 
-        for (std::vector<LevelItem>::const_iterator it = mList.begin(); it != mList.end(); ++it)
+        for (const auto& item : mList)
         {
-            esm.writeHNCString(recName, it->mId);
-            esm.writeHNT("INTV", it->mLevel);
+            esm.writeHNCRefId(recName, item.mId);
+            esm.writeHNT("INTV", item.mLevel);
         }
     }
 

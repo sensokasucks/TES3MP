@@ -31,7 +31,8 @@
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -40,7 +41,7 @@ namespace ESM4
 
     struct AcousticSpace
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -48,15 +49,16 @@ namespace ESM4
         std::uint32_t mEnvironmentType;
 
         // 0 Dawn (5:00 start), 1 Afternoon (8:00), 2 Dusk (18:00), 3 Night (20:00)
-        std::vector<FormId> mAmbientLoopSounds;
-        FormId mSoundRegion;
+        std::vector<ESM::FormId> mAmbientLoopSounds;
+        ESM::FormId mSoundRegion;
 
         std::uint32_t mIsInterior; // if true only use mAmbientLoopSounds[0]
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_ASPC4;
     };
 }
 

@@ -1,8 +1,9 @@
 #ifndef OPENMW_COMPONENTS_MYGUIPLATFORM_MYGUIPLATFORM_H
 #define OPENMW_COMPONENTS_MYGUIPLATFORM_MYGUIPLATFORM_H
 
-#include <string>
+#include <filesystem>
 #include <memory>
+#include <string>
 
 namespace osgViewer
 {
@@ -36,8 +37,8 @@ namespace osgMyGUI
     {
     public:
         Platform(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ImageManager* imageManager,
-            const VFS::Manager* vfs, float uiScalingFactor, const std::string& resourcePath,
-            const std::string& logName = "MyGUI.log");
+            const VFS::Manager* vfs, float uiScalingFactor, const std::filesystem::path& resourcePath,
+            const std::filesystem::path& logName = "MyGUI.log");
 
         ~Platform();
 

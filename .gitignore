@@ -29,6 +29,7 @@ Doxygen
 cmake-build-*
 files/windows/*.aps
 cmake-build-*
+.cache/clangd
 ## qt-creator
 CMakeLists.txt.user*
 .vs
@@ -85,3 +86,7 @@ moc_*.cxx
 *.[ao]
 *.so
 venv/
+
+## operating system files
+.DS_Store
+Thumbs.db

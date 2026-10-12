@@ -4,10 +4,10 @@
 #include <optional>
 #include <string>
 
-#include <osg/ref_ptr>
 #include <osg/Matrix>
 #include <osg/Vec3>
 #include <osg/Vec3d>
+#include <osg/ref_ptr>
 
 #include "../mwworld/ptr.hpp"
 
@@ -26,13 +26,20 @@ namespace MWRender
     class Camera
     {
     public:
-        enum class Mode : int {Static = 0, FirstPerson = 1, ThirdPerson = 2, Vanity = 3, Preview = 4};
+        enum class Mode : int
+        {
+            Static = 0,
+            FirstPerson = 1,
+            ThirdPerson = 2,
+            Vanity = 3,
+            Preview = 4
+        };
 
         Camera(osg::Camera* camera);
         ~Camera();
 
         /// Attach camera to object
-        void attachTo(const MWWorld::Ptr &ptr) { mTrackingPtr = ptr; }
+        void attachTo(const MWWorld::Ptr& ptr) { mTrackingPtr = ptr; }
         MWWorld::Ptr getTrackingPtr() const { return mTrackingPtr; }
 
         void setFocalPointTransitionSpeed(float v) { mFocalPointTransitionSpeedCoef = v; }
@@ -65,8 +72,10 @@ namespace MWRender
         void setExtraYaw(float angle) { mExtraYaw = angle; }
         void setExtraRoll(float angle) { mExtraRoll = angle; }
 
+        osg::Quat getOrient() const;
+
         /// @param Force view mode switch, even if currently not allowed by the animation.
-        void toggleViewMode(bool force=false);
+        void toggleViewMode(bool force = false);
         bool toggleVanityMode(bool enable);
 
         void applyDeferredPreviewRotationToPlayer(float dt);
@@ -77,12 +86,12 @@ namespace MWRender
 
         void processViewChange();
 
-        void update(float duration, bool paused=false);
+        void update(float duration, bool paused = false);
 
         float getCameraDistance() const { return mCameraDistance; }
         void setPreferredCameraDistance(float v) { mPreferredCameraDistance = v; }
 
-        void setAnimation(NpcAnimation *anim);
+        void setAnimation(NpcAnimation* anim);
 
         osg::Vec3d getTrackedPosition() const { return mTrackedPosition; }
         const osg::Vec3d& getPosition() const { return mPosition; }
@@ -102,6 +111,7 @@ namespace MWRender
         void setCollisionType(int collisionType) { mCollisionType = collisionType; }
 
         const osg::Matrixf& getViewMatrix() const { return mViewMatrix; }
+        const osg::Matrixf& getProjectionMatrix() const { return mProjectionMatrix; }
 
     private:
         MWWorld::Ptr mTrackingPtr;
@@ -112,7 +122,7 @@ namespace MWRender
 
         osg::ref_ptr<osg::Camera> mCamera;
 
-        NpcAnimation *mAnimation;
+        NpcAnimation* mAnimation;
 
         // Always 'true' if mMode == `FirstPerson`. Also it is 'true' in `Vanity` or `Preview` modes if
         // the camera should return to `FirstPerson` view after it.
@@ -131,10 +141,11 @@ namespace MWRender
         bool mLockPitch = false, mLockYaw = false;
         osg::Vec3d mPosition;
         osg::Matrixf mViewMatrix;
+        osg::Matrixf mProjectionMatrix;
 
         float mCameraDistance, mPreferredCameraDistance;
 
-        osg::Vec3f mFirstPersonOffset{0, 0, 0};
+        osg::Vec3f mFirstPersonOffset{ 0, 0, 0 };
 
         osg::Vec2d mFocalPointCurrentOffset;
         osg::Vec2d mFocalPointTargetOffset;

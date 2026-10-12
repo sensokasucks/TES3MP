@@ -1,51 +1,53 @@
 #ifndef OPENMW_ESM_PROJECTILESTATE_H
 #define OPENMW_ESM_PROJECTILESTATE_H
 
-#include <string>
-
 #include <osg/Quat>
 #include <osg/Vec3f>
 
-#include "effectlist.hpp"
+#include "components/esm/quaternion.hpp"
+#include "components/esm/refid.hpp"
+#include "components/esm/vector3.hpp"
 
-#include "components/esm/util.hpp"
+#include "refnum.hpp"
 
 namespace ESM
 {
+    class ESMReader;
+    class ESMWriter;
 
     // format 0, savegames only
 
     struct BaseProjectileState
     {
-        std::string mId;
+        RefId mId;
 
         Vector3 mPosition;
         Quaternion mOrientation;
 
-        int mActorId;
+        int32_t mActorId;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
     struct MagicBoltState : public BaseProjectileState
     {
-        std::string mSpellId;
+        RefId mSpellId;
         float mSpeed;
-        int mSlot;
+        RefNum mItem;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
     struct ProjectileState : public BaseProjectileState
     {
-        std::string mBowId;
+        RefId mBowId;
         Vector3 mVelocity;
         float mAttackStrength;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
 }

@@ -4,9 +4,10 @@
 #include <sol/sol.hpp>
 
 #include <components/esm/defs.hpp>
-#include <components/esm/luascripts.hpp>
+#include <components/lua/luastate.hpp>
 
 #include "../context.hpp"
+#include "../recordstore.hpp"
 
 namespace MWLua
 {
@@ -31,9 +32,11 @@ namespace MWLua
     void addBookBindings(sol::table book, const Context& context);
     void addContainerBindings(sol::table container, const Context& context);
     void addDoorBindings(sol::table door, const Context& context);
+    void addItemBindings(sol::table item, const Context& context);
     void addActorBindings(sol::table actor, const Context& context);
     void addWeaponBindings(sol::table weapon, const Context& context);
     void addNpcBindings(sol::table npc, const Context& context);
+    void addPlayerBindings(sol::table player, const Context& context);
     void addCreatureBindings(sol::table creature, const Context& context);
     void addLockpickBindings(sol::table lockpick, const Context& context);
     void addProbeBindings(sol::table probe, const Context& context);
@@ -42,6 +45,15 @@ namespace MWLua
     void addMiscellaneousBindings(sol::table miscellaneous, const Context& context);
     void addPotionBindings(sol::table potion, const Context& context);
     void addIngredientBindings(sol::table Ingredient, const Context& context);
+    void addArmorBindings(sol::table armor, const Context& context);
+    void addLockableBindings(sol::table lockable);
+    void addClothingBindings(sol::table clothing, const Context& context);
+    void addStaticBindings(sol::table stat, const Context& context);
+    void addLightBindings(sol::table light, const Context& context);
+    void addLevelledCreatureBindings(sol::table list, const Context& context);
+
+    void addESM4DoorBindings(sol::table door, const Context& context);
+    void addESM4TerminalBindings(sol::table term, const Context& context);
 }
 
 #endif // MWLUA_TYPES_H

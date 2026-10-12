@@ -3,89 +3,80 @@
 #include "components/esm/esmcommon.hpp"
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
 
-void Header::blank()
-{
-    mData.version = VER_13;
-    mData.type = 0;
-    mData.author.clear();
-    mData.desc.clear();
-    mData.records = 0;
-    mFormat = CurrentFormat;
-    mMaster.clear();
-}
-
-void Header::load (ESMReader &esm)
-{
-    if (esm.isNextSub ("FORM"))
+    void Header::blank()
     {
-        esm.getHT (mFormat);
-        if (mFormat<0)
-            esm.fail ("invalid format code");
-    }
-    else
-        mFormat = 0;
-
-    if (esm.isNextSub("HEDR"))
-    {
-      esm.getSubHeader();
-      esm.getT(mData.version);
-      esm.getT(mData.type);
-      mData.author.assign(esm.getMaybeFixedStringSize(32));
-      mData.desc.assign(esm.getMaybeFixedStringSize(256));
-      esm.getT(mData.records);
+        mData.version.ui = VER_130;
+        mData.type = 0;
+        mData.author.clear();
+        mData.desc.clear();
+        mData.records = 0;
+        mFormatVersion = CurrentContentFormatVersion;
+        mMaster.clear();
     }
 
-    while (esm.isNextSub ("MAST"))
+    void Header::load(ESMReader& esm)
     {
-        MasterData m;
-        m.name = esm.getHString();
-        esm.getHNT(m.size, "DATA");
-        mMaster.push_back (m);
+        mFormatVersion = DefaultFormatVersion;
+        esm.getHNOT("FORM", mFormatVersion);
+
+        if (esm.isNextSub("HEDR"))
+        {
+            esm.getSubHeader();
+            esm.getT(mData.version.ui);
+            esm.getT(mData.type);
+            mData.author = esm.getMaybeFixedStringSize(32);
+            mData.desc = esm.getMaybeFixedStringSize(256);
+            esm.getT(mData.records);
+        }
+
+        while (esm.isNextSub("MAST"))
+        {
+            MasterData m;
+            m.name = esm.getHString();
+            esm.getHNT(m.size, "DATA");
+            mMaster.push_back(m);
+        }
+
+        esm.getHNOT("GMDT", mGameData.mCurrentHealth, mGameData.mMaximumHealth, mGameData.mHour, mGameData.unknown1,
+            mGameData.mCurrentCell.mData, mGameData.unknown2, mGameData.mPlayerName.mData);
+        if (esm.isNextSub("SCRD"))
+        {
+            esm.getSubHeader();
+            mSCRD.resize(esm.getSubSize());
+            if (!mSCRD.empty())
+                esm.getExact(mSCRD.data(), mSCRD.size());
+        }
+        if (esm.isNextSub("SCRS"))
+        {
+            esm.getSubHeader();
+            mSCRS.resize(esm.getSubSize());
+            if (!mSCRS.empty())
+                esm.getExact(mSCRS.data(), mSCRS.size());
+        }
     }
 
-    if (esm.isNextSub("GMDT"))
+    void Header::save(ESMWriter& esm)
     {
-        esm.getHT(mGameData);
-    }
-    if (esm.isNextSub("SCRD"))
-    {
-        esm.getSubHeader();
-        mSCRD.resize(esm.getSubSize());
-        if (!mSCRD.empty())
-            esm.getExact(mSCRD.data(), mSCRD.size());
-    }
-    if (esm.isNextSub("SCRS"))
-    {
-        esm.getSubHeader();
-        mSCRS.resize(esm.getSubSize());
-        if (!mSCRS.empty())
-            esm.getExact(mSCRS.data(), mSCRS.size());
-    }
-}
+        if (mFormatVersion > DefaultFormatVersion)
+            esm.writeHNT("FORM", mFormatVersion);
 
-void Header::save (ESMWriter &esm)
-{
-    if (mFormat>0)
-        esm.writeHNT ("FORM", mFormat);
+        esm.startSubRecord("HEDR");
+        esm.writeT(mData.version);
+        esm.writeT(mData.type);
+        esm.writeMaybeFixedSizeString(mData.author, 32);
+        esm.writeMaybeFixedSizeString(mData.desc, 256);
+        esm.writeT(mData.records);
+        esm.endRecord("HEDR");
 
-    esm.startSubRecord("HEDR");
-    esm.writeT(mData.version);
-    esm.writeT(mData.type);
-    esm.writeFixedSizeString(mData.author, 32);
-    esm.writeFixedSizeString(mData.desc, 256);
-    esm.writeT(mData.records);
-    esm.endRecord("HEDR");
-
-    for (const Header::MasterData& data : mMaster)
-    {
-        esm.writeHNCString ("MAST", data.name);
-        esm.writeHNT ("DATA", data.size);
+        for (const Header::MasterData& data : mMaster)
+        {
+            esm.writeHNCString("MAST", data.name);
+            esm.writeHNT("DATA", data.size);
+        }
     }
-}
 
 }

@@ -1,53 +1,29 @@
 #ifndef MWLUA_LUABINDINGS_H
 #define MWLUA_LUABINDINGS_H
 
-#include <components/lua/luastate.hpp>
-#include <components/lua/serialization.hpp>
-#include <components/lua/scriptscontainer.hpp>
-#include <components/lua/storage.hpp>
+#include <map>
+#include <sol/forward.hpp>
+#include <string>
 
 #include "context.hpp"
-#include "eventqueue.hpp"
-#include "object.hpp"
-#include "worldview.hpp"
-
-namespace MWWorld
-{
-    class CellStore;
-}
 
 namespace MWLua
 {
+    // Initialize Lua packages that are available for all scripts.
+    std::map<std::string, sol::object> initCommonPackages(const Context&);
 
-    sol::table initCorePackage(const Context&);
-    sol::table initWorldPackage(const Context&);
-    sol::table initPostprocessingPackage(const Context&);
+    // Initialize Lua packages that are available for global scripts (additionally to common packages).
+    std::map<std::string, sol::object> initGlobalPackages(const Context&);
 
-    sol::table initGlobalStoragePackage(const Context&, LuaUtil::LuaStorage* globalStorage);
-    sol::table initLocalStoragePackage(const Context&, LuaUtil::LuaStorage* globalStorage);
-    sol::table initPlayerStoragePackage(const Context&, LuaUtil::LuaStorage* globalStorage, LuaUtil::LuaStorage* playerStorage);
+    // Initialize Lua packages that are available for local scripts (additionally to common packages).
+    std::map<std::string, sol::object> initLocalPackages(const Context&);
 
-    // Implemented in nearbybindings.cpp
-    sol::table initNearbyPackage(const Context&);
+    // Initialize Lua packages that are available only for local scripts on the player (additionally to common and local
+    // packages).
+    std::map<std::string, sol::object> initPlayerPackages(const Context&);
 
-    // Implemented in objectbindings.cpp
-    void initObjectBindingsForLocalScripts(const Context&);
-    void initObjectBindingsForGlobalScripts(const Context&);
-
-    // Implemented in cellbindings.cpp
-    void initCellBindingsForLocalScripts(const Context&);
-    void initCellBindingsForGlobalScripts(const Context&);
-
-    // Implemented in camerabindings.cpp
-    sol::table initCameraPackage(const Context&);
-
-    // Implemented in uibindings.cpp
-    sol::table initUserInterfacePackage(const Context&);
-
-    // Implemented in inputbindings.cpp
-    sol::table initInputPackage(const Context&);
-
-    // openmw.self package is implemented in localscripts.cpp
+    // Initialize Lua packages that are available only for menu scripts (additionally to common packages).
+    std::map<std::string, sol::object> initMenuPackages(const Context&);
 }
 
 #endif // MWLUA_LUABINDINGS_H

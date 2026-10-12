@@ -1,17 +1,21 @@
 #include "navmeshtilescache.hpp"
-
-#include <osg/Stats>
+#include "stats.hpp"
 
 #include <cstring>
 
 namespace DetourNavigator
 {
     NavMeshTilesCache::NavMeshTilesCache(const std::size_t maxNavMeshDataSize)
-        : mMaxNavMeshDataSize(maxNavMeshDataSize), mUsedNavMeshDataSize(0), mFreeNavMeshDataSize(0),
-          mHitCount(0), mGetCount(0) {}
+        : mMaxNavMeshDataSize(maxNavMeshDataSize)
+        , mUsedNavMeshDataSize(0)
+        , mFreeNavMeshDataSize(0)
+        , mHitCount(0)
+        , mGetCount(0)
+    {
+    }
 
-    NavMeshTilesCache::Value NavMeshTilesCache::get(const AgentBounds& agentBounds, const TilePosition& changedTile,
-        const RecastMesh& recastMesh)
+    NavMeshTilesCache::Value NavMeshTilesCache::get(
+        const AgentBounds& agentBounds, const TilePosition& changedTile, const RecastMesh& recastMesh)
     {
         const std::lock_guard<std::mutex> lock(mMutex);
 
@@ -42,11 +46,12 @@ namespace DetourNavigator
         while (!mFreeItems.empty() && mUsedNavMeshDataSize + itemSize > mMaxNavMeshDataSize)
             removeLeastRecentlyUsed();
 
-        RecastMeshData key {recastMesh.getMesh(), recastMesh.getWater(),
-                    recastMesh.getHeightfields(), recastMesh.getFlatHeightfields()};
+        RecastMeshData key{ recastMesh.getMesh(), recastMesh.getWater(), recastMesh.getHeightfields(),
+            recastMesh.getFlatHeightfields() };
 
         const auto iterator = mFreeItems.emplace(mFreeItems.end(), agentBounds, changedTile, std::move(key), itemSize);
-        const auto emplaced = mValues.emplace(std::make_tuple(agentBounds, changedTile, std::cref(iterator->mRecastMeshData)), iterator);
+        const auto emplaced = mValues.emplace(
+            std::make_tuple(agentBounds, changedTile, std::cref(iterator->mRecastMeshData)), iterator);
 
         if (!emplaced.second)
         {
@@ -65,9 +70,9 @@ namespace DetourNavigator
         return Value(*this, iterator);
     }
 
-    NavMeshTilesCache::Stats NavMeshTilesCache::getStats() const
+    NavMeshTilesCacheStats NavMeshTilesCache::getStats() const
     {
-        Stats result;
+        NavMeshTilesCacheStats result;
         {
             const std::lock_guard<std::mutex> lock(mMutex);
             result.mNavMeshCacheSize = mUsedNavMeshDataSize;
@@ -77,15 +82,6 @@ namespace DetourNavigator
             result.mGetCount = mGetCount;
         }
         return result;
-    }
-
-    void reportStats(const NavMeshTilesCache::Stats& stats, unsigned int frameNumber, osg::Stats& out)
-    {
-        out.setAttribute(frameNumber, "NavMesh CacheSize", static_cast<double>(stats.mNavMeshCacheSize));
-        out.setAttribute(frameNumber, "NavMesh UsedTiles", static_cast<double>(stats.mUsedNavMeshTiles));
-        out.setAttribute(frameNumber, "NavMesh CachedTiles", static_cast<double>(stats.mCachedNavMeshTiles));
-        if (stats.mGetCount > 0)
-            out.setAttribute(frameNumber, "NavMesh CacheHitRate", static_cast<double>(stats.mHitCount) / stats.mGetCount * 100.0);
     }
 
     void NavMeshTilesCache::removeLeastRecentlyUsed()

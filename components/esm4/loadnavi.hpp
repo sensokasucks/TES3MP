@@ -28,10 +28,14 @@
 #define ESM4_NAVI_H
 
 #include <cstdint>
-#include <vector>
 #include <map>
+#include <vector>
 
-#include "common.hpp" // CellGrid, Vertex
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
+
+#include "cellgrid.hpp"
+#include "vertex.hpp"
 
 namespace ESM4
 {
@@ -40,11 +44,11 @@ namespace ESM4
 
     struct Navigation
     {
-#pragma pack(push,1)
+#pragma pack(push, 1)
         struct DoorRef
         {
             std::uint32_t unknown;
-            FormId formId;
+            ESM::FormId32 formId;
         };
 
         struct Triangle
@@ -71,26 +75,26 @@ namespace ESM4
 
         enum Flags // NVMI island flags (not certain)
         {
-            FLG_Island     = 0x00000020,
-            FLG_Modified   = 0x00000000, // not island
-            FLG_Unmodified = 0x00000040  // not island
+            FLG_Island = 0x00000020,
+            FLG_Modified = 0x00000000, // not island
+            FLG_Unmodified = 0x00000040 // not island
         };
 
         struct NavMeshInfo
         {
-            FormId formId;
+            ESM::FormId formId;
             std::uint32_t flags;
             // center point of the navmesh
             float x;
             float y;
             float z;
             std::uint32_t flagPrefMerges;
-            std::vector<FormId> formIdMerged;
-            std::vector<FormId> formIdPrefMerged;
+            std::vector<ESM::FormId> formIdMerged;
+            std::vector<ESM::FormId> formIdPrefMerged;
             std::vector<DoorRef> linkedDoors;
             std::vector<IslandInfo> islandInfo;
             std::uint32_t locationMarker;
-            FormId worldSpaceId;
+            ESM::FormId worldSpaceId;
             CellGrid cellGrid;
 
             void load(ESM4::Reader& reader);
@@ -100,14 +104,15 @@ namespace ESM4
 
         std::vector<NavMeshInfo> mNavMeshInfo;
 
-        std::vector<std::pair<std::uint32_t, std::vector<FormId> > > mPreferredPaths;
+        std::vector<std::pair<std::uint32_t, std::vector<ESM::FormId>>> mPreferredPaths;
 
-        std::map<FormId, std::uint32_t> mPathIndexMap;
+        std::map<ESM::FormId, std::uint32_t> mPathIndexMap;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_NAVI4;
     };
 }
 

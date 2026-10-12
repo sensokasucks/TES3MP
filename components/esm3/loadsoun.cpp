@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Sound::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<SOUNstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mVolume, v.mMinRange, v.mMaxRange);
+    }
+
+    void Sound::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,14 +26,14 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("FNAM"):
                     mSound = esm.getHString();
                     break;
                 case fourCC("DATA"):
-                    esm.getHTSized<3>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case SREC_DELE:
@@ -44,9 +52,9 @@ namespace ESM
             esm.fail("Missing DATA subrecord");
     }
 
-    void Sound::save(ESMWriter &esm, bool isDeleted) const
+    void Sound::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -55,7 +63,7 @@ namespace ESM
         }
 
         esm.writeHNOCString("FNAM", mSound);
-        esm.writeHNT("DATA", mData, 3);
+        esm.writeNamedComposite("DATA", mData);
     }
 
     void Sound::blank()

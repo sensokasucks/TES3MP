@@ -1,6 +1,7 @@
 #ifndef OPENMW_ESM_QUESTSTATE_H
 #define OPENMW_ESM_QUESTSTATE_H
 
+#include <components/esm/refid.hpp>
 #include <string>
 
 namespace ESM
@@ -12,12 +13,12 @@ namespace ESM
 
     struct QuestState
     {
-        std::string mTopic; // lower case id
-        int mState;
+        ESM::RefId mTopic; // lower case id
+        int32_t mState;
         unsigned char mFinished;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 }
 

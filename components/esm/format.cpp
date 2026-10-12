@@ -1,9 +1,9 @@
 #include "format.hpp"
 
-#include <components/esm/esmcommon.hpp>
-
+#include <cstring>
 #include <istream>
 #include <stdexcept>
+#include <string>
 
 namespace ESM
 {

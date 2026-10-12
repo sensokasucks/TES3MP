@@ -26,8 +26,8 @@
 */
 #include "loadbptd.hpp"
 
+#include <cstring>
 #include <stdexcept>
-#include <iostream> // FIXME: testing only
 
 #include "reader.hpp"
 //#include "writer.hpp"
@@ -45,9 +45,8 @@ void ESM4::BodyPartData::BodyPart::clear()
 
 void ESM4::BodyPartData::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     BodyPart bodyPart;
     bodyPart.clear();
@@ -57,46 +56,71 @@ void ESM4::BodyPartData::load(ESM4::Reader& reader)
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getLocalizedString(mFullName); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel); break;
-            case ESM4::SUB_BPTN: reader.getLocalizedString(bodyPart.mPartName); break;
-            case ESM4::SUB_BPNN: reader.getZString(bodyPart.mNodeName); break;
-            case ESM4::SUB_BPNT: reader.getZString(bodyPart.mVATSTarget); break;
-            case ESM4::SUB_BPNI: reader.getZString(bodyPart.mIKStartNode); break;
-            case ESM4::SUB_BPND: reader.get(bodyPart.mData); break;
-            case ESM4::SUB_NAM1: reader.getZString(bodyPart.mLimbReplacementModel); break;
-            case ESM4::SUB_NAM4: // FIXME: assumed occurs last
-            {
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("BPTN"):
+                reader.getLocalizedString(bodyPart.mPartName);
+                break;
+            case ESM::fourCC("BPNN"):
+                reader.getZString(bodyPart.mNodeName);
+                break;
+            case ESM::fourCC("BPNT"):
+                reader.getZString(bodyPart.mVATSTarget);
+                break;
+            case ESM::fourCC("BPNI"):
+                reader.getZString(bodyPart.mIKStartNode);
+                break;
+            case ESM::fourCC("BPND"):
+                if (subHdr.dataSize == sizeof(bodyPart.mData))
+                    reader.get(bodyPart.mData);
+                // FIXME: FO4
+                else
+                    reader.skipSubRecordData();
+                break;
+            case ESM::fourCC("NAM1"):
+                reader.getZString(bodyPart.mLimbReplacementModel);
+                break;
+            case ESM::fourCC("NAM4"): // FIXME: assumed occurs last
                 reader.getZString(bodyPart.mGoreEffectsTarget); // target bone
-
                 mBodyParts.push_back(bodyPart); // FIXME: possible without copying?
-
                 bodyPart.clear();
                 break;
-            }
-            case ESM4::SUB_NAM5:
-            case ESM4::SUB_RAGA: // ragdoll
-            case ESM4::SUB_MODS:
-            case ESM4::SUB_MODT:
-            {
-                //std::cout << "BPTD " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("NAM5"):
+            case ESM::fourCC("RAGA"): // ragdoll
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("BNAM"): // FO4
+            case ESM::fourCC("CNAM"): // FO4
+            case ESM::fourCC("DNAM"): // FO4
+            case ESM::fourCC("ENAM"): // FO4
+            case ESM::fourCC("FNAM"): // FO4
+            case ESM::fourCC("INAM"): // FO4
+            case ESM::fourCC("JNAM"): // FO4
+            case ESM::fourCC("NAM2"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::BPTD::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 
-    //if (mEditorId == "DefaultBodyPartData")
-        //std::cout << "BPTD: " << mEditorId << std::endl; // FIXME: testing only
+    // if (mEditorId == "DefaultBodyPartData")
+    // std::cout << "BPTD: " << mEditorId << std::endl; // FIXME: testing only
 }
 
-//void ESM4::BodyPartData::save(ESM4::Writer& writer) const
+// void ESM4::BodyPartData::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::BodyPartData::blank()
+// void ESM4::BodyPartData::blank()
 //{
-//}
+// }

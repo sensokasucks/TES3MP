@@ -27,11 +27,13 @@
 #ifndef ESM4_STAT_H
 #define ESM4_STAT_H
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "formid.hpp"
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -40,19 +42,24 @@ namespace ESM4
 
     struct Static
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
+
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
+        std::string mFullName;
         std::string mModel;
 
         float mBoundRadius;
         std::vector<std::uint8_t> mMODT; // FIXME texture hash
+        std::array<std::string, 4> mLOD;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+
+        static constexpr ESM::RecNameInts sRecordId = ESM::REC_STAT4;
     };
 }
 

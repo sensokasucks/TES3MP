@@ -27,48 +27,67 @@
 #include "loadnote.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: testing only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Note::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getLocalizedString(mFullName); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel); break;
-            case ESM4::SUB_ICON: reader.getZString(mIcon); break;
-            case ESM4::SUB_DATA:
-            case ESM4::SUB_MODB:
-            case ESM4::SUB_ONAM:
-            case ESM4::SUB_SNAM:
-            case ESM4::SUB_TNAM:
-            case ESM4::SUB_XNAM:
-            case ESM4::SUB_OBND:
-            {
-                //std::cout << "NOTE " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("ICON"):
+                reader.getZString(mIcon);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("YNAM"):
+                reader.getFormId(mPickUpSound);
+                break;
+            case ESM::fourCC("ZNAM"):
+                reader.getFormId(mDropSound);
+                break;
+            case ESM::fourCC("DATA"):
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("ONAM"):
+            case ESM::fourCC("SNAM"):
+            case ESM::fourCC("TNAM"):
+            case ESM::fourCC("XNAM"):
+            case ESM::fourCC("OBND"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("DNAM"): // FO4
+            case ESM::fourCC("PNAM"): // FO4
+            case ESM::fourCC("PTRN"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::NOTE::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Note::save(ESM4::Writer& writer) const
+// void ESM4::Note::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Note::blank()
+// void ESM4::Note::blank()
 //{
-//}
+// }

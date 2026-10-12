@@ -5,7 +5,10 @@
 #include <list>
 #include <type_traits>
 
+#include "components/esm/decompose.hpp"
 #include "components/esm/esmcommon.hpp"
+#include "components/esm/refid.hpp"
+
 #include "loadtes3.hpp"
 
 namespace ToUTF8
@@ -16,8 +19,8 @@ namespace ToUTF8
 namespace ESM
 {
 
-class ESMWriter
-{
+    class ESMWriter
+    {
         struct RecordData
         {
             NAME name;
@@ -26,7 +29,6 @@ class ESMWriter
         };
 
     public:
-
         ESMWriter();
 
         unsigned int getVersion() const;
@@ -35,22 +37,24 @@ class ESMWriter
         // otherwise this data will be left uninitialized.
         void setVersion(unsigned int ver = 0x3fa66666);
         void setType(int type);
-        void setEncoder(ToUTF8::Utf8Encoder *encoding);
-        void setAuthor(const std::string& author);
-        void setDescription(const std::string& desc);
+        void setEncoder(ToUTF8::Utf8Encoder* encoding);
+        void setAuthor(std::string_view author);
+        void setDescription(std::string_view desc);
         void setHeader(const Header& value) { mHeader = value; }
 
         // Set the record count for writing it in the file header
-        void setRecordCount (int count);
+        void setRecordCount(int count);
         // Counts how many records we have actually written.
         // It is a good idea to compare this with the value you wrote into the header (setRecordCount)
         // It should be the record count you set + 1 (1 additional record for the TES3 header)
-        int getRecordCount() { return mRecordCount; }
-        void setFormat (int format);
+        int getRecordCount() const { return mRecordCount; }
+
+        FormatVersion getFormatVersion() const { return mHeader.mFormatVersion; }
+        void setFormatVersion(FormatVersion value);
 
         void clearMaster();
 
-        void addMaster(const std::string& name, uint64_t size);
+        void addMaster(std::string_view name, uint64_t size);
 
         void save(std::ostream& file);
         ///< Start saving a file by writing the TES3 header.
@@ -58,26 +62,51 @@ class ESMWriter
         void close();
         ///< \note Does not close the stream.
 
-        void writeHNString(NAME name, const std::string& data);
-        void writeHNString(NAME name, const std::string& data, size_t size);
-        void writeHNCString(NAME name, const std::string& data)
+        void writeHNString(NAME name, std::string_view data);
+        void writeHNString(NAME name, std::string_view data, size_t size);
+        void writeHNCString(NAME name, std::string_view data)
         {
             startSubRecord(name);
             writeHCString(data);
             endRecord(name);
         }
-        void writeHNOString(NAME name, const std::string& data)
+        void writeHNOString(NAME name, std::string_view data)
         {
             if (!data.empty())
                 writeHNString(name, data);
         }
-        void writeHNOCString(NAME name, const std::string& data)
+        void writeHNOCString(NAME name, std::string_view data)
         {
             if (!data.empty())
                 writeHNCString(name, data);
         }
 
-        template<typename T>
+        void writeHNRefId(NAME name, RefId value);
+
+        void writeHNRefId(NAME name, RefId value, std::size_t size);
+
+        void writeHNCRefId(NAME name, RefId value)
+        {
+            startSubRecord(name);
+            writeHCRefId(value);
+            endRecord(name);
+        }
+
+        void writeHNORefId(NAME name, RefId value)
+        {
+            if (!value.empty())
+                writeHNRefId(name, value);
+        }
+
+        void writeHNOCRefId(NAME name, RefId value)
+        {
+            if (!value.empty())
+                writeHNCRefId(name, value);
+        }
+
+        void writeCellId(const ESM::RefId& cellId);
+
+        template <typename T>
         void writeHNT(NAME name, const T& data)
         {
             startSubRecord(name);
@@ -85,7 +114,7 @@ class ESMWriter
             endRecord(name);
         }
 
-        template<typename T, std::size_t size>
+        template <typename T, std::size_t size>
         void writeHNT(NAME name, const T (&data)[size])
         {
             startSubRecord(name);
@@ -93,38 +122,53 @@ class ESMWriter
             endRecord(name);
         }
 
+        void writeNamedComposite(NAME name, const auto& value)
+        {
+            decompose(value, [&](const auto&... args) {
+                startSubRecord(name);
+                (writeT(args), ...);
+                endRecord(name);
+            });
+        }
+
+        void writeComposite(const auto& value)
+        {
+            decompose(value, [&](const auto&... args) { (writeT(args), ...); });
+        }
+
         // Prevent using writeHNT with strings. This already happened by accident and results in
         // state being discarded without any error on writing or reading it. :(
         // writeHNString and friends must be used instead.
         void writeHNT(NAME name, const std::string& data) = delete;
+        void writeHNT(NAME name, std::string_view data) = delete;
 
         void writeT(NAME data) = delete;
 
-        template<typename T, std::size_t size>
+        template <typename T, std::size_t size>
         void writeHNT(NAME name, const T (&data)[size], int) = delete;
 
-        template<typename T>
-        void writeHNT(NAME name, const T& data, int size)
+        template <typename T>
+        void writeHNT(NAME name, const T& data, std::size_t size)
         {
             startSubRecord(name);
             writeT(data, size);
             endRecord(name);
         }
 
-        template<typename T>
+        template <typename T>
         void writeT(const T& data)
         {
             static_assert(!std::is_pointer_v<T>);
             write(reinterpret_cast<const char*>(&data), sizeof(T));
         }
 
-        template<typename T, std::size_t size>
+        template <typename T, std::size_t size>
         void writeT(const T (&data)[size])
         {
             write(reinterpret_cast<const char*>(data), size * sizeof(T));
         }
 
-        template<typename T>
+        template <typename T>
         void writeT(const T& data, size_t size)
         {
             static_assert(!std::is_pointer_v<T>);
@@ -137,11 +181,21 @@ class ESMWriter
         void startSubRecord(NAME name);
         void endRecord(NAME name);
         void endRecord(uint32_t name);
-        void writeFixedSizeString(const std::string& data, int size);
-        void writeHString(const std::string& data);
-        void writeHCString(const std::string& data);
+        void writeMaybeFixedSizeString(const std::string& data, std::size_t size);
+        void writeHString(std::string_view data);
+        void writeHCString(std::string_view data);
+
+        void writeMaybeFixedSizeRefId(RefId value, std::size_t size);
+
+        void writeHRefId(RefId refId);
+
+        void writeHCRefId(RefId refId);
+
         void writeName(NAME data);
+
         void write(const char* data, size_t size);
+
+        void writeFormId(const ESM::FormId&, bool wide = false, NAME tag = "FRMR");
 
     private:
         std::list<RecordData> mRecords;
@@ -152,6 +206,8 @@ class ESMWriter
         bool mCounting;
 
         Header mHeader;
+
+        void writeRefId(RefId value);
     };
 }
 

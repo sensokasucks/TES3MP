@@ -1,7 +1,7 @@
 #include "windows_crashmonitor.hpp"
 
-#include <components/windows.hpp>
 #include <Psapi.h>
+#include <components/misc/windows.hpp>
 
 #include <DbgHelp.h>
 
@@ -14,11 +14,12 @@
 #include "windows_crashshm.hpp"
 #include "windowscrashdumppathhelpers.hpp"
 #include <components/debug/debuglog.hpp>
+#include <components/misc/strings/conversion.hpp>
 
 namespace Crash
 {
     std::unordered_map<HWINEVENTHOOK, CrashMonitor*> CrashMonitor::smEventHookOwners{};
-    
+
     using IsHungAppWindowFn = BOOL(WINAPI*)(HWND hwnd);
 
     // Obtains the pointer to user32.IsHungAppWindow, this function may be removed in the future.
@@ -33,7 +34,7 @@ namespace Crash
     }
 
     static const IsHungAppWindowFn sIsHungAppWindow = getIsHungAppWindow();
-    
+
     CrashMonitor::CrashMonitor(HANDLE shmHandle)
         : mShmHandle(shmHandle)
     {
@@ -86,9 +87,10 @@ namespace Crash
         SetEvent(mSignalAppEvent);
     }
 
-    bool CrashMonitor::waitApp() const
+    bool CrashMonitor::waitApp(bool thawMode) const
     {
-        return WaitForSingleObject(mSignalMonitorEvent, CrashCatcherTimeout) == WAIT_OBJECT_0;
+        return WaitForSingleObject(mSignalMonitorEvent, thawMode ? CrashCatcherThawTimeout : CrashCatcherTimeout)
+            == WAIT_OBJECT_0;
     }
 
     bool CrashMonitor::isAppAlive() const
@@ -106,34 +108,40 @@ namespace Crash
 
         if (!mAppWindowHandle)
         {
-            EnumWindows([](HWND handle, LPARAM param) -> BOOL {
-                CrashMonitor& crashMonitor = *(CrashMonitor*)param;
-                DWORD processId;
-                if (GetWindowThreadProcessId(handle, &processId) == crashMonitor.mAppMainThreadId && processId == GetProcessId(crashMonitor.mAppProcessHandle))
-                {
-                    if (GetWindow(handle, GW_OWNER) == 0)
+            EnumWindows(
+                [](HWND handle, LPARAM param) -> BOOL {
+                    CrashMonitor& crashMonitor = *(CrashMonitor*)param;
+                    DWORD processId;
+                    if (GetWindowThreadProcessId(handle, &processId) == crashMonitor.mAppMainThreadId
+                        && processId == GetProcessId(crashMonitor.mAppProcessHandle))
                     {
-                        crashMonitor.mAppWindowHandle = handle;
-                        return false;
+                        if (GetWindow(handle, GW_OWNER) == 0)
+                        {
+                            crashMonitor.mAppWindowHandle = handle;
+                            return false;
+                        }
                     }
-                }
-                return true;
-                }, (LPARAM)this);
+                    return true;
+                },
+                (LPARAM)this);
             if (mAppWindowHandle)
             {
                 DWORD processId;
                 GetWindowThreadProcessId(mAppWindowHandle, &processId);
-                HWINEVENTHOOK eventHookHandle = SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY, nullptr,
-                    [](HWINEVENTHOOK hWinEventHook, DWORD event, HWND windowHandle, LONG objectId, LONG childId, DWORD eventThread, DWORD eventTime)
-                    {
+                HWINEVENTHOOK eventHookHandle = SetWinEventHook(
+                    EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY, nullptr,
+                    [](HWINEVENTHOOK hWinEventHook, DWORD event, HWND windowHandle, LONG objectId, LONG childId,
+                        DWORD eventThread, DWORD eventTime) {
                         CrashMonitor& crashMonitor = *smEventHookOwners[hWinEventHook];
-                        if (event == EVENT_OBJECT_DESTROY && windowHandle == crashMonitor.mAppWindowHandle && objectId == OBJID_WINDOW && childId == INDEXID_CONTAINER)
+                        if (event == EVENT_OBJECT_DESTROY && windowHandle == crashMonitor.mAppWindowHandle
+                            && objectId == OBJID_WINDOW && childId == INDEXID_CONTAINER)
                         {
                             crashMonitor.mAppWindowHandle = nullptr;
                             smEventHookOwners.erase(hWinEventHook);
                             UnhookWinEvent(hWinEventHook);
                         }
-                    }, processId, mAppMainThreadId, WINEVENT_OUTOFCONTEXT);
+                    },
+                    processId, mAppMainThreadId, WINEVENT_OUTOFCONTEXT);
                 smEventHookOwners[eventHookHandle] = this;
             }
             else
@@ -155,6 +163,7 @@ namespace Crash
 
     void CrashMonitor::run()
     {
+        mShm->mMonitorStatus = CrashSHM::Status::Monitoring;
         try
         {
             // app waits for monitor start up, let it continue
@@ -178,23 +187,23 @@ namespace Crash
                     frozen = false;
                 }
 
-                if (!mFreezeAbort && waitApp())
+                if (!mFreezeAbort && waitApp(frozen))
                 {
                     shmLock();
 
                     switch (mShm->mEvent)
                     {
-                    case CrashSHM::Event::None:
-                        break;
-                    case CrashSHM::Event::Crashed:
-                        handleCrash(false);
-                        running = false;
-                        break;
-                    case CrashSHM::Event::Shutdown:
-                        running = false;
-                        break;
-                    case CrashSHM::Event::Startup:
-                        break;
+                        case CrashSHM::Event::None:
+                            break;
+                        case CrashSHM::Event::Crashed:
+                            handleCrash(false);
+                            running = false;
+                            break;
+                        case CrashSHM::Event::Shutdown:
+                            running = false;
+                            break;
+                        case CrashSHM::Event::Startup:
+                            break;
                     }
 
                     shmUnlock();
@@ -208,11 +217,12 @@ namespace Crash
             {
                 handleCrash(true);
                 TerminateProcess(mAppProcessHandle, 0xDEAD);
-                std::string message = "OpenMW appears to have frozen.\nCrash log saved to '" + getFreezeDumpPath(*mShm) + "'.\nPlease report this to https://gitlab.com/OpenMW/openmw/issues !";
+                std::string message = "OpenMW has frozen.\nCrash dump saved to '"
+                    + Misc::StringUtils::u8StringToString(getFreezeDumpPath(*mShm).u8string())
+                    + "'.\nPlease report this to https://gitlab.com/OpenMW/openmw/issues !";
                 SDL_ShowSimpleMessageBox(0, "Fatal Error", message.c_str(), nullptr);
             }
-
-        } 
+        }
         catch (...)
         {
             Log(Debug::Error) << "Exception in crash monitor, exiting";
@@ -220,49 +230,67 @@ namespace Crash
         signalApp();
     }
 
-    static std::wstring utf8ToUtf16(const std::string& utf8)
-    {
-        const int nLenWide = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8.size(), nullptr, 0);
-
-        std::wstring utf16;
-        utf16.resize(nLenWide);
-        if (MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8.size(), utf16.data(), nLenWide) != nLenWide)
-            return {};
-
-        return utf16;
-    }
-
     void CrashMonitor::handleCrash(bool isFreeze)
     {
+        shmLock();
+        mShm->mMonitorStatus = CrashSHM::Status::Dumping;
+        shmUnlock();
+
+        auto failedDumping = [this](const std::string& message) {
+            Log(Debug::Error) << "CrashMonitor: " << message;
+            shmLock();
+            mShm->mMonitorStatus = CrashSHM::Status::FailedDumping;
+            shmUnlock();
+            SDL_ShowSimpleMessageBox(0, "Failed to create crash dump", message.c_str(), nullptr);
+        };
+
         DWORD processId = GetProcessId(mAppProcessHandle);
+        const char* env = getenv("OPENMW_FULL_MEMDUMP");
 
         try
         {
             HMODULE dbghelp = LoadLibraryA("dbghelp.dll");
             if (dbghelp == NULL)
+            {
+                failedDumping("Could not load dbghelp.dll");
                 return;
-    
-            using MiniDumpWirteDumpFn = BOOL (WINAPI*)(
-                HANDLE hProcess, DWORD ProcessId, HANDLE hFile, MINIDUMP_TYPE DumpType, PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam, PMINIDUMP_CALLBACK_INFORMATION CallbackParam
-            );
-    
+            }
+
+            using MiniDumpWirteDumpFn = BOOL(WINAPI*)(HANDLE hProcess, DWORD ProcessId, HANDLE hFile,
+                MINIDUMP_TYPE DumpType, PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
+                PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam, PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
+
             MiniDumpWirteDumpFn miniDumpWriteDump = (MiniDumpWirteDumpFn)GetProcAddress(dbghelp, "MiniDumpWriteDump");
             if (miniDumpWriteDump == NULL)
+            {
+                failedDumping("Could not get MiniDumpWriteDump address");
                 return;
+            }
 
-            std::wstring utf16Path = utf8ToUtf16(isFreeze ? getFreezeDumpPath(*mShm) : getCrashDumpPath(*mShm));
+            std::wstring utf16Path = (isFreeze ? getFreezeDumpPath(*mShm) : getCrashDumpPath(*mShm)).native();
             if (utf16Path.empty())
+            {
+                failedDumping("Empty dump path");
                 return;
+            }
 
             if (utf16Path.length() > MAX_PATH)
                 utf16Path = LR"(\\?\)" + utf16Path;
 
-            HANDLE hCrashLog = CreateFileW(utf16Path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            HANDLE hCrashLog = CreateFileW(utf16Path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                FILE_ATTRIBUTE_NORMAL, nullptr);
             if (hCrashLog == NULL || hCrashLog == INVALID_HANDLE_VALUE)
+            {
+                failedDumping("Bad dump file handle");
                 return;
+            }
             if (auto err = GetLastError(); err != ERROR_ALREADY_EXISTS && err != 0)
+            {
+                std::stringstream ss;
+                ss << "Error opening dump file: " << std::hex << err;
+                failedDumping(ss.str());
                 return;
+            }
 
             EXCEPTION_POINTERS exp;
             exp.ContextRecord = &mShm->mCrashed.mContext;
@@ -272,15 +300,30 @@ namespace Crash
             infos.ExceptionPointers = &exp;
             infos.ClientPointers = FALSE;
             MINIDUMP_TYPE type = (MINIDUMP_TYPE)(MiniDumpWithDataSegs | MiniDumpWithHandleData);
-            miniDumpWriteDump(mAppProcessHandle, processId, hCrashLog, type, &infos, 0, 0);
+
+            if (env)
+                type = static_cast<MINIDUMP_TYPE>(type | MiniDumpWithFullMemory);
+
+            if (!miniDumpWriteDump(mAppProcessHandle, processId, hCrashLog, type, &infos, 0, 0))
+            {
+                auto err = GetLastError();
+                std::stringstream ss;
+                ss << "Error while writing dump: " << std::hex << err;
+                failedDumping(ss.str());
+                return;
+            }
+
+            shmLock();
+            mShm->mMonitorStatus = CrashSHM::Status::DumpedSuccessfully;
+            shmUnlock();
         }
-        catch (const std::exception&e)
+        catch (const std::exception& e)
         {
-            Log(Debug::Error) << "CrashMonitor: " << e.what();
+            failedDumping(e.what());
         }
         catch (...)
         {
-            Log(Debug::Error) << "CrashMonitor: unknown exception";
+            failedDumping("Unknown exception");
         }
     }
 
@@ -288,20 +331,16 @@ namespace Crash
     {
         std::thread messageBoxThread([&]() {
             SDL_MessageBoxButtonData button = { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Abort" };
-            SDL_MessageBoxData messageBoxData = {
-                SDL_MESSAGEBOX_ERROR,
-                nullptr,
-                "OpenMW appears to have frozen",
-                "OpenMW appears to have frozen. Press Abort to terminate it and generate a crash dump.\nIf OpenMW hasn't actually frozen, this message box will disappear a within a few seconds of it becoming responsive.",
-                1,
-                &button,
-                nullptr
-            };
+            SDL_MessageBoxData messageBoxData = { SDL_MESSAGEBOX_ERROR, nullptr, "OpenMW has frozen",
+                "OpenMW has frozen. This should never happen. Press Abort to terminate it and generate a crash dump to "
+                "help diagnose the problem.\nOpenMW may unfreeze if you wait, and this message box will disappear "
+                "after it becomes responsive.",
+                1, &button, nullptr };
 
             int buttonId;
             if (SDL_ShowMessageBox(&messageBoxData, &buttonId) == 0 && buttonId == 0)
                 mFreezeAbort = true;
-            });
+        });
 
         mFreezeMessageBoxThreadId = GetThreadId(messageBoxThread.native_handle());
         messageBoxThread.detach();
@@ -312,13 +351,16 @@ namespace Crash
         if (!mFreezeMessageBoxThreadId)
             return;
 
-        EnumWindows([](HWND handle, LPARAM param) -> BOOL {
-            CrashMonitor& crashMonitor = *(CrashMonitor*)param;
-            DWORD processId;
-            if (GetWindowThreadProcessId(handle, &processId) == crashMonitor.mFreezeMessageBoxThreadId && processId == GetCurrentProcessId())
-                PostMessage(handle, WM_CLOSE, 0, 0);
-            return true;
-            }, (LPARAM)this);
+        EnumWindows(
+            [](HWND handle, LPARAM param) -> BOOL {
+                CrashMonitor& crashMonitor = *(CrashMonitor*)param;
+                DWORD processId;
+                if (GetWindowThreadProcessId(handle, &processId) == crashMonitor.mFreezeMessageBoxThreadId
+                    && processId == GetCurrentProcessId())
+                    PostMessage(handle, WM_CLOSE, 0, 0);
+                return true;
+            },
+            (LPARAM)this);
 
         mFreezeMessageBoxThreadId = 0;
     }

@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <variant>
 
 #include <components/debug/debuglog.hpp>
 #include <components/esm/luascripts.hpp>
@@ -13,49 +14,51 @@
 
 namespace LuaUtil
 {
+    class ScriptTracker;
 
-// ScriptsContainer is a base class for all scripts containers (LocalScripts,
-// GlobalScripts, PlayerScripts, etc). Each script runs in a separate sandbox.
-// Scripts from different containers can interact to each other only via events.
-// Scripts within one container can interact via interfaces.
-// All scripts from one container have the same set of API packages available.
-//
-// Each script should return a table in a specific format that describes its
-// handlers and interfaces. Every section of the table is optional. Basic structure:
-//
-//     local function update(dt)
-//         print("Update")
-//     end
-//
-//     local function someEventHandler(eventData)
-//         print("'SomeEvent' received")
-//     end
-//
-//     return {
-//         -- Provides interface for other scripts in the same container
-//         interfaceName = "InterfaceName",
-//         interface = {
-//             someFunction = function() print("someFunction was called from another script") end,
-//         },
-//
-//         -- Script interface for the engine. Not available for other script.
-//         -- An error is printed if unknown handler is specified.
-//         engineHandlers = {
-//             onUpdate = update,
-//             onInit = function(initData) ... end,  -- used when the script is just created (not loaded)
-//             onSave = function() return ... end,
-//             onLoad = function(state, initData) ... end,  -- "state" is the data that was earlier returned by onSave
-//
-//             -- Works only if a child class has passed a EngineHandlerList
-//             -- for 'onSomethingElse' to ScriptsContainer::registerEngineHandlers.
-//             onSomethingElse = function() print("something else") end
-//         },
-//
-//         -- Handlers for events, sent from other scripts. Engine itself never sent events. Any name can be used for an event.
-//         eventHandlers = {
-//             SomeEvent = someEventHandler
-//         }
-//     }
+    // ScriptsContainer is a base class for all scripts containers (LocalScripts,
+    // GlobalScripts, PlayerScripts, etc). Each script runs in a separate sandbox.
+    // Scripts from different containers can interact to each other only via events.
+    // Scripts within one container can interact via interfaces.
+    // All scripts from one container have the same set of API packages available.
+    //
+    // Each script should return a table in a specific format that describes its
+    // handlers and interfaces. Every section of the table is optional. Basic structure:
+    //
+    //     local function update(dt)
+    //         print("Update")
+    //     end
+    //
+    //     local function someEventHandler(eventData)
+    //         print("'SomeEvent' received")
+    //     end
+    //
+    //     return {
+    //         -- Provides interface for other scripts in the same container
+    //         interfaceName = "InterfaceName",
+    //         interface = {
+    //             someFunction = function() print("someFunction was called from another script") end,
+    //         },
+    //
+    //         -- Script interface for the engine. Not available for other script.
+    //         -- An error is printed if unknown handler is specified.
+    //         engineHandlers = {
+    //             onUpdate = update,
+    //             onInit = function(initData) ... end,  -- used when the script is just created (not loaded)
+    //             onSave = function() return ... end,
+    //             onLoad = function(state, initData) ... end,  -- "state" is the data that was earlier returned by
+    //             onSave
+    //
+    //             -- Works only if a child class has passed a EngineHandlerList
+    //             -- for 'onSomethingElse' to ScriptsContainer::registerEngineHandlers.
+    //             onSomethingElse = function() print("something else") end
+    //         },
+    //
+    //         -- Handlers for events, sent from other scripts. Engine itself never sent events. Any name can be used
+    //         for an event. eventHandlers = {
+    //             SomeEvent = someEventHandler
+    //         }
+    //     }
 
     class ScriptsContainer
     {
@@ -68,36 +71,34 @@ namespace LuaUtil
         // Present in mHiddenData even after removal of the script from ScriptsContainer.
         constexpr static std::string_view sScriptDebugNameKey = "_name";
 
-        struct ScriptId
-        {
-            ScriptsContainer* mContainer;
-            int mIndex;  // index in LuaUtil::ScriptsConfiguration
-        };
         using TimerType = ESM::LuaTimer::Type;
 
-        // `namePrefix` is a common prefix for all scripts in the container. Used in logs for error messages and `print` output.
-        // `autoStartScripts` specifies the list of scripts that should be autostarted in this container;
-        //     the script names themselves are stored in ScriptsConfiguration.
-        ScriptsContainer(LuaState* lua, std::string_view namePrefix);
+        // `namePrefix` is a common prefix for all scripts in the container. Used in logs for error messages and `print`
+        // output. `tracker` is a tracker for managing the container's state. `load` specifies whether the container
+        // should be constructed in a loaded state.
+        ScriptsContainer(
+            LuaState* lua, std::string_view namePrefix, ScriptTracker* tracker = nullptr, bool load = true);
 
         ScriptsContainer(const ScriptsContainer&) = delete;
         ScriptsContainer(ScriptsContainer&&) = delete;
         virtual ~ScriptsContainer();
 
+        // `conf` specifies the list of scripts that should be autostarted in this container; the script
+        // names themselves are stored in ScriptsConfiguration.
         void setAutoStartConf(ScriptIdsWithInitializationData conf) { mAutoStartScripts = std::move(conf); }
         const ScriptIdsWithInitializationData& getAutoStartConf() const { return mAutoStartScripts; }
 
         // Adds package that will be available (via `require`) for all scripts in the container.
         // Automatically applies LuaUtil::makeReadOnly to the package.
-        void addPackage(std::string packageName, sol::object package);
+        void addPackage(std::string packageName, sol::main_object package);
 
-        // Gets script with given id from ScriptsConfiguration, finds the source in the virtual file system, starts as a new script,
-        // adds it to the container, and calls onInit for this script. Returns `true` if the script was successfully added.
-        // The script should have CUSTOM flag. If the flag is not set, or file not found, or has syntax errors, returns false.
-        // If such script already exists in the container, then also returns false.
-        bool addCustomScript(int scriptId);
+        // Gets script with given id from ScriptsConfiguration, finds the source in the virtual file system, starts as a
+        // new script, adds it to the container, and calls onInit for this script. Returns `true` if the script was
+        // successfully added. The script should have CUSTOM flag. If the flag is not set, or file not found, or has
+        // syntax errors, returns false. If such script already exists in the container, then also returns false.
+        bool addCustomScript(int scriptId, std::string_view initData = {});
 
-        bool hasScript(int scriptId) const { return mScripts.count(scriptId) != 0; }
+        bool hasScript(int scriptId) const;
         void removeScript(int scriptId);
 
         void processTimers(double simulationTime, double gameTime);
@@ -125,7 +126,8 @@ namespace LuaUtil
         // Removes all scripts including the auto started.
         void removeAllScripts();
 
-        // Calls engineHandler "onSave" for every script and saves the list of the scripts with serialized data to ESM::LuaScripts.
+        // Calls engineHandler "onSave" for every script and saves the list of the scripts with serialized data to
+        // ESM::LuaScripts.
         void save(ESM::LuaScripts&);
 
         // Removes all scripts; starts scripts according to `autoStartMode` and
@@ -149,11 +151,24 @@ namespace LuaUtil
         // because they can not be stored in saves. I.e. loading a saved game will not fully restore the state.
         void setupUnsavableTimer(TimerType type, double time, int scriptId, sol::main_protected_function callback);
 
+        // Informs that new frame is started. Needed to track Lua instruction count per frame.
+        void statsNextFrame();
+
+        struct ScriptStats
+        {
+            float mAvgInstructionCount = 0; // averaged number of Lua instructions per frame
+            int64_t mMemoryUsage = 0; // bytes
+        };
+        void collectStats(std::vector<ScriptStats>& stats) const;
+        static int64_t getInstanceCount() { return sInstanceCount; }
+
+        virtual bool isActive() const { return false; }
+
     protected:
         struct Handler
         {
             int mScriptId;
-            sol::function mFn;
+            sol::main_function mFn;
         };
 
         struct EngineHandlerList
@@ -162,20 +177,27 @@ namespace LuaUtil
             std::vector<Handler> mList;
 
             // "name" must be string literal
-            explicit EngineHandlerList(std::string_view name) : mName(name) {}
+            explicit EngineHandlerList(std::string_view name)
+                : mName(name)
+            {
+            }
         };
 
         // Calls given handlers in direct order.
         template <typename... Args>
         void callEngineHandlers(EngineHandlerList& handlers, const Args&... args)
         {
+            ensureLoaded();
             for (Handler& handler : handlers.mList)
             {
-                try { LuaUtil::call(handler.mFn, args...); }
+                try
+                {
+                    LuaUtil::call({ this, handler.mScriptId }, handler.mFn, args...);
+                }
                 catch (std::exception& e)
                 {
-                    Log(Debug::Error) << mNamePrefix << "[" << scriptPath(handler.mScriptId) << "] "
-                                      << handlers.mName << " failed. " << e.what();
+                    Log(Debug::Error) << mNamePrefix << "[" << scriptPath(handler.mScriptId) << "] " << handlers.mName
+                                      << " failed. " << e.what();
                 }
             }
         }
@@ -190,14 +212,17 @@ namespace LuaUtil
     private:
         struct Script
         {
-            std::optional<sol::function> mOnSave;
-            std::optional<sol::function> mOnOverride;
-            std::optional<sol::table> mInterface;
+            std::optional<sol::main_function> mOnSave;
+            std::optional<sol::main_function> mOnOverride;
+            std::optional<sol::main_table> mInterface;
             std::string mInterfaceName;
-            sol::table mHiddenData;
+            sol::main_table mHiddenData;
             std::map<std::string, sol::main_protected_function> mRegisteredCallbacks;
             std::map<int64_t, sol::main_protected_function> mTemporaryCallbacks;
-            std::string mPath;
+            VFS::Path::Normalized mPath;
+            ScriptStats mStats;
+
+            ~Script();
         };
         struct Timer
         {
@@ -212,15 +237,25 @@ namespace LuaUtil
         };
         using EventHandlerList = std::vector<Handler>;
 
+        friend class LuaState;
+        void addInstructionCount(int scriptId, int64_t instructionCount);
+        void addMemoryUsage(int scriptId, int64_t memoryDelta);
+
         // Add to container without calling onInit/onLoad.
-        bool addScript(int scriptId, std::optional<sol::function>& onInit, std::optional<sol::function>& onLoad);
+        bool addScript(
+            LuaView& view, int scriptId, std::optional<sol::function>& onInit, std::optional<sol::function>& onLoad);
 
         // Returns script by id (throws an exception if doesn't exist)
         Script& getScript(int scriptId);
 
         void printError(int scriptId, std::string_view msg, const std::exception& e);
-        const std::string& scriptPath(int scriptId) const { return mLua.getConfiguration()[scriptId].mScriptPath; }
-        void callOnInit(int scriptId, const sol::function& onInit, std::string_view data);
+
+        const VFS::Path::Normalized& scriptPath(int scriptId) const
+        {
+            return mLua.getConfiguration()[scriptId].mScriptPath;
+        }
+
+        void callOnInit(LuaView& view, int scriptId, const sol::function& onInit, std::string_view data);
         void callTimer(const Timer& t);
         void updateTimerQueue(std::vector<Timer>& timerQueue, double time);
         static void insertTimer(std::vector<Timer>& timerQueue, Timer&& t);
@@ -232,20 +267,42 @@ namespace LuaUtil
         ScriptIdsWithInitializationData mAutoStartScripts;
         const UserdataSerializer* mSerializer = nullptr;
         const UserdataSerializer* mSavedDataDeserializer = nullptr;
-        std::map<std::string, sol::object> mAPI;
 
-        std::map<int, Script> mScripts;
-        sol::table mPublicInterfaces;
+        std::map<std::string, sol::main_object> mAPI;
+        struct LoadedData
+        {
+            std::map<int, Script> mScripts;
+            sol::main_table mPublicInterfaces;
 
-        EngineHandlerList mUpdateHandlers{"onUpdate"};
+            std::map<std::string, EventHandlerList, std::less<>> mEventHandlers;
+
+            std::vector<Timer> mSimulationTimersQueue;
+            std::vector<Timer> mGameTimersQueue;
+        };
+        using UnloadedData = ESM::LuaScripts;
+
+        // Unloads the container to free resources held by the shared Lua state. This method serializes the container's
+        // state. The serialized data is automatically restored to the Lua state as required. Unloading and reloading
+        // the container is functionally equivalent to saving and loading the game, meaning the appropriate engine
+        // handlers are invoked.
+        UnloadedData& ensureUnloaded(LuaView& lua);
+        LoadedData& ensureLoaded();
+
+        EngineHandlerList mUpdateHandlers{ "onUpdate" };
         std::map<std::string_view, EngineHandlerList*> mEngineHandlers;
-        std::map<std::string, EventHandlerList, std::less<>> mEventHandlers;
-
-        std::vector<Timer> mSimulationTimersQueue;
-        std::vector<Timer> mGameTimersQueue;
+        std::variant<UnloadedData, LoadedData> mData;
         int64_t mTemporaryCallbackCounter = 0;
-    };
 
+        std::map<int, int64_t> mRemovedScriptsMemoryUsage;
+        using WeakPtr = std::shared_ptr<ScriptsContainer*>;
+        WeakPtr mThis; // used by LuaState to track ownership of memory allocations
+
+        ScriptTracker* mTracker;
+        bool mRequiredLoading = false;
+        friend class ScriptTracker;
+
+        static int64_t sInstanceCount; // debug information, shown in Lua profiler
+    };
 }
 
 #endif // COMPONENTS_LUA_SCRIPTSCONTAINER_H

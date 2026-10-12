@@ -27,44 +27,51 @@
 #include "loadhair.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: for debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::Hair::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_FULL: reader.getZString(mFullName); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel); break;
-            case ESM4::SUB_ICON: reader.getZString(mIcon);  break;
-            case ESM4::SUB_DATA: reader.get(mData);         break;
-            case ESM4::SUB_MODB: reader.get(mBoundRadius);  break;
-            case ESM4::SUB_MODT:
-            {
-                //std::cout << "HAIR " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getZString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("ICON"):
+                reader.getZString(mIcon);
+                break;
+            case ESM::fourCC("DATA"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("MODB"):
+                reader.get(mBoundRadius);
+                break;
+            case ESM::fourCC("MODT"):
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::HAIR::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Hair::save(ESM4::Writer& writer) const
+// void ESM4::Hair::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Hair::blank()
+// void ESM4::Hair::blank()
 //{
-//}
+// }

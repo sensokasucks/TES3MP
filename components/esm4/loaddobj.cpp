@@ -28,29 +28,26 @@
 */
 #include "loaddobj.hpp"
 
-#include <stdexcept>
 #include <cstring>
-//#include <iostream> // FIXME: for debugging only
-
-//#include "formid.hpp"
+#include <stdexcept>
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::DefaultObj::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break; // "DefaultObjectManager"
-            case ESM4::SUB_DATA:
-            {
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break; // "DefaultObjectManager"
+            case ESM::fourCC("DATA"):
                 reader.getFormId(mData.stimpack);
                 reader.getFormId(mData.superStimpack);
                 reader.getFormId(mData.radX);
@@ -89,29 +86,20 @@ void ESM4::DefaultObj::load(ESM4::Reader& reader)
                     reader.getFormId(mData.itemDetectedEfect);
                     reader.getFormId(mData.cateyeMobileEffectNYI);
                 }
-
                 break;
-            }
-            case ESM4::SUB_DNAM:
-            {
-                //std::cout << "DOBJ " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("DNAM"):
                 reader.skipSubRecordData();
                 break;
-            }
             default:
-                //std::cout << "DOBJ " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
-                //reader.skipSubRecordData();
                 throw std::runtime_error("ESM4::DOBJ::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::DefaultObj::save(ESM4::Writer& writer) const
+// void ESM4::DefaultObj::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::DefaultObj::blank()
+// void ESM4::DefaultObj::blank()
 //{
-//}
+// }

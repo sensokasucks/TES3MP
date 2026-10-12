@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Apparatus::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Apparatus::AADTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mType, v.mQuality, v.mWeight, v.mValue);
+    }
+
+    void Apparatus::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +26,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -28,11 +36,11 @@ namespace ESM
                     mName = esm.getHString();
                     break;
                 case fourCC("AADT"):
-                    esm.getHT(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("ITEX"):
                     mIcon = esm.getHString();
@@ -53,9 +61,9 @@ namespace ESM
             esm.fail("Missing AADT subrecord");
     }
 
-    void Apparatus::save(ESMWriter &esm, bool isDeleted) const
+    void Apparatus::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -65,8 +73,8 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNCString("FNAM", mName);
-        esm.writeHNT("AADT", mData, 16);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeNamedComposite("AADT", mData);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNCString("ITEX", mIcon);
     }
 
@@ -79,7 +87,7 @@ namespace ESM
         mData.mValue = 0;
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
         mName.clear();
     }
 }

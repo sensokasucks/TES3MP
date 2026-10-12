@@ -27,16 +27,14 @@
 #include "loadidlm.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: testing only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::IdleMarker::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     std::uint32_t esmVer = reader.esmVersion();
 
@@ -45,10 +43,13 @@ void ESM4::IdleMarker::load(ESM4::Reader& reader)
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_IDLF: reader.get(mIdleFlags);       break;
-            case ESM4::SUB_IDLC:
-            {
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("IDLF"):
+                reader.get(mIdleFlags);
+                break;
+            case ESM::fourCC("IDLC"):
                 if (subHdr.dataSize != 1) // FO3 can have 4?
                 {
                     reader.skipSubRecordData();
@@ -57,9 +58,10 @@ void ESM4::IdleMarker::load(ESM4::Reader& reader)
 
                 reader.get(mIdleCount);
                 break;
-            }
-            case ESM4::SUB_IDLT: reader.get(mIdleTimer);       break;
-            case ESM4::SUB_IDLA:
+            case ESM::fourCC("IDLT"):
+                reader.get(mIdleTimer);
+                break;
+            case ESM::fourCC("IDLA"):
             {
                 bool isFONV = esmVer == ESM::VER_132 || esmVer == ESM::VER_133 || esmVer == ESM::VER_134;
                 if (esmVer == ESM::VER_094 || isFONV) // FO3? 4 or 8 bytes
@@ -69,26 +71,33 @@ void ESM4::IdleMarker::load(ESM4::Reader& reader)
                 }
 
                 mIdleAnim.resize(mIdleCount);
-                for (unsigned int i = 0; i < static_cast<unsigned int>(mIdleCount); ++i)
-                    reader.get(mIdleAnim.at(i));
+                for (ESM::FormId& value : mIdleAnim)
+                    reader.getFormId(value);
                 break;
             }
-            case ESM4::SUB_OBND: // object bounds
-            {
-                //std::cout << "IDLM " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("OBND"): // object bounds
+            case ESM::fourCC("KSIZ"):
+            case ESM::fourCC("KWDA"):
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("QNAM"):
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::IDLM::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::IdleMarker::save(ESM4::Writer& writer) const
+// void ESM4::IdleMarker::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::IdleMarker::blank()
+// void ESM4::IdleMarker::blank()
 //{
-//}
+// }

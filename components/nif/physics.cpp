@@ -3,77 +3,109 @@
 #include "data.hpp"
 #include "node.hpp"
 
+#include <array>
+
 namespace Nif
 {
 
     /// Non-record data types
 
-    void bhkWorldObjCInfoProperty::read(NIFStream *nif)
+    void bhkWorldObjCInfoProperty::read(NIFStream* nif)
     {
-        mData = nif->getUInt();
-        mSize = nif->getUInt();
-        mCapacityAndFlags = nif->getUInt();
+        nif->read(mData);
+        nif->read(mSize);
+        nif->read(mCapacityAndFlags);
     }
 
-    void bhkWorldObjectCInfo::read(NIFStream *nif)
+    void bhkWorldObjectCInfo::read(NIFStream* nif)
     {
         nif->skip(4); // Unused
-        mPhaseType = static_cast<BroadPhaseType>(nif->getChar());
+        mPhaseType = static_cast<BroadPhaseType>(nif->get<uint8_t>());
         nif->skip(3); // Unused
         mProperty.read(nif);
     }
 
-    void HavokMaterial::read(NIFStream *nif)
+    void HavokMaterial::read(NIFStream* nif)
     {
         if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB_OLD)
             nif->skip(4); // Unknown
-        mMaterial = nif->getUInt();
+        nif->read(mMaterial);
     }
 
-    void HavokFilter::read(NIFStream *nif)
+    void HavokFilter::read(NIFStream* nif)
     {
-        mLayer = nif->getChar();
-        mFlags = nif->getChar();
-        mGroup = nif->getUShort();
+        nif->read(mLayer);
+        nif->read(mFlags);
+        nif->read(mGroup);
     }
 
-    void hkSubPartData::read(NIFStream *nif)
+    void hkSubPartData::read(NIFStream* nif)
     {
         mHavokFilter.read(nif);
-        mNumVertices = nif->getUInt();
+        nif->read(mNumVertices);
         mHavokMaterial.read(nif);
     }
 
-    void hkpMoppCode::read(NIFStream *nif)
+    void bhkEntityCInfo::read(NIFStream* nif)
     {
-        unsigned int size = nif->getUInt();
-        if (nif->getVersion() >= NIFStream::generateVersion(10,1,0,0))
-            mOffset = nif->getVector4();
-        if (nif->getBethVersion() > NIFFile::BethVersion::BETHVER_FO3)
-            nif->getChar(); // MOPP data build type
-        if (size)
-            nif->getChars(mData, size);
-    }
-
-    void bhkEntityCInfo::read(NIFStream *nif)
-    {
-        mResponseType = static_cast<hkResponseType>(nif->getChar());
+        mResponseType = static_cast<hkResponseType>(nif->get<uint8_t>());
         nif->skip(1); // Unused
-        mProcessContactDelay = nif->getUShort();
+        nif->read(mProcessContactDelay);
     }
 
-    void TriangleData::read(NIFStream *nif)
+    void hkpMoppCode::read(NIFStream* nif)
     {
-        for (int i = 0; i < 3; i++)
-            mTriangle[i] = nif->getUShort();
-        mWeldingInfo = nif->getUShort();
+        uint32_t dataSize;
+        nif->read(dataSize);
+        if (nif->getVersion() >= NIFStream::generateVersion(10, 1, 0, 0))
+            nif->read(mOffset);
+        if (nif->getBethVersion() > NIFFile::BethVersion::BETHVER_FO3)
+            nif->read(mBuildType);
+        nif->readVector(mData, dataSize);
+    }
+
+    void TriangleData::read(NIFStream* nif)
+    {
+        nif->readArray(mTriangle);
+        nif->read(mWeldingInfo);
         if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
-            mNormal = nif->getVector3();
+            nif->read(mNormal);
     }
 
-    void bhkRigidBodyCInfo::read(NIFStream *nif)
+    void bhkMeshMaterial::read(NIFStream* nif)
     {
-        if (nif->getVersion() >= NIFStream::generateVersion(10,1,0,0))
+        mHavokMaterial.read(nif);
+        mHavokFilter.read(nif);
+    }
+
+    void bhkQsTransform::read(NIFStream* nif)
+    {
+        nif->read(mTranslation);
+        nif->read(mRotation);
+    }
+
+    void bhkCMSBigTri::read(NIFStream* nif)
+    {
+        nif->readArray(mTriangle);
+        nif->read(mMaterial);
+        nif->read(mWeldingInfo);
+    }
+
+    void bhkCMSChunk::read(NIFStream* nif)
+    {
+        nif->read(mTranslation);
+        nif->read(mMaterialIndex);
+        nif->read(mReference);
+        nif->read(mTransformIndex);
+        nif->readVector(mVertices, nif->get<uint32_t>());
+        nif->readVector(mIndices, nif->get<uint32_t>());
+        nif->readVector(mStrips, nif->get<uint32_t>());
+        nif->readVector(mWeldingInfos, nif->get<uint32_t>());
+    }
+
+    void bhkRigidBodyCInfo::read(NIFStream* nif)
+    {
+        if (nif->getVersion() >= NIFStream::generateVersion(10, 1, 0, 0))
         {
             nif->skip(4); // Unused
             mHavokFilter.read(nif);
@@ -82,64 +114,67 @@ namespace Nif
             {
                 if (nif->getBethVersion() >= 83)
                     nif->skip(4); // Unused
-                mResponseType = static_cast<hkResponseType>(nif->getChar());
+                mResponseType = static_cast<hkResponseType>(nif->get<uint8_t>());
                 nif->skip(1); // Unused
-                mProcessContactDelay = nif->getUShort();
+                nif->read(mProcessContactDelay);
             }
         }
         if (nif->getBethVersion() < 83)
             nif->skip(4); // Unused
-        mTranslation = nif->getVector4();
-        mRotation = nif->getQuaternion();
-        mLinearVelocity = nif->getVector4();
-        mAngularVelocity = nif->getVector4();
+        nif->read(mTranslation);
+        nif->read(mRotation);
+        nif->read(mLinearVelocity);
+        nif->read(mAngularVelocity);
+        // A bit hacky, but this is the only instance where a 3x3 matrix has padding.
         for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 4; j++)
-                mInertiaTensor[i][j] = nif->getFloat();
-        mCenter = nif->getVector4();
-        mMass = nif->getFloat();
-        mLinearDamping = nif->getFloat();
-        mAngularDamping = nif->getFloat();
+        {
+            nif->read(mInertiaTensor.mValues[i], 3);
+            nif->skip(4); // Padding
+        }
+        nif->read(mCenter);
+        nif->read(mMass);
+        nif->read(mLinearDamping);
+        nif->read(mAngularDamping);
         if (nif->getBethVersion() >= 83)
         {
             if (nif->getBethVersion() != NIFFile::BethVersion::BETHVER_FO4)
-                mTimeFactor = nif->getFloat();
-            mGravityFactor = nif->getFloat();
+                nif->read(mTimeFactor);
+            nif->read(mGravityFactor);
         }
-        mFriction = nif->getFloat();
+        nif->read(mFriction);
         if (nif->getBethVersion() >= 83)
-            mRollingFrictionMult = nif->getFloat();
-        mRestitution = nif->getFloat();
-        if (nif->getVersion() >= NIFStream::generateVersion(10,1,0,0))
+            nif->read(mRollingFrictionMult);
+        nif->read(mRestitution);
+        if (nif->getVersion() >= NIFStream::generateVersion(10, 1, 0, 0))
         {
-            mMaxLinearVelocity = nif->getFloat();
-            mMaxAngularVelocity = nif->getFloat();
+            nif->read(mMaxLinearVelocity);
+            nif->read(mMaxAngularVelocity);
             if (nif->getBethVersion() != NIFFile::BethVersion::BETHVER_FO4)
-                mPenetrationDepth = nif->getFloat();
+                nif->read(mPenetrationDepth);
         }
-        mMotionType = static_cast<hkMotionType>(nif->getChar());
+        mMotionType = static_cast<hkMotionType>(nif->get<uint8_t>());
         if (nif->getBethVersion() < 83)
-            mDeactivatorType = static_cast<hkDeactivatorType>(nif->getChar());
+            mDeactivatorType = static_cast<hkDeactivatorType>(nif->get<uint8_t>());
         else
-            mEnableDeactivation = nif->getBoolean();
-        mSolverDeactivation = static_cast<hkSolverDeactivation>(nif->getChar());
+            nif->read(mEnableDeactivation);
+        mSolverDeactivation = static_cast<hkSolverDeactivation>(nif->get<uint8_t>());
         if (nif->getBethVersion() == NIFFile::BethVersion::BETHVER_FO4)
         {
             nif->skip(1);
-            mPenetrationDepth = nif->getFloat();
-            mTimeFactor = nif->getFloat();
+            nif->read(mPenetrationDepth);
+            nif->read(mTimeFactor);
             nif->skip(4);
-            mResponseType = static_cast<hkResponseType>(nif->getChar());
+            mResponseType = static_cast<hkResponseType>(nif->get<uint8_t>());
             nif->skip(1); // Unused
-            mProcessContactDelay = nif->getUShort();
+            nif->read(mProcessContactDelay);
         }
-        mQualityType = static_cast<hkQualityType>(nif->getChar());
+        mQualityType = static_cast<hkQualityType>(nif->get<uint8_t>());
         if (nif->getBethVersion() >= 83)
         {
-            mAutoRemoveLevel = nif->getChar();
-            mResponseModifierFlags = nif->getChar();
-            mNumContactPointShapeKeys = nif->getChar();
-            mForceCollidedOntoPPU = nif->getBoolean();
+            nif->read(mAutoRemoveLevel);
+            nif->read(mResponseModifierFlags);
+            nif->read(mNumContactPointShapeKeys);
+            nif->read(mForceCollidedOntoPPU);
         }
         if (nif->getBethVersion() == NIFFile::BethVersion::BETHVER_FO4)
             nif->skip(3); // Unused
@@ -147,16 +182,331 @@ namespace Nif
             nif->skip(12); // Unused
     }
 
+    void bhkConstraintCInfo::read(NIFStream* nif)
+    {
+        nif->get<uint32_t>(); // Number of entities, unused
+        mEntityA.read(nif);
+        mEntityB.read(nif);
+
+        mPriority = static_cast<ConstraintPriority>(nif->get<uint32_t>());
+    }
+
+    void bhkConstraintCInfo::post(Reader& nif)
+    {
+        mEntityA.post(nif);
+        mEntityB.post(nif);
+    }
+
+    void bhkPositionConstraintMotor::read(NIFStream* nif)
+    {
+        nif->read(mMinForce);
+        nif->read(mMaxForce);
+        nif->read(mTau);
+        nif->read(mDamping);
+        nif->read(mProportionalRecoveryVelocity);
+        nif->read(mConstantRecoveryVelocity);
+        nif->read(mEnabled);
+    }
+
+    void bhkVelocityConstraintMotor::read(NIFStream* nif)
+    {
+        nif->read(mMinForce);
+        nif->read(mMaxForce);
+        nif->read(mTau);
+        nif->read(mTargetVelocity);
+        nif->read(mUseVelocityTarget);
+        nif->read(mEnabled);
+    }
+
+    void bhkSpringDamperConstraintMotor::read(NIFStream* nif)
+    {
+        nif->read(mMinForce);
+        nif->read(mMaxForce);
+        nif->read(mSpringConstant);
+        nif->read(mSpringDamping);
+        nif->read(mEnabled);
+    }
+
+    void bhkConstraintMotorCInfo::read(NIFStream* nif)
+    {
+        mType = static_cast<hkMotorType>(nif->get<uint8_t>());
+        switch (mType)
+        {
+            case hkMotorType::Motor_Position:
+                mPositionMotor.read(nif);
+                break;
+            case hkMotorType::Motor_Velocity:
+                mVelocityMotor.read(nif);
+                break;
+            case hkMotorType::Motor_SpringDamper:
+                mSpringDamperMotor.read(nif);
+                break;
+            case hkMotorType::Motor_None:
+            default:
+                break;
+        }
+    }
+
+    void bhkRagdollConstraintCInfo::read(NIFStream* nif)
+    {
+        if (nif->getBethVersion() <= 16)
+        {
+            nif->read(mDataA.mPivot);
+            nif->read(mDataA.mPlane);
+            nif->read(mDataA.mTwist);
+            nif->read(mDataB.mPivot);
+            nif->read(mDataB.mPlane);
+            nif->read(mDataB.mTwist);
+        }
+        else
+        {
+            nif->read(mDataA.mTwist);
+            nif->read(mDataA.mPlane);
+            nif->read(mDataA.mMotor);
+            nif->read(mDataA.mPivot);
+            nif->read(mDataB.mTwist);
+            nif->read(mDataB.mPlane);
+            nif->read(mDataB.mMotor);
+            nif->read(mDataB.mPivot);
+        }
+        nif->read(mConeMaxAngle);
+        nif->read(mPlaneMinAngle);
+        nif->read(mPlaneMaxAngle);
+        nif->read(mTwistMinAngle);
+        nif->read(mTwistMaxAngle);
+        nif->read(mMaxFriction);
+        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS && nif->getBethVersion() > 16)
+            mMotor.read(nif);
+    }
+
+    void bhkHingeConstraintCInfo::read(NIFStream* nif)
+    {
+        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
+        {
+            nif->read(mDataA.mPivot);
+            nif->read(mDataA.mPerpAxis1);
+            nif->read(mDataA.mPerpAxis2);
+            nif->read(mDataB.mPivot);
+            nif->read(mDataB.mAxis);
+        }
+        else
+        {
+            nif->read(mDataA.mAxis);
+            nif->read(mDataA.mPerpAxis1);
+            nif->read(mDataA.mPerpAxis2);
+            nif->read(mDataA.mPivot);
+            nif->read(mDataB.mAxis);
+            nif->read(mDataB.mPerpAxis1);
+            nif->read(mDataB.mPerpAxis2);
+            nif->read(mDataB.mPivot);
+        }
+    }
+
+    void bhkLimitedHingeConstraintCInfo::read(NIFStream* nif)
+    {
+        if (nif->getBethVersion() <= 16)
+        {
+            nif->read(mDataA.mPivot);
+            nif->read(mDataA.mAxis);
+            nif->read(mDataA.mPerpAxis1);
+            nif->read(mDataA.mPerpAxis2);
+            nif->read(mDataB.mPivot);
+            nif->read(mDataB.mAxis);
+            nif->read(mDataB.mPerpAxis2);
+        }
+        else
+        {
+            nif->read(mDataA.mAxis);
+            nif->read(mDataA.mPerpAxis1);
+            nif->read(mDataA.mPerpAxis2);
+            nif->read(mDataA.mPivot);
+            nif->read(mDataB.mAxis);
+            nif->read(mDataB.mPerpAxis1);
+            nif->read(mDataB.mPerpAxis2);
+            nif->read(mDataB.mPivot);
+        }
+        nif->read(mMinAngle);
+        nif->read(mMaxAngle);
+        nif->read(mMaxFriction);
+        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS && nif->getBethVersion() > 16)
+            mMotor.read(nif);
+    }
+
+    void bhkBallAndSocketConstraintCInfo::read(NIFStream* nif)
+    {
+        nif->read(mPivotA);
+        nif->read(mPivotB);
+    }
+
+    void bhkStiffSpringConstraintCInfo::read(NIFStream* nif)
+    {
+        nif->read(mPivotA);
+        nif->read(mPivotB);
+        nif->read(mLength);
+    }
+
+    void bhkPrismaticConstraintCInfo::read(NIFStream* nif)
+    {
+        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
+        {
+            nif->read(mDataA.mPivot);
+            nif->read(mDataA.mRotation);
+            nif->read(mDataA.mPlane);
+            nif->read(mDataA.mSliding);
+            nif->read(mDataB.mSliding);
+            nif->read(mDataB.mPivot);
+            nif->read(mDataB.mRotation);
+            nif->read(mDataB.mPlane);
+        }
+        else
+        {
+            nif->read(mDataA.mSliding);
+            nif->read(mDataA.mRotation);
+            nif->read(mDataA.mPlane);
+            nif->read(mDataA.mPivot);
+            nif->read(mDataB.mSliding);
+            nif->read(mDataB.mRotation);
+            nif->read(mDataB.mPlane);
+            nif->read(mDataB.mPivot);
+        }
+        nif->read(mMinDistance);
+        nif->read(mMaxDistance);
+        nif->read(mFriction);
+        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS && nif->getBethVersion() >= 17)
+            mMotor.read(nif);
+    }
+
+    void bhkMalleableConstraintCInfo::read(NIFStream* nif)
+    {
+        mType = static_cast<hkConstraintType>(nif->get<uint32_t>());
+        mInfo.read(nif);
+        switch (mType)
+        {
+            case hkConstraintType::BallAndSocket:
+                mBallAndSocketInfo.read(nif);
+                break;
+            case hkConstraintType::Hinge:
+                mHingeInfo.read(nif);
+                break;
+            case hkConstraintType::LimitedHinge:
+                mLimitedHingeInfo.read(nif);
+                break;
+            case hkConstraintType::Prismatic:
+                mPrismaticInfo.read(nif);
+                break;
+            case hkConstraintType::Ragdoll:
+                mRagdollInfo.read(nif);
+                break;
+            case hkConstraintType::StiffSpring:
+                mStiffSpringInfo.read(nif);
+                break;
+            default:
+                throw Nif::Exception(
+                    "Unrecognized constraint type in bhkMalleableConstraint", nif->getFile().getFilename());
+        }
+        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
+        {
+            nif->read(mTau);
+            nif->read(mDamping);
+        }
+        else
+        {
+            nif->read(mStrength);
+        }
+    }
+
+    void bhkWrappedConstraintData::read(NIFStream* nif)
+    {
+        mType = static_cast<hkConstraintType>(nif->get<uint32_t>());
+        mInfo.read(nif);
+        switch (mType)
+        {
+            case hkConstraintType::BallAndSocket:
+                mBallAndSocketInfo.read(nif);
+                break;
+            case hkConstraintType::Hinge:
+                mHingeInfo.read(nif);
+                break;
+            case hkConstraintType::LimitedHinge:
+                mLimitedHingeInfo.read(nif);
+                break;
+            case hkConstraintType::Prismatic:
+                mPrismaticInfo.read(nif);
+                break;
+            case hkConstraintType::Ragdoll:
+                mRagdollInfo.read(nif);
+                break;
+            case hkConstraintType::StiffSpring:
+                mStiffSpringInfo.read(nif);
+                break;
+            case hkConstraintType::Malleable:
+                mMalleableInfo.read(nif);
+                break;
+            default:
+                throw Nif::Exception(
+                    "Unrecognized constraint type in bhkWrappedConstraintData", nif->getFile().getFilename());
+        }
+    }
+
+    void bhkConstraintChainCInfo::read(NIFStream* nif)
+    {
+        readRecordList(nif, mEntities);
+        mInfo.read(nif);
+    }
+
+    void bhkConstraintChainCInfo::post(Reader& nif)
+    {
+        postRecordList(nif, mEntities);
+    }
+
     /// Record types
 
-    void bhkCollisionObject::read(NIFStream *nif)
+    void bhkCollisionObject::read(NIFStream* nif)
     {
         NiCollisionObject::read(nif);
-        mFlags = nif->getUShort();
+
+        nif->read(mFlags);
         mBody.read(nif);
     }
 
-    void bhkWorldObject::read(NIFStream *nif)
+    void bhkNPCollisionObject::read(NIFStream* nif)
+    {
+        NiCollisionObject::read(nif);
+
+        nif->read(mFlags);
+        mData.read(nif);
+        nif->read(mBodyID);
+    }
+
+    void bhkNPCollisionObject::post(Reader& nif)
+    {
+        NiCollisionObject::post(nif);
+
+        mData.post(nif);
+    }
+
+    void bhkBlendCollisionObject::read(NIFStream* nif)
+    {
+        bhkCollisionObject::read(nif);
+
+        nif->read(mHeirGain);
+        nif->read(mVelGain);
+
+        if (nif->getBethVersion() <= 8)
+            nif->skip(8); // Unknown
+    }
+
+    void bhkPhysicsSystem::read(NIFStream* nif)
+    {
+        nif->readVector(mData, nif->get<uint32_t>());
+    }
+
+    void bhkRagdollSystem::read(NIFStream* nif)
+    {
+        nif->readVector(mData, nif->get<uint32_t>());
+    }
+
+    void bhkWorldObject::read(NIFStream* nif)
     {
         mShape.read(nif);
         if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB_OLD)
@@ -165,151 +515,521 @@ namespace Nif
         mWorldObjectInfo.read(nif);
     }
 
-    void bhkWorldObject::post(NIFFile *nif)
+    void bhkWorldObject::post(Reader& nif)
     {
         mShape.post(nif);
     }
 
-    void bhkEntity::read(NIFStream *nif)
+    void bhkEntity::read(NIFStream* nif)
     {
         bhkWorldObject::read(nif);
+
         mInfo.read(nif);
     }
 
-    void bhkBvTreeShape::read(NIFStream *nif)
+    void bhkBvTreeShape::read(NIFStream* nif)
     {
         mShape.read(nif);
     }
 
-    void bhkBvTreeShape::post(NIFFile *nif)
+    void bhkBvTreeShape::post(Reader& nif)
     {
         mShape.post(nif);
     }
 
-    void bhkMoppBvTreeShape::read(NIFStream *nif)
+    void bhkMoppBvTreeShape::read(NIFStream* nif)
     {
         bhkBvTreeShape::read(nif);
+
         nif->skip(12); // Unused
-        mScale = nif->getFloat();
+        nif->read(mScale);
         mMopp.read(nif);
     }
 
-    void bhkNiTriStripsShape::read(NIFStream *nif)
+    void bhkNiTriStripsShape::read(NIFStream* nif)
     {
         mHavokMaterial.read(nif);
-        mRadius = nif->getFloat();
+        nif->read(mRadius);
         nif->skip(20); // Unused
-        mGrowBy = nif->getUInt();
-        if (nif->getVersion() >= NIFStream::generateVersion(10,1,0,0))
-            mScale = nif->getVector4();
-        mData.read(nif);
-        unsigned int numFilters = nif->getUInt();
-        nif->getUInts(mFilters, numFilters);
-    }
-
-    void bhkNiTriStripsShape::post(NIFFile *nif)
-    {
-        mData.post(nif);
-    }
-
-    void bhkPackedNiTriStripsShape::read(NIFStream *nif)
-    {
-        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
-        {
-            mSubshapes.resize(nif->getUShort());
-            for (hkSubPartData& subshape : mSubshapes)
-                subshape.read(nif);
-        }
-        mUserData = nif->getUInt();
-        nif->skip(4); // Unused
-        mRadius = nif->getFloat();
-        nif->skip(4); // Unused
-        mScale = nif->getVector4();
-        nif->skip(20); // Duplicates of the two previous fields
-        mData.read(nif);
-    }
-
-    void bhkPackedNiTriStripsShape::post(NIFFile *nif)
-    {
-        mData.post(nif);
-    }
-
-    void hkPackedNiTriStripsData::read(NIFStream *nif)
-    {
-        unsigned int numTriangles = nif->getUInt();
-        mTriangles.resize(numTriangles);
-        for (unsigned int i = 0; i < numTriangles; i++)
-            mTriangles[i].read(nif);
-
-        unsigned int numVertices = nif->getUInt();
-        bool compressed = false;
-        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS)
-            compressed = nif->getBoolean();
-        if (!compressed)
-            nif->getVector3s(mVertices, numVertices);
-        else
-            nif->skip(6 * numVertices); // Half-precision vectors are not currently supported
-        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS)
-        {
-            mSubshapes.resize(nif->getUShort());
-            for (hkSubPartData& subshape : mSubshapes)
-                subshape.read(nif);
-        }
-    }
-
-    void bhkSphereRepShape::read(NIFStream *nif)
-    {
-        mHavokMaterial.read(nif);
-    }
-
-    void bhkConvexShape::read(NIFStream *nif)
-    {
-        bhkSphereRepShape::read(nif);
-        mRadius = nif->getFloat();
-    }
-
-    void bhkConvexVerticesShape::read(NIFStream *nif)
-    {
-        bhkConvexShape::read(nif);
-        mVerticesProperty.read(nif);
-        mNormalsProperty.read(nif);
-        unsigned int numVertices = nif->getUInt();
-        if (numVertices)
-            nif->getVector4s(mVertices, numVertices);
-        unsigned int numNormals = nif->getUInt();
-        if (numNormals)
-            nif->getVector4s(mNormals, numNormals);
-    }
-
-    void bhkBoxShape::read(NIFStream *nif)
-    {
-        bhkConvexShape::read(nif);
-        nif->skip(8); // Unused
-        mExtents = nif->getVector3();
-        nif->skip(4); // Unused
-    }
-
-    void bhkListShape::read(NIFStream *nif)
-    {
-        mSubshapes.read(nif);
-        mHavokMaterial.read(nif);
-        mChildShapeProperty.read(nif);
-        mChildFilterProperty.read(nif);
-        unsigned int numFilters = nif->getUInt();
+        nif->read(mGrowBy);
+        if (nif->getVersion() >= NIFStream::generateVersion(10, 1, 0, 0))
+            nif->read(mScale);
+        readRecordList(nif, mData);
+        uint32_t numFilters;
+        nif->read(numFilters);
         mHavokFilters.resize(numFilters);
         for (HavokFilter& filter : mHavokFilters)
             filter.read(nif);
     }
 
-    void bhkRigidBody::read(NIFStream *nif)
+    void bhkNiTriStripsShape::post(Reader& nif)
+    {
+        postRecordList(nif, mData);
+    }
+
+    void bhkPackedNiTriStripsShape::read(NIFStream* nif)
+    {
+        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
+        {
+            uint16_t numSubshapes;
+            nif->read(numSubshapes);
+            mSubshapes.resize(numSubshapes);
+            for (hkSubPartData& subshape : mSubshapes)
+                subshape.read(nif);
+        }
+        nif->read(mUserData);
+        nif->skip(4); // Unused
+        nif->read(mRadius);
+        nif->skip(4); // Unused
+        nif->read(mScale);
+        nif->skip(20); // Duplicates of the two previous fields
+        mData.read(nif);
+    }
+
+    void bhkPackedNiTriStripsShape::post(Reader& nif)
+    {
+        mData.post(nif);
+    }
+
+    void hkPackedNiTriStripsData::read(NIFStream* nif)
+    {
+        uint32_t numTriangles;
+        nif->read(numTriangles);
+        mTriangles.resize(numTriangles);
+        for (uint32_t i = 0; i < numTriangles; i++)
+            mTriangles[i].read(nif);
+
+        uint32_t numVertices;
+        nif->read(numVertices);
+        bool compressed = false;
+        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS)
+            nif->read(compressed);
+        if (!compressed)
+            nif->readVector(mVertices, numVertices);
+        else
+            nif->skip(6 * numVertices); // Half-precision vectors are not currently supported
+        if (nif->getVersion() >= NIFFile::NIFVersion::VER_BGS)
+        {
+            uint16_t numSubshapes;
+            nif->read(numSubshapes);
+            mSubshapes.resize(numSubshapes);
+            for (hkSubPartData& subshape : mSubshapes)
+                subshape.read(nif);
+        }
+    }
+
+    void bhkSphereRepShape::read(NIFStream* nif)
+    {
+        mHavokMaterial.read(nif);
+    }
+
+    void bhkConvexShape::read(NIFStream* nif)
+    {
+        bhkSphereRepShape::read(nif);
+
+        nif->read(mRadius);
+    }
+
+    void bhkConvexListShape::read(NIFStream* nif)
+    {
+        readRecordList(nif, mSubShapes);
+        mMaterial.read(nif);
+        nif->read(mRadius);
+        nif->skip(8); // Unknown
+        mChildShapeProperty.read(nif);
+        nif->read(mUseCachedAABB);
+        nif->read(mClosestPointMinDistance);
+    }
+
+    void bhkConvexListShape::post(Reader& nif)
+    {
+        postRecordList(nif, mSubShapes);
+    }
+
+    void bhkConvexSweepShape::read(NIFStream* nif)
+    {
+        mShape.read(nif);
+        mMaterial.read(nif);
+        nif->read(mRadius);
+        nif->skip(12); // Unknown
+    }
+
+    void bhkConvexSweepShape::post(Reader& nif)
+    {
+        mShape.post(nif);
+    }
+
+    void bhkConvexVerticesShape::read(NIFStream* nif)
+    {
+        bhkConvexShape::read(nif);
+
+        mVerticesProperty.read(nif);
+        mNormalsProperty.read(nif);
+        nif->readVector(mVertices, nif->get<uint32_t>());
+        nif->readVector(mNormals, nif->get<uint32_t>());
+    }
+
+    void bhkConvexTransformShape::read(NIFStream* nif)
+    {
+        mShape.read(nif);
+        mHavokMaterial.read(nif);
+        nif->read(mRadius);
+        nif->skip(8); // Unused
+        std::array<float, 16> mat;
+        nif->readArray(mat);
+        mTransform.set(mat.data());
+    }
+
+    void bhkConvexTransformShape::post(Reader& nif)
+    {
+        mShape.post(nif);
+    }
+
+    void bhkBoxShape::read(NIFStream* nif)
+    {
+        bhkConvexShape::read(nif);
+
+        nif->skip(8); // Unused
+        nif->read(mExtents);
+        nif->skip(4); // Unused
+    }
+
+    void bhkCapsuleShape::read(NIFStream* nif)
+    {
+        bhkConvexShape::read(nif);
+
+        nif->skip(8); // Unused
+        nif->read(mPoint1);
+        nif->read(mRadius1);
+        nif->read(mPoint2);
+        nif->read(mRadius2);
+    }
+
+    void bhkCylinderShape::read(NIFStream* nif)
+    {
+        bhkConvexShape::read(nif);
+
+        nif->skip(8); // Unused
+        nif->read(mVertexA);
+        nif->read(mVertexB);
+        nif->read(mCylinderRadius);
+        nif->skip(12); // Unused
+    }
+
+    void bhkHeightfieldShape::read(NIFStream* nif)
+    {
+        mHavokMaterial.read(nif);
+    }
+
+    void bhkPlaneShape::read(NIFStream* nif)
+    {
+        bhkHeightfieldShape::read(nif);
+
+        nif->skip(12); // Unused
+        mPlane = osg::Plane(nif->get<osg::Vec4f>());
+        nif->read(mExtents);
+        nif->read(mCenter);
+    }
+
+    void bhkMeshShape::read(NIFStream* nif)
+    {
+        nif->skip(8); // Unknown
+        nif->read(mRadius);
+        nif->skip(8); // Unknown
+        nif->read(mScale);
+        mShapeProperties.resize(nif->get<uint32_t>());
+        for (bhkWorldObjCInfoProperty& property : mShapeProperties)
+            property.read(nif);
+        nif->skip(12); // Unknown
+        readRecordList(nif, mDataList);
+    }
+
+    void bhkMeshShape::post(Reader& nif)
+    {
+        postRecordList(nif, mDataList);
+    }
+
+    void bhkMultiSphereShape::read(NIFStream* nif)
+    {
+        bhkSphereRepShape::read(nif);
+
+        mShapeProperty.read(nif);
+        nif->readVector(mSpheres, nif->get<uint32_t>());
+    }
+
+    void bhkListShape::read(NIFStream* nif)
+    {
+        readRecordList(nif, mSubshapes);
+        mHavokMaterial.read(nif);
+        mChildShapeProperty.read(nif);
+        mChildFilterProperty.read(nif);
+        uint32_t numFilters;
+        nif->read(numFilters);
+        mHavokFilters.resize(numFilters);
+        for (HavokFilter& filter : mHavokFilters)
+            filter.read(nif);
+    }
+
+    void bhkCompressedMeshShape::read(NIFStream* nif)
+    {
+        mTarget.read(nif);
+        nif->read(mUserData);
+        nif->read(mRadius);
+        nif->skip(4); // Unknown
+        nif->read(mScale);
+        nif->skip(4); // Radius
+        nif->skip(16); // Scale
+        mData.read(nif);
+    }
+
+    void bhkCompressedMeshShape::post(Reader& nif)
+    {
+        mTarget.post(nif);
+        mData.post(nif);
+    }
+
+    void bhkCompressedMeshShapeData::read(NIFStream* nif)
+    {
+        nif->read(mBitsPerIndex);
+        nif->read(mBitsPerWIndex);
+        nif->read(mMaskWIndex);
+        nif->read(mMaskIndex);
+        nif->read(mError);
+        nif->read(mAabbMin);
+        nif->read(mAabbMax);
+        nif->read(mWeldingType);
+        nif->read(mMaterialType);
+        nif->skip(nif->get<uint32_t>() * 4); // Unused
+        nif->skip(nif->get<uint32_t>() * 4); // Unused
+        nif->skip(nif->get<uint32_t>() * 4); // Unused
+
+        uint32_t numMaterials;
+        nif->read(numMaterials);
+        mMaterials.resize(numMaterials);
+        for (bhkMeshMaterial& material : mMaterials)
+            material.read(nif);
+
+        nif->skip(4); // Unused
+
+        uint32_t numTransforms;
+        nif->read(numTransforms);
+        mChunkTransforms.resize(numTransforms);
+        for (bhkQsTransform& transform : mChunkTransforms)
+            transform.read(nif);
+
+        nif->readVector(mBigVerts, nif->get<uint32_t>());
+
+        uint32_t numBigTriangles;
+        nif->read(numBigTriangles);
+        mBigTris.resize(numBigTriangles);
+        for (bhkCMSBigTri& tri : mBigTris)
+            tri.read(nif);
+
+        uint32_t numChunks;
+        nif->read(numChunks);
+        mChunks.resize(numChunks);
+        for (bhkCMSChunk& chunk : mChunks)
+            chunk.read(nif);
+
+        nif->skip(4); // Unused
+    }
+
+    void bhkRigidBody::read(NIFStream* nif)
     {
         bhkEntity::read(nif);
+
         mInfo.read(nif);
-        mConstraints.read(nif);
+        readRecordList(nif, mConstraints);
         if (nif->getBethVersion() < 76)
-            mBodyFlags = nif->getUInt();
+            nif->read(mBodyFlags);
         else
-            mBodyFlags = nif->getUShort();
+            mBodyFlags = nif->get<uint16_t>();
+    }
+
+    void bhkAabbPhantom::read(NIFStream* nif)
+    {
+        bhkPhantom::read(nif);
+
+        nif->skip(8); // Unused
+        nif->read(mAabbMin);
+        nif->read(mAabbMax);
+    }
+
+    void bhkSimpleShapePhantom::read(NIFStream* nif)
+    {
+        bhkShapePhantom::read(nif);
+
+        nif->skip(8); // Unused
+        std::array<float, 16> mat;
+        nif->readArray(mat);
+        mTransform.set(mat.data());
+    }
+
+    void bhkConstraint::read(NIFStream* nif)
+    {
+        mInfo.read(nif);
+    }
+
+    void bhkConstraint::post(Reader& nif)
+    {
+        mInfo.post(nif);
+    }
+
+    void bhkRagdollConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkHingeConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkLimitedHingeConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkBallAndSocketConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkBallSocketConstraintChain::read(NIFStream* nif)
+    {
+        uint32_t numPivots = nif->get<uint32_t>();
+        if (numPivots % 2 != 0)
+            throw Nif::Exception(
+                "Invalid number of constraints in bhkBallSocketConstraintChain", nif->getFile().getFilename());
+        mConstraints.resize(numPivots / 2);
+        for (bhkBallAndSocketConstraintCInfo& info : mConstraints)
+            info.read(nif);
+        nif->read(mTau);
+        nif->read(mDamping);
+        nif->read(mConstraintForceMixing);
+        nif->read(mMaxErrorDistance);
+        mConstraintChainInfo.read(nif);
+    }
+
+    void bhkBallSocketConstraintChain::post(Reader& nif)
+    {
+        mConstraintChainInfo.post(nif);
+    }
+
+    void bhkStiffSpringConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkPrismaticConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkMalleableConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+    }
+
+    void bhkBreakableConstraint::read(NIFStream* nif)
+    {
+        bhkConstraint::read(nif);
+
+        mConstraint.read(nif);
+        nif->read(mThreshold);
+        nif->read(mRemoveWhenBroken);
+    }
+
+    void bhkUnaryAction::read(NIFStream* nif)
+    {
+        mEntity.read(nif);
+        nif->skip(8); // Unused
+    }
+
+    void bhkUnaryAction::post(Reader& nif)
+    {
+        mEntity.post(nif);
+    }
+
+    void bhkLiquidAction::read(NIFStream* nif)
+    {
+        nif->skip(12); // Unused
+        nif->read(mInitialStickForce);
+        nif->read(mStickStrength);
+        nif->read(mNeighborDistance);
+        nif->read(mNeighborStrength);
+    }
+
+    void bhkOrientHingedBodyAction::read(NIFStream* nif)
+    {
+        bhkUnaryAction::read(nif);
+
+        nif->skip(8); // Unused
+        nif->read(mHingeAxisLS);
+        nif->read(mForwardLS);
+        nif->read(mStrength);
+        nif->read(mDamping);
+        nif->skip(8); // Unused
+    }
+
+    void bhkRagdollTemplate::read(NIFStream* nif)
+    {
+        Extra::read(nif);
+
+        readRecordList(nif, mBones);
+    }
+
+    void bhkRagdollTemplate::post(Reader& nif)
+    {
+        Extra::post(nif);
+
+        postRecordList(nif, mBones);
+    }
+
+    void bhkRagdollTemplateData::read(NIFStream* nif)
+    {
+        nif->read(mName);
+        nif->read(mMass);
+        nif->read(mRestitution);
+        nif->read(mFriction);
+        nif->read(mRadius);
+        mHavokMaterial.read(nif);
+        mConstraints.resize(nif->get<uint32_t>());
+        for (bhkWrappedConstraintData& constraint : mConstraints)
+            constraint.read(nif);
+    }
+
+    void bhkPoseArray::BoneTransform::read(NIFStream* nif)
+    {
+        nif->read(mTranslation);
+        nif->read(mRotation);
+        nif->read(mScale);
+    }
+
+    void bhkPoseArray::read(NIFStream* nif)
+    {
+        nif->readVector(mBones, nif->get<uint32_t>());
+        mPoses.resize(nif->get<uint32_t>());
+        for (std::vector<BoneTransform>& pose : mPoses)
+        {
+            pose.resize(nif->get<uint32_t>());
+            for (BoneTransform& transform : pose)
+                transform.read(nif);
+        }
     }
 
 } // Namespace

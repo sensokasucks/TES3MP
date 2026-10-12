@@ -1,11 +1,32 @@
 #include "importcellref.hpp"
 
 #include <components/esm3/esmreader.hpp>
+#include <components/misc/concepts.hpp>
+
+#include <cstdint>
 
 namespace ESSImport
 {
+    template <Misc::SameAsWithoutCvref<ACDT> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mUnknown, v.mFlags, v.mBreathMeter, v.mUnknown2, v.mDynamic, v.mUnknown3, v.mAttributes, v.mMagicEffects,
+            v.mUnknown4, v.mGoldPool, v.mCountDown, v.mUnknown5);
+    }
 
-    void CellRef::load(ESM::ESMReader &esm)
+    template <Misc::SameAsWithoutCvref<ACSC> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mUnknown1, v.mFlags, v.mUnknown2, v.mCorpseClearCountdown, v.mUnknown3);
+    }
+
+    template <Misc::SameAsWithoutCvref<ANIS> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mGroupIndex, v.mUnknown, v.mTime);
+    }
+
+    void CellRef::load(ESM::ESMReader& esm)
     {
         blank();
 
@@ -13,7 +34,7 @@ namespace ESSImport
 
         // this is required since openmw supports more than 255 content files
         int pluginIndex = (mRefNum.mIndex & 0xff000000) >> 24;
-        mRefNum.mContentFile = pluginIndex-1;
+        mRefNum.mContentFile = pluginIndex - 1;
         mRefNum.mIndex &= 0x00ffffff;
 
         mIndexedRefId = esm.getHNString("NAME");
@@ -39,24 +60,14 @@ namespace ESSImport
             esm.skipHSub();
 
         if (esm.isNextSub("MNAM"))
-           esm.skipHSub();
+            esm.skipHSub();
 
         bool isDeleted = false;
         ESM::CellRef::loadData(esm, isDeleted);
 
-        mActorData.mHasACDT = false;
-        if (esm.isNextSub("ACDT"))
-        {
-            mActorData.mHasACDT = true;
-            esm.getHT(mActorData.mACDT);
-        }
+        mActorData.mHasACDT = esm.getOptionalComposite("ACDT", mActorData.mACDT);
 
-        mActorData.mHasACSC = false;
-        if (esm.isNextSub("ACSC"))
-        {
-            mActorData.mHasACSC = true;
-            esm.getHT(mActorData.mACSC);
-        }
+        mActorData.mHasACSC = esm.getOptionalComposite("ACSC", mActorData.mACSC);
 
         if (esm.isNextSub("ACSL"))
             esm.skipHSubSize(112);
@@ -96,12 +107,12 @@ namespace ESSImport
 
         if (esm.isNextSub("WNAM"))
         {
-            std::string id = esm.getHString();
+            ESM::RefId spellRefId = esm.getRefId();
 
             if (esm.isNextSub("XNAM"))
-                mActorData.mSelectedEnchantItem = esm.getHString();
+                mActorData.mSelectedEnchantItem = esm.getRefId();
             else
-                mActorData.mSelectedSpell = id;
+                mActorData.mSelectedSpell = std::move(spellRefId);
 
             if (esm.isNextSub("YNAM"))
                 esm.skipHSub(); // 4 byte, 0
@@ -111,7 +122,7 @@ namespace ESSImport
         {
             // used power
             esm.getSubHeader();
-            std::string id = esm.getString(32);
+            std::string id = esm.getMaybeFixedStringSize(32);
             (void)id;
             // timestamp can't be used: this is the total hours passed, calculated by
             // timestamp = 24 * (365 * year + cumulativeDays[month] + day)
@@ -122,23 +133,16 @@ namespace ESSImport
         }
 
         // FIXME: not all actors have this, add flag
-        if (esm.isNextSub("CHRD")) // npc only
-            esm.getHExact(mActorData.mSkills, 27*2*sizeof(int));
+        esm.getHNOT("CHRD", mActorData.mSkills); // npc only
 
-        if (esm.isNextSub("CRED")) // creature only
-            esm.getHExact(mActorData.mCombatStats, 3*2*sizeof(int));
+        esm.getHNOT("CRED", mActorData.mCombatStats); // creature only
 
         mActorData.mSCRI.load(esm);
 
         if (esm.isNextSub("ND3D"))
             esm.skipHSub();
 
-        mActorData.mHasANIS = false;
-        if (esm.isNextSub("ANIS"))
-        {
-            mActorData.mHasANIS = true;
-            esm.getHT(mActorData.mANIS);
-        }
+        mActorData.mHasANIS = esm.getOptionalComposite("ANIS", mActorData.mANIS);
 
         if (esm.isNextSub("LVCR"))
         {
@@ -146,7 +150,7 @@ namespace ESSImport
             // probably some identifier for the creature that has been spawned?
             unsigned char lvcr;
             esm.getHT(lvcr);
-            //std::cout << "LVCR: " << (int)lvcr << std::endl;
+            // std::cout << "LVCR: " << (int)lvcr << std::endl;
         }
 
         mEnabled = true;
@@ -155,13 +159,13 @@ namespace ESSImport
         // DATA should occur for all references, except levelled creature spawners
         // I've seen DATA *twice* on a creature record, and with the exact same content too! weird
         // alarmvoi0000.ess
-        esm.getHNOTSized<24>(mPos, "DATA");
-        esm.getHNOTSized<24>(mPos, "DATA");
+        for (int i = 0; i < 2; ++i)
+            esm.getOptionalComposite("DATA", mPos);
 
         mDeleted = 0;
         if (esm.isNextSub("DELE"))
         {
-            unsigned int deleted;
+            uint32_t deleted;
             esm.getHT(deleted);
             mDeleted = ((deleted >> 24) & 0x2) != 0; // the other 3 bytes seem to be uninitialized garbage
         }

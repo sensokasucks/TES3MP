@@ -107,7 +107,7 @@ debug chunks
 :Range:		True/False
 :Default:	False
 
-This debug setting allows you to see the borders of each chunks of the world by drawing lines arround them (as with toggleborder). 
+This debug setting allows you to see the borders of each chunks of the world by drawing lines around them (as with toggleborder). 
 If object paging is set to true then this debug setting will allows you to see what objects have been merged in the scene
 by making them colored randomly.
 
@@ -159,7 +159,7 @@ object paging merge factor
 :Range:		>0
 :Default:	250.0
 
-Affects the likelyhood of more complex objects to get paged.
+Affects the likelihood of more complex objects to get paged.
 Higher values improve visual fidelity at the cost of performance and RAM.
 
 Technically this factor is a multiplier of merging benefit and affects the decision
@@ -205,3 +205,16 @@ object paging min size cost multiplier
 This setting adjusts the calculated cost of merging an object used in the mentioned functionality.
 The larger this value is, the less expensive objects can be before they are discarded.
 See the formula above to figure out the math.
+
+water culling
+-------------
+:Type:		boolean
+:Range:		True/False
+:Default:	True
+
+Controls whether water culling is used.
+
+Water culling is an optimisation that prevents the expensive rendering of water when it is
+evaluated to be below any visible terrain chunk, potentially improving performance in many scenes.
+
+You may want to opt out of it if it causes framerate instability or inappropriately invisible water on your setup.

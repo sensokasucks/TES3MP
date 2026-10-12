@@ -26,28 +26,28 @@
 */
 #include "loadnavm.hpp"
 
-#include <stdexcept>
-#include <cassert>
 #include <cstring>
+#include <stdexcept>
 
-#include <iostream> // FIXME: debugging only
+#include <components/debug/debuglog.hpp>
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
 {
-    //std::cout << "start: divisor " << std::dec << divisor << ", segments " << triSegments.size() << //std::endl;
-        //"this 0x" << this << std::endl; // FIXME
+    // std::cout << "start: divisor " << std::dec << divisor << ", segments " << triSegments.size() << //std::endl;
+    //"this 0x" << this << std::endl; // FIXME
 
     std::uint32_t count;
 
     reader.get(unknownNVER);
     reader.get(unknownLCTN);
-    reader.get(worldSpaceId);
-    //FLG_Tamriel    = 0x0000003c, // grid info follows, possibly Tamriel?
-    //FLG_Morrowind  = 0x01380000, // grid info follows, probably Skywind
-    if (worldSpaceId == 0x0000003c || worldSpaceId == 0x01380000)
+    reader.getFormId(worldSpaceId);
+    // FLG_Tamriel    = 0x0000003c, // grid info follows, possibly Tamriel?
+    // FLG_Morrowind  = 0x01380000, // grid info follows, probably Skywind
+    // FIXME: this check doesn't work because `getFormId` adjusts content file index
+    if (worldSpaceId == ESM::FormId{ 0x3c, 0 } || worldSpaceId == ESM::FormId{ 380000, 1 })
     {
         //   ^
         // Y |                   X Y Index
@@ -65,8 +65,10 @@ void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
         //
         // Formula seems to be floor(Skywind coord / 2) <cmath>
         //
-        reader.get(cellGrid.grid.y); // NOTE: reverse order
-        reader.get(cellGrid.grid.x);
+        Grid grid;
+        reader.get(grid.y); // NOTE: reverse order
+        reader.get(grid.x);
+        cellGrid = grid;
 // FIXME: debugging only
 #if 0
         std::string padding;
@@ -79,7 +81,9 @@ void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
     }
     else
     {
-        reader.get(cellGrid.cellId);
+        ESM::FormId cellId;
+        reader.getFormId(cellId);
+        cellGrid = cellId;
 
 #if 0
         std::string padding; // FIXME
@@ -164,7 +168,7 @@ void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
 
     // FIXME: should check remaining size here
     // there are divisor^2 segments, each segment is a vector of triangle indices
-    for (unsigned int i = 0; i < divisor*divisor; ++i)
+    for (unsigned int i = 0; i < divisor * divisor; ++i)
     {
         reader.get(count); // NOTE: count may be zero
 
@@ -176,7 +180,8 @@ void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
         }
         triSegments.push_back(indices);
     }
-    assert(triSegments.size() == divisor*divisor && "tiangle segments size is not the square of divisor");
+    if (triSegments.size() != divisor * divisor)
+        throw std::runtime_error("Triangle segments size is not the square of divisor");
 #if 0
     if (triSegments.size() != divisor*divisor)
         std::cout << "divisor " << std::dec << divisor << ", segments " << triSegments.size() << //std::endl;
@@ -186,11 +191,11 @@ void ESM4::NavMesh::NVNMstruct::load(ESM4::Reader& reader)
 
 void ESM4::NavMesh::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
-    //std::cout << "NavMesh 0x" << std::hex << this << std::endl; // FIXME
-    std::uint32_t subSize = 0; // for XXXX sub record
+    std::uint32_t esmVer = reader.esmVersion();
+    // std::cout << "NavMesh 0x" << std::hex << this << std::endl; // FIXME
 
 // FIXME: debugging only
 #if 0
@@ -201,62 +206,48 @@ void ESM4::NavMesh::load(ESM4::Reader& reader)
 #endif
     while (reader.getSubRecordHeader())
     {
-        switch (reader.subRecordHeader().typeId)
+        const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
+        switch (subHdr.typeId)
         {
-            case ESM4::SUB_NVNM:
+            case ESM::fourCC("NVNM"):
             {
+                // See FIXME in ESM4::Navigation::load.
+                // FO4 updates the format
+                if (reader.hasFormVersion() && (esmVer == ESM::VER_095 || esmVer == ESM::VER_100))
+                {
+                    reader.skipSubRecordData();
+                    break;
+                }
+
                 NVNMstruct nvnm;
                 nvnm.load(reader);
                 mData.push_back(nvnm); // FIXME try swap
                 break;
             }
-            case ESM4::SUB_ONAM:
-            case ESM4::SUB_PNAM:
-            case ESM4::SUB_NNAM:
-            {
-                if (subSize)
-                {
-                    reader.skipSubRecordData(subSize); // special post XXXX
-                    reader.updateRecordRead(subSize); // WARNING: manual update
-                    subSize = 0;
-                }
-                else
-                    //const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
-                    //std::cout << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
-                    reader.skipSubRecordData(); // FIXME: process the subrecord rather than skip
-
+            case ESM::fourCC("ONAM"):
+            case ESM::fourCC("PNAM"):
+            case ESM::fourCC("NNAM"):
+            case ESM::fourCC("NVER"): // FO3
+            case ESM::fourCC("DATA"): // FO3
+            case ESM::fourCC("NVVX"): // FO3
+            case ESM::fourCC("NVTR"): // FO3
+            case ESM::fourCC("NVCA"): // FO3
+            case ESM::fourCC("NVDP"): // FO3
+            case ESM::fourCC("NVGD"): // FO3
+            case ESM::fourCC("NVEX"): // FO3
+            case ESM::fourCC("EDID"): // FO3
+            case ESM::fourCC("MNAM"): // FO4
+                reader.skipSubRecordData();
                 break;
-            }
-            case ESM4::SUB_XXXX:
-            {
-                reader.get(subSize);
-                break;
-            }
-            case ESM4::SUB_NVER: // FO3
-            case ESM4::SUB_DATA: // FO3
-            case ESM4::SUB_NVVX: // FO3
-            case ESM4::SUB_NVTR: // FO3
-            case ESM4::SUB_NVCA: // FO3
-            case ESM4::SUB_NVDP: // FO3
-            case ESM4::SUB_NVGD: // FO3
-            case ESM4::SUB_NVEX: // FO3
-            case ESM4::SUB_EDID: // FO3
-            {
-                reader.skipSubRecordData(); // FIXME:
-                break;
-            }
             default:
-                throw std::runtime_error("ESM4::NAVM::load - Unknown subrecord " +
-                                          ESM::printName(reader.subRecordHeader().typeId));
+                throw std::runtime_error("ESM4::NAVM::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
-    //std::cout << "num nvnm " << std::dec << mData.size() << std::endl; // FIXME
+    // std::cout << "num nvnm " << std::dec << mData.size() << std::endl; // FIXME
 }
 
-//void ESM4::NavMesh::save(ESM4::Writer& writer) const
+// void ESM4::NavMesh::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-void ESM4::NavMesh::blank()
-{
-}
+void ESM4::NavMesh::blank() {}

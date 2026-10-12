@@ -29,7 +29,7 @@
 
 #include <cstdint>
 
-#include "formid.hpp"
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -37,16 +37,16 @@ namespace ESM4
     // LVLC, LVLI
     struct LVLO
     {
-        std::int16_t  level;
-        std::uint16_t unknown;  // sometimes missing
-        FormId        item;
-        std::int16_t  count;
+        std::int16_t level;
+        std::uint16_t unknown; // sometimes missing
+        ESM::FormId32 item;
+        std::int16_t count;
         std::uint16_t unknown2; // sometimes missing
     };
 
     struct InventoryItem // NPC_, CREA, CONT
     {
-        FormId        item;
+        ESM::FormId32 item;
         std::uint32_t count;
     };
 #pragma pack(pop)

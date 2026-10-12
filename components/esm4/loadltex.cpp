@@ -26,70 +26,69 @@
 */
 #include "loadltex.hpp"
 
-#ifdef NDEBUG // FIXME: debuggigng only
-#undef NDEBUG
-#endif
-
-#include <cassert>
 #include <stdexcept>
-//#include <iostream> // FIXME: debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::LandTexture::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
-    std::uint32_t esmVer = reader.esmVersion();
-    bool isFONV = esmVer == ESM::VER_132 || esmVer == ESM::VER_133 || esmVer == ESM::VER_134;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_HNAM:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("HNAM"):
             {
-                if (isFONV)
+                switch (subHdr.dataSize)
                 {
-                    reader.skipSubRecordData(); // FIXME: skip FONV for now
-                    break;
-                }
-
-                if ((reader.esmVersion() == ESM::VER_094 || reader.esmVersion() == ESM::VER_170)
-                    && subHdr.dataSize == 2) // FO3 is VER_094 but dataSize 3
-                {
-                    //assert(subHdr.dataSize == 2 && "LTEX unexpected HNAM size");
-                    reader.get(mHavokFriction);
-                    reader.get(mHavokRestitution);
-                }
-                else
-                {
-                    assert(subHdr.dataSize == 3 && "LTEX unexpected HNAM size");
-                    reader.get(mHavokMaterial);
-                    reader.get(mHavokFriction);
-                    reader.get(mHavokRestitution);
+                    case 3: // TES4, FO3, FNV
+                        reader.get(mHavokMaterial);
+                        [[fallthrough]];
+                    case 2:
+                        reader.get(mHavokFriction);
+                        reader.get(mHavokRestitution);
+                        break;
+                    default:
+                        reader.skipSubRecordData();
+                        break;
                 }
                 break;
             }
-            case ESM4::SUB_ICON: reader.getZString(mTextureFile); break; // Oblivion only?
-            case ESM4::SUB_SNAM: reader.get(mTextureSpecular); break;
-            case ESM4::SUB_GNAM: reader.getFormId(mGrass);     break;
-            case ESM4::SUB_TNAM: reader.getFormId(mTexture);   break; // TES5 only
-            case ESM4::SUB_MNAM: reader.getFormId(mMaterial);  break; // TES5 only
+            case ESM::fourCC("ICON"):
+                reader.getZString(mTextureFile);
+                break; // Oblivion only?
+            case ESM::fourCC("SNAM"):
+                reader.get(mTextureSpecular);
+                break;
+            case ESM::fourCC("GNAM"):
+                reader.getFormId(mGrass.emplace_back());
+                break;
+            case ESM::fourCC("TNAM"):
+                reader.getFormId(mTexture);
+                break; // TES5, FO4
+            case ESM::fourCC("MNAM"):
+                reader.getFormId(mMaterial);
+                break; // TES5, FO4
+            case ESM::fourCC("INAM"):
+                reader.get(mMaterialFlags);
+                break; // SSE
             default:
                 throw std::runtime_error("ESM4::LTEX::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::LandTexture::save(ESM4::Writer& writer) const
+// void ESM4::LandTexture::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::LandTexture::blank()
+// void ESM4::LandTexture::blank()
 //{
-//}
+// }

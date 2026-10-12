@@ -17,34 +17,41 @@
 /*
     End of tes3mp addition
 */
+#include <components/esm3/loadmgef.hpp>
 
 #include "../mwbase/environment.hpp"
-#include "../mwbase/world.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
+#include "../mwbase/world.hpp"
 
+#include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/creaturestats.hpp"
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
-#include "../mwworld/cellutils.hpp"
+#include "../mwworld/worldmodel.hpp"
 
 #include "player.hpp"
 
 namespace MWWorld
 {
-    ActionTeleport::ActionTeleport (const std::string& cellName,
-        const ESM::Position& position, bool teleportFollowers)
-    : Action (true), mCellName (cellName), mPosition (position), mTeleportFollowers(teleportFollowers)
+    ActionTeleport::ActionTeleport(ESM::RefId cellId, const ESM::Position& position, bool teleportFollowers)
+        : Action(true)
+        , mCellId(cellId)
+        , mPosition(position)
+        , mTeleportFollowers(teleportFollowers)
     {
     }
 
-    void ActionTeleport::executeImp (const Ptr& actor)
+    void ActionTeleport::executeImp(const Ptr& actor)
     {
         if (mTeleportFollowers)
         {
             // Find any NPCs that are following the actor and teleport them with him
             std::set<MWWorld::Ptr> followers;
-            getFollowers(actor, followers, mCellName.empty(), true);
+
+            bool toExterior = MWBase::Environment::get().getWorldModel()->getCell(mCellId).isExterior();
+            getFollowers(actor, followers, toExterior, true);
 
             for (std::set<MWWorld::Ptr>::iterator it = followers.begin(); it != followers.end(); ++it)
                 teleport(*it);
@@ -53,17 +60,20 @@ namespace MWWorld
         teleport(actor);
     }
 
-    void ActionTeleport::teleport(const Ptr &actor)
+    void ActionTeleport::teleport(const Ptr& actor)
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
-        actor.getClass().getCreatureStats(actor).land(actor == world->getPlayerPtr());
-        if(actor == world->getPlayerPtr())
+        MWWorld::WorldModel* worldModel = MWBase::Environment::get().getWorldModel();
+        auto& stats = actor.getClass().getCreatureStats(actor);
+        stats.land(actor == world->getPlayerPtr());
+        stats.setTeleported(true);
+
+        Ptr teleported;
+        if (actor == world->getPlayerPtr())
         {
             world->getPlayer().setTeleported(true);
-            if (mCellName.empty())
-                world->changeToExteriorCell (mPosition, true);
-            else
-                world->changeToInteriorCell (mCellName, mPosition, true);
+            world->changeToCell(mCellId, mPosition, true);
+            teleported = world->getPlayerPtr();
         }
         else
         {
@@ -87,27 +97,20 @@ namespace MWWorld
             mwmp::CellController *cellController = mwmp::Main::get().getCellController();
 
             if (actor.getClass().getCreatureStats(actor).getAiSequence().isInCombat(world->getPlayerPtr()))
-                actor.getClass().getCreatureStats(actor).getAiSequence().stopCombat();
-            else if (mCellName.empty())
             {
-                const osg::Vec2i index = positionToCellIndex(mPosition.pos[0], mPosition.pos[1]);
-
-                newCellStore = world->getExterior(index.x(), index.y());
-                if (cellController->isDedicatedActor(actor))
-                    cellController->getDedicatedActor(actor)->cell = *newCellStore->getCell();
-
-                world->moveObject(actor, newCellStore, mPosition.asVec3(), true, true);
+                actor.getClass().getCreatureStats(actor).getAiSequence().stopCombat();
+                return;
             }
             else
             {
-                newCellStore = world->getInterior(mCellName);
+                newCellStore = &worldModel->getCell(mCellId);
                 if (cellController->isDedicatedActor(actor))
                     cellController->getDedicatedActor(actor)->cell = *newCellStore->getCell();
 
-                world->moveObject(actor, newCellStore, mPosition.asVec3(), true, true);
+                teleported = world->moveObject(actor, newCellStore, mPosition.asVec3(), true, true);
             }
             /*
-                Start of tes3mp change (minor)
+                End of tes3mp change (minor)
             */
 
             /*
@@ -121,60 +124,71 @@ namespace MWWorld
                 they remain our follower even if the destination cell has another player as its
                 cell authority
             */
-            // tes3mp port note: guard added because newCellStore is unset when the actor was
-            // in combat with the player (the combat branch above does not move the actor)
             if (newCellStore)
             {
-            mwmp::BaseActor baseActor;
-            baseActor.refNum = actor.getCellRef().getRefNum().mIndex;
-            baseActor.mpNum = actor.getCellRef().getMpNum();
-            baseActor.cell = *newCellStore->getCell();
-            baseActor.position = actor.getRefData().getPosition();
-            baseActor.isFollowerCellChange = true;
+                mwmp::BaseActor baseActor;
+                baseActor.refNum = actor.getCellRef().getRefNum().mIndex;
+                baseActor.mpNum = actor.getCellRef().getMpNum();
+                baseActor.cell = *newCellStore->getCell();
+                baseActor.position = actor.getRefData().getPosition();
+                baseActor.isFollowerCellChange = true;
 
-            mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
-            actorList->reset();
-            actorList->cell = originalCell;
+                mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
+                actorList->reset();
+                actorList->cell = originalCell;
 
-            LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending ID_ACTOR_CELL_CHANGE about %s %i-%i to server",
-                actor.getCellRef().getRefId().c_str(), baseActor.refNum, baseActor.mpNum);
+                LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending ID_ACTOR_CELL_CHANGE about %s %i-%i to server",
+                    actor.getCellRef().getRefId().toDebugString().c_str(), baseActor.refNum, baseActor.mpNum);
 
-            LOG_APPEND(TimedLog::LOG_INFO, "- Moved from %s to %s", actorList->cell.getDescription().c_str(),
-                baseActor.cell.getDescription().c_str());
+                LOG_APPEND(TimedLog::LOG_INFO, "- Moved from %s to %s", actorList->cell.getDescription().c_str(),
+                    baseActor.cell.getDescription().c_str());
 
-            actorList->addCellChangeActor(baseActor);
-            actorList->sendCellChangeActors();
+                actorList->addCellChangeActor(baseActor);
+                actorList->sendCellChangeActors();
 
-            // Send ActorAI to bring all players in the new cell up to speed with this follower
-            actorList->cell = baseActor.cell;
-            baseActor.aiAction = mwmp::BaseActorList::FOLLOW;
-            baseActor.aiTarget = MechanicsHelper::getTarget(world->getPlayerPtr());
-            actorList->addAiActor(baseActor);
-            actorList->sendAiActors();
+                // Send ActorAI to bring all players in the new cell up to speed with this follower
+                actorList->cell = baseActor.cell;
+                baseActor.aiAction = mwmp::BaseActorList::FOLLOW;
+                baseActor.aiTarget = MechanicsHelper::getTarget(world->getPlayerPtr());
+                actorList->addAiActor(baseActor);
+                actorList->sendAiActors();
             }
             /*
                 End of tes3mp addition
             */
         }
+
+        if (!world->isWaterWalkingCastableOnTarget(teleported) && MWMechanics::hasWaterWalking(teleported))
+            teleported.getClass()
+                .getCreatureStats(teleported)
+                .getActiveSpells()
+                .purgeEffect(actor, ESM::MagicEffect::WaterWalking);
+
+        MWBase::Environment::get().getLuaManager()->objectTeleported(teleported);
     }
 
-    void ActionTeleport::getFollowers(const MWWorld::Ptr& actor, std::set<MWWorld::Ptr>& out, bool toExterior, bool includeHostiles) {
+    void ActionTeleport::getFollowers(
+        const MWWorld::Ptr& actor, std::set<MWWorld::Ptr>& out, bool toExterior, bool includeHostiles)
+    {
         std::set<MWWorld::Ptr> followers;
         MWBase::Environment::get().getMechanicsManager()->getActorsFollowing(actor, followers);
 
-        for(std::set<MWWorld::Ptr>::iterator it = followers.begin();it != followers.end();++it)
+        for (std::set<MWWorld::Ptr>::iterator it = followers.begin(); it != followers.end(); ++it)
         {
             MWWorld::Ptr follower = *it;
 
-            std::string script = follower.getClass().getScript(follower);
+            const ESM::RefId& script = follower.getClass().getScript(follower);
 
             if (!includeHostiles && follower.getClass().getCreatureStats(follower).getAiSequence().isInCombat(actor))
                 continue;
 
-            if (!toExterior && !script.empty() && follower.getRefData().getLocals().getIntVar(script, "stayoutside") == 1 && follower.getCell()->getCell()->isExterior())
+            if (!toExterior && !script.empty()
+                && follower.getRefData().getLocals().getIntVar(script, "stayoutside") == 1
+                && follower.getCell()->getCell()->isExterior())
                 continue;
 
-            if ((follower.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3()).length2() > 800 * 800)
+            if ((follower.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3()).length2()
+                > 800 * 800)
                 continue;
 
             out.emplace(follower);

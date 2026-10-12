@@ -3,9 +3,17 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
+#include <components/misc/concepts.hpp>
+
 namespace ESM
 {
-    void Potion::load(ESMReader &esm, bool &isDeleted)
+    template <Misc::SameAsWithoutCvref<Potion::ALDTstruct> T>
+    void decompose(T&& v, const auto& f)
+    {
+        f(v.mWeight, v.mValue, v.mFlags);
+    }
+
+    void Potion::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -20,7 +28,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("MODL"):
@@ -30,13 +38,13 @@ namespace ESM
                     mIcon = esm.getHString();
                     break;
                 case fourCC("SCRI"):
-                    mScript = esm.getHString();
+                    mScript = esm.getRefId();
                     break;
                 case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
                 case fourCC("ALDT"):
-                    esm.getHTSized<12>(mData);
+                    esm.getSubComposite(mData);
                     hasData = true;
                     break;
                 case fourCC("ENAM"):
@@ -57,9 +65,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing ALDT subrecord");
     }
-    void Potion::save(ESMWriter &esm, bool isDeleted) const
+    void Potion::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -69,9 +77,9 @@ namespace ESM
 
         esm.writeHNCString("MODL", mModel);
         esm.writeHNOCString("TEXT", mIcon);
-        esm.writeHNOCString("SCRI", mScript);
+        esm.writeHNOCRefId("SCRI", mScript);
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("ALDT", mData, 12);
+        esm.writeNamedComposite("ALDT", mData);
         mEffects.save(esm);
     }
 
@@ -80,11 +88,11 @@ namespace ESM
         mRecordFlags = 0;
         mData.mWeight = 0;
         mData.mValue = 0;
-        mData.mAutoCalc = 0;
+        mData.mFlags = 0;
         mName.clear();
         mModel.clear();
         mIcon.clear();
-        mScript.clear();
+        mScript = ESM::RefId();
         mEffects.mList.clear();
     }
 }

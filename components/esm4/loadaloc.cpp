@@ -26,81 +26,50 @@
 */
 #include "loadaloc.hpp"
 
-#include <stdexcept>
 #include <cstring>
-//#include <iostream> // FIXME: for debugging only
-//#include <iomanip>  // FIXME: for debugging only
-
-//#include <boost/scoped_array.hpp> // FIXME
-
-//#include "formid.hpp" // FIXME:
+#include <stdexcept>
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::MediaLocationController::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_FULL: reader.getZString(mFullName);  break;
-            case ESM4::SUB_GNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mBattleSets.push_back(id);
-
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
                 break;
-            }
-            case ESM4::SUB_LNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mLocationSets.push_back(id);
-
+            case ESM::fourCC("FULL"):
+                reader.getZString(mFullName);
                 break;
-            }
-            case ESM4::SUB_YNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mEnemySets.push_back(id);
-
+            case ESM::fourCC("GNAM"):
+                reader.getFormId(mBattleSets.emplace_back());
                 break;
-            }
-            case ESM4::SUB_HNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mNeutralSets.push_back(id);
-
+            case ESM::fourCC("LNAM"):
+                reader.getFormId(mLocationSets.emplace_back());
                 break;
-            }
-            case ESM4::SUB_XNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mFriendSets.push_back(id);
-
+            case ESM::fourCC("YNAM"):
+                reader.getFormId(mEnemySets.emplace_back());
                 break;
-            }
-            case ESM4::SUB_ZNAM:
-            {
-                FormId id;
-                reader.getFormId(id);
-                mAllySets.push_back(id);
-
+            case ESM::fourCC("HNAM"):
+                reader.getFormId(mNeutralSets.emplace_back());
                 break;
-            }
-            case ESM4::SUB_RNAM: reader.getFormId(mConditionalFaction); break;
-            case ESM4::SUB_NAM1:
+            case ESM::fourCC("XNAM"):
+                reader.getFormId(mFriendSets.emplace_back());
+                break;
+            case ESM::fourCC("ZNAM"):
+                reader.getFormId(mAllySets.emplace_back());
+                break;
+            case ESM::fourCC("RNAM"):
+                reader.getFormId(mConditionalFaction);
+                break;
+            case ESM::fourCC("NAM1"):
             {
                 reader.get(mMediaFlags);
                 std::uint8_t flags = mMediaFlags.loopingOptions;
@@ -108,17 +77,25 @@ void ESM4::MediaLocationController::load(ESM4::Reader& reader)
                 mMediaFlags.factionNotFound = flags & 0x0F; // WARN: overwriting data
                 break;
             }
-            case ESM4::SUB_NAM4: reader.get(mLocationDelay); break;
-            case ESM4::SUB_NAM7: reader.get(mRetriggerDelay); break;
-            case ESM4::SUB_NAM5: reader.get(mDayStart); break;
-            case ESM4::SUB_NAM6: reader.get(mNightStart); break;
-            case ESM4::SUB_NAM2: // always 0? 4 bytes
-            case ESM4::SUB_NAM3: // always 0? 4 bytes
-            case ESM4::SUB_FNAM: // always 0? 4 bytes
+            case ESM::fourCC("NAM4"):
+                reader.get(mLocationDelay);
+                break;
+            case ESM::fourCC("NAM7"):
+                reader.get(mRetriggerDelay);
+                break;
+            case ESM::fourCC("NAM5"):
+                reader.get(mDayStart);
+                break;
+            case ESM::fourCC("NAM6"):
+                reader.get(mNightStart);
+                break;
+            case ESM::fourCC("NAM2"): // always 0? 4 bytes
+            case ESM::fourCC("NAM3"): // always 0? 4 bytes
+            case ESM::fourCC("FNAM"): // always 0? 4 bytes
             {
 #if 0
-                boost::scoped_array<unsigned char> mDataBuf(new unsigned char[subHdr.dataSize]);
-                reader.get(&mDataBuf[0], subHdr.dataSize);
+                std::vector<unsigned char> mDataBuf(subHdr.dataSize);
+                reader.get(mDataBuf.data(), subHdr.dataSize);
 
                 std::ostringstream ss;
                 ss << mEditorId << " " << ESM::printName(subHdr.typeId) << ":size " << subHdr.dataSize << "\n";
@@ -135,25 +112,20 @@ void ESM4::MediaLocationController::load(ESM4::Reader& reader)
                 }
                 std::cout << ss.str() << std::endl;
 #else
-                //std::cout << "ALOC " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
                 reader.skipSubRecordData();
 #endif
                 break;
             }
             default:
-                //std::cout << "ALOC " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
-                //reader.skipSubRecordData();
                 throw std::runtime_error("ESM4::ALOC::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::MediaLocationController::save(ESM4::Writer& writer) const
+// void ESM4::MediaLocationController::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::MediaLocationController::blank()
+// void ESM4::MediaLocationController::blank()
 //{
-//}
+// }

@@ -18,11 +18,11 @@ namespace LuaUi
     {
     public:
         // accepts only Lua tables returned by ui.content
-        explicit ContentView(sol::table table)
+        explicit ContentView(sol::main_table table)
             : mTable(std::move(table))
         {
             if (!isValidContent(mTable))
-                throw std::domain_error("Expected a Content table");
+                throw std::domain_error("Invalid UI Content");
         }
 
         size_t size() const { return mTable.size(); }
@@ -43,17 +43,17 @@ namespace LuaUi
         }
         void insert(size_t index, const sol::table& table) { callMethod("insert", toLua(index), table); }
 
-        sol::table at(size_t index) const
+        sol::object at(size_t index) const
         {
             if (index < size())
-                return mTable.get<sol::table>(toLua(index));
+                return mTable.get<sol::object>(toLua(index));
             else
                 throw std::range_error("Invalid Content index");
         }
-        sol::table at(std::string_view name) const
+        sol::object at(std::string_view name) const
         {
             if (indexOf(name).has_value())
-                return mTable.get<sol::table>(name);
+                return mTable.get<sol::object>(name);
             else
                 throw std::range_error("Invalid Content key");
         }
@@ -94,7 +94,7 @@ namespace LuaUi
         sol::table getMetatable() const { return mTable[sol::metatable_key].get<sol::table>(); }
 
     private:
-        sol::table mTable;
+        sol::main_table mTable;
 
         template <typename... Arg>
         sol::object callMethod(std::string_view name, Arg&&... arg) const

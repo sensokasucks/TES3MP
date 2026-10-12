@@ -28,38 +28,39 @@
 #define ESM4_LIGHTING_H
 
 #include <cstdint>
-#include <limits>
 
 namespace ESM4
 {
 #pragma pack(push, 1)
-    // guesses only for TES4
+
+    // FO3/FNV version of the struct
     struct Lighting
-    {                              //               | Aichan Prison values
-        std::uint32_t ambient;     //               | 16 17 19 00 (RGBA)
-        std::uint32_t directional; //               | 00 00 00 00 (RGBA)
-        std::uint32_t fogColor;    //               | 1D 1B 16 00 (RGBA)
-        float         fogNear;     // Fog Near      | 00 00 00 00 = 0.f
-        float         fogFar;      // Fog Far       | 00 80 3B 45 = 3000.f
-        std::int32_t  rotationXY;  // rotation xy   | 00 00 00 00 = 0
-        std::int32_t  rotationZ;   // rotation z    | 00 00 00 00 = 0
-        float         fogDirFade;  // Fog dir fade  | 00 00 80 3F = 1.f
-        float         fogClipDist; // Fog clip dist | 00 80 3B 45 = 3000.f
-        float         fogPower = std::numeric_limits<float>::max();
+    { //                                  | Aichan Prison values
+        std::uint32_t ambient = 0; //     | 16 17 19 00 (RGBA)
+        std::uint32_t directional = 0; // | 00 00 00 00 (RGBA)
+        std::uint32_t fogColor = 0; //    | 1D 1B 16 00 (RGBA)
+        float fogNear = 0; // Fog Near    | 00 00 00 00 = 0.f
+        float fogFar = 0; // Fog Far      | 00 80 3B 45 = 3000.f
+        std::int32_t rotationXY = 0; //   | 00 00 00 00 = 0
+        std::int32_t rotationZ = 0; //    | 00 00 00 00 = 0
+        float fogDirFade = 0; //          | 00 00 80 3F = 1.f
+        float fogClipDist = 0; //         | 00 80 3B 45 = 3000.f
+        float fogPower = 1.f; // TES4 doesn't have this
     };
 
+    // Currently unused
     struct Lighting_TES5
     {
         std::uint32_t ambient;
         std::uint32_t directional;
         std::uint32_t fogColor;
-        float         fogNear;
-        float         fogFar;
-        std::int32_t  rotationXY;
-        std::int32_t  rotationZ;
-        float         fogDirFade;
-        float         fogClipDist;
-        float         fogPower;
+        float fogNear;
+        float fogFar;
+        std::int32_t rotationXY;
+        std::int32_t rotationZ;
+        float fogDirFade;
+        float fogClipDist;
+        float fogPower;
         std::uint32_t unknown1;
         std::uint32_t unknown2;
         std::uint32_t unknown3;
@@ -69,9 +70,9 @@ namespace ESM4
         std::uint32_t unknown7;
         std::uint32_t unknown8;
         std::uint32_t fogColorFar;
-        float         fogMax;
-        float         LightFadeStart;
-        float         LightFadeEnd;
+        float fogMax;
+        float LightFadeStart;
+        float LightFadeEnd;
         std::uint32_t padding;
     };
 #pragma pack(pop)

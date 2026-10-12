@@ -8,12 +8,10 @@
 
 #include <components/detournavigator/collisionshapetype.hpp>
 
-#include <LinearMath/btTransform.h>
-#include <osg/Vec3f>
 #include <osg/Quat>
+#include <osg/Vec3f>
 
 class btCollisionShape;
-class btCollisionObject;
 class btCollisionWorld;
 class btConvexShape;
 
@@ -33,20 +31,22 @@ namespace MWPhysics
             bool canWaterWalk, DetourNavigator::CollisionShapeType collisionShapeType);
         ~Actor() override;
 
+        Actor(const Actor&) = delete;
+
+        Actor& operator=(const Actor&) = delete;
+
         /**
          * Sets the collisionMode for this actor. If disabled, the actor can fly and clip geometry.
          */
         void enableCollisionMode(bool collision);
 
-        bool getCollisionMode() const
-        {
-            return mInternalCollisionMode;
-        }
+        bool getCollisionMode() const { return mInternalCollisionMode; }
 
         btConvexShape* getConvexShape() const { return mConvexShape; }
 
         /**
-         * Enables or disables the *external* collision body. If disabled, other actors will not collide with this actor.
+         * Enables or disables the *external* collision body. If disabled, other actors will not collide with this
+         * actor.
          */
         void enableCollisionBody(bool collision);
 
@@ -59,9 +59,9 @@ namespace MWPhysics
         bool isRotationallyInvariant() const;
 
         /**
-        * Used by the physics simulation to store the simulation result. Used in conjunction with mWorldPosition
-        * to account for e.g. scripted movements
-        */
+         * Used by the physics simulation to store the simulation result. Used in conjunction with mWorldPosition
+         * to account for e.g. scripted movements
+         */
         void setSimulationPosition(const osg::Vec3f& position);
 
         void updateCollisionObjectPosition();
@@ -78,14 +78,15 @@ namespace MWPhysics
 
         /**
          * Returns the position of the collision body
-         * @note The collision shape's origin is in its center, so the position returned can be described as center of the actor collision box in world space.
+         * @note The collision shape's origin is in its center, so the position returned can be described as center of
+         * the actor collision box in world space.
          */
         osg::Vec3f getCollisionObjectPosition() const;
 
         /**
-          * Store the current position into mPreviousPosition, then move to this position.
-          * Returns true if the new position is different.
-          */
+         * Store the current position into mPreviousPosition, then move to this position.
+         * Returns true if the new position is different.
+         */
         bool setPosition(const osg::Vec3f& position);
 
         // force set actor position to be as in Ptr::RefData
@@ -99,23 +100,21 @@ namespace MWPhysics
 
         /**
          * Returns the half extents of the collision body (scaled according to rendering scale)
-         * @note The reason we need this extra method is because of an inconsistency in MW - NPC race scales aren't applied to the collision shape,
-         * most likely to make environment collision testing easier. However in some cases (swimming level) we want the actual scale.
+         * @note The reason we need this extra method is because of an inconsistency in MW - NPC race scales aren't
+         * applied to the collision shape, most likely to make environment collision testing easier. However in some
+         * cases (swimming level) we want the actual scale.
          */
         osg::Vec3f getRenderingHalfExtents() const;
 
         /**
          * Sets the current amount of inertial force (incl. gravity) affecting this physic actor
          */
-        void setInertialForce(const osg::Vec3f &force);
+        void setInertialForce(const osg::Vec3f& force);
 
         /**
          * Gets the current amount of inertial force (incl. gravity) affecting this physic actor
          */
-        const osg::Vec3f &getInertialForce() const
-        {
-            return mForce;
-        }
+        const osg::Vec3f& getInertialForce() const { return mForce; }
 
         void setOnGround(bool grounded);
 
@@ -135,23 +134,11 @@ namespace MWPhysics
         MWWorld::Ptr getStandingOnPtr() const;
         void setStandingOnPtr(const MWWorld::Ptr& ptr);
 
-        unsigned int getStuckFrames() const
-        {
-            return mStuckFrames;
-        }
-        void setStuckFrames(unsigned int frames)
-        {
-            mStuckFrames = frames;
-        }
+        unsigned int getStuckFrames() const { return mStuckFrames; }
+        void setStuckFrames(unsigned int frames) { mStuckFrames = frames; }
 
-        const osg::Vec3f &getLastStuckPosition() const
-        {
-            return mLastStuckPosition;
-        }
-        void setLastStuckPosition(osg::Vec3f position)
-        {
-            mLastStuckPosition = position;
-        }
+        const osg::Vec3f& getLastStuckPosition() const { return mLastStuckPosition; }
+        void setLastStuckPosition(osg::Vec3f position) { mLastStuckPosition = position; }
 
         bool canMoveToWaterSurface(float waterlevel, const btCollisionWorld* world) const;
 
@@ -189,7 +176,7 @@ namespace MWPhysics
 
         osg::Vec3f mScale;
         osg::Vec3f mPositionOffset;
-        bool mSkipSimulation;
+        bool mSkipSimulation = true;
         mutable std::mutex mPositionMutex;
 
         unsigned int mStuckFrames;
@@ -204,11 +191,11 @@ namespace MWPhysics
 
         PhysicsTaskScheduler* mTaskScheduler;
 
-        Actor(const Actor&);
-        Actor& operator=(const Actor&);
+        inline void updateScaleUnsafe();
+
+        inline void updateCollisionObjectPositionUnsafe();
     };
 
 }
-
 
 #endif

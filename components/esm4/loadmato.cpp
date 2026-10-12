@@ -33,34 +33,38 @@
 
 void ESM4::Material::load(ESM4::Reader& reader)
 {
-    //mFormId = reader.adjustFormId(reader.hdr().record.id); // FIXME: use master adjusted?
-    mFormId = reader.hdr().record.id;
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel);    break;
-            case ESM4::SUB_DNAM:
-            case ESM4::SUB_DATA:
-            {
-                //std::cout << "MATO " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("DNAM"):
+            case ESM::fourCC("DATA"):
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::MATO::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::Material::save(ESM4::Writer& writer) const
+// void ESM4::Material::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::Material::blank()
+// void ESM4::Material::blank()
 //{
-//}
+// }

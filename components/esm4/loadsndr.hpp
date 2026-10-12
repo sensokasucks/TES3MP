@@ -30,8 +30,9 @@
 #include <cstdint>
 #include <string>
 
-#include "formid.hpp"
 #include "script.hpp" // TargetCondition
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 namespace ESM4
 {
@@ -49,8 +50,8 @@ namespace ESM4
     struct SoundInfo
     {
         std::int8_t frequencyAdjustment; // %, signed
-        std::uint8_t frequencyVariance;  // %
-        std::uint8_t priority;           // default 128
+        std::uint8_t frequencyVariance; // %
+        std::uint8_t priority; // default 128
         std::uint8_t dBVriance;
         std::uint16_t staticAttenuation; // divide by 100 to get value in dB
     };
@@ -58,14 +59,15 @@ namespace ESM4
 
     struct SoundReference
     {
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
 
-        FormId mSoundCategory; // SNCT
-        FormId mSoundId; // another SNDR
-        FormId mOutputModel; // SOPM
+        ESM::FormId mSoundCategory; // SNCT
+        ESM::FormId mSoundId; // another SNDR
+        ESM::FormId mOutputModel; // SOPM
+        ESM::FormId mBaseDescriptor; // BNAM
 
         std::string mSoundFile;
         LoopInfo mLoopInfo;
@@ -74,9 +76,10 @@ namespace ESM4
         TargetCondition mTargetCondition;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_SNDR4;
     };
 }
 

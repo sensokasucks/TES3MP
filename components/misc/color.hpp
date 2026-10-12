@@ -3,31 +3,38 @@
 
 #include <string>
 
+#include <osg/Vec4>
+
 namespace Misc
 {
     class Color
     {
-        public:
-            Color(float r, float g, float b, float a);
+        explicit Color(osg::Vec4&& value)
+            : mValue(value)
+        {
+        }
 
-            float r() const { return mR; }
-            float g() const { return mG; }
-            float b() const { return mB; }
-            float a() const { return mA; }
+    public:
+        Color() = default;
+        Color(float r, float g, float b, float a);
 
-            std::string toString() const;
+        float r() const { return mValue.r(); }
+        float g() const { return mValue.g(); }
+        float b() const { return mValue.b(); }
+        float a() const { return mValue.a(); }
 
-            static Color fromHex(std::string_view hex);
+        std::string toString() const;
 
-            std::string toHex() const;
+        static Color fromHex(std::string_view hex);
+        static Color fromRGB(unsigned int value);
 
-            friend bool operator==(const Color& l, const Color& r);
+        std::string toHex() const;
+        unsigned int toRGBA() const { return mValue.asRGBA(); }
 
-        private:
-            float mR;
-            float mG;
-            float mB;
-            float mA;
+        friend bool operator==(const Color& l, const Color& r);
+
+    private:
+        osg::Vec4 mValue;
     };
 }
 

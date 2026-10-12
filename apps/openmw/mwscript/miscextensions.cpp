@@ -1,8 +1,8 @@
 #include "miscextensions.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <iomanip>
-#include <chrono>
 #include <sstream>
 
 /*
@@ -20,46 +20,73 @@
 */
 
 #include <components/compiler/extensions.hpp>
-#include <components/compiler/opcodes.hpp>
 #include <components/compiler/locals.hpp>
+#include <components/compiler/opcodes.hpp>
 
 #include <components/debug/debuglog.hpp>
 
 #include <components/interpreter/interpreter.hpp>
-#include <components/interpreter/runtime.hpp>
 #include <components/interpreter/opcodes.hpp>
+#include <components/interpreter/runtime.hpp>
 
-#include <components/misc/rng.hpp>
 #include <components/misc/resourcehelpers.hpp>
+#include <components/misc/rng.hpp>
 
 #include <components/resource/resourcesystem.hpp>
+#include <components/resource/scenemanager.hpp>
 
-#include <components/esm3/loadmgef.hpp>
+#include <components/sceneutil/positionattitudetransform.hpp>
+
+#include <components/esm3/loadacti.hpp>
+#include <components/esm3/loadalch.hpp>
+#include <components/esm3/loadappa.hpp>
+#include <components/esm3/loadarmo.hpp>
+#include <components/esm3/loadbody.hpp>
+#include <components/esm3/loadbook.hpp>
+#include <components/esm3/loadclot.hpp>
+#include <components/esm3/loadcont.hpp>
 #include <components/esm3/loadcrea.hpp>
+#include <components/esm3/loaddoor.hpp>
+#include <components/esm3/loadingr.hpp>
+#include <components/esm3/loadlevlist.hpp>
+#include <components/esm3/loadligh.hpp>
+#include <components/esm3/loadlock.hpp>
+#include <components/esm3/loadmgef.hpp>
+#include <components/esm3/loadmisc.hpp>
+#include <components/esm3/loadprob.hpp>
+#include <components/esm3/loadrepa.hpp>
+#include <components/esm3/loadscpt.hpp>
+#include <components/esm3/loadstat.hpp>
+#include <components/esm3/loadweap.hpp>
 
+#include <components/files/conversion.hpp>
+#include <components/misc/strings/conversion.hpp>
+#include <components/sceneutil/util.hpp>
 #include <components/vfs/manager.hpp>
 
 #include "../mwbase/environment.hpp"
-#include "../mwbase/windowmanager.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/scriptmanager.hpp"
 #include "../mwbase/soundmanager.hpp"
+#include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
-#include "../mwbase/luamanager.hpp"
 
-#include "../mwworld/class.hpp"
-#include "../mwworld/player.hpp"
-#include "../mwworld/containerstore.hpp"
-#include "../mwworld/inventorystore.hpp"
-#include "../mwworld/esmstore.hpp"
 #include "../mwworld/cellstore.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/containerstore.hpp"
+#include "../mwworld/esmstore.hpp"
+#include "../mwworld/inventorystore.hpp"
 #include "../mwworld/manualref.hpp"
+#include "../mwworld/player.hpp"
 
-#include "../mwmechanics/aicast.hpp"
-#include "../mwmechanics/npcstats.hpp"
-#include "../mwmechanics/creaturestats.hpp"
-#include "../mwmechanics/spellcasting.hpp"
 #include "../mwmechanics/actorutil.hpp"
+#include "../mwmechanics/aicast.hpp"
+#include "../mwmechanics/creaturestats.hpp"
+#include "../mwmechanics/npcstats.hpp"
+#include "../mwmechanics/spellcasting.hpp"
+
+#include "../mwrender/animation.hpp"
 
 #include "interpretercontext.hpp"
 #include "ref.hpp"
@@ -67,7 +94,42 @@
 namespace
 {
 
-    void addToLevList(ESM::LevelledListBase* list, std::string_view itemId, int level)
+    struct TextureFetchVisitor : osg::NodeVisitor
+    {
+        std::vector<std::pair<std::string, std::string>> mTextures;
+
+        TextureFetchVisitor(osg::NodeVisitor::TraversalMode mode = TRAVERSE_ALL_CHILDREN)
+            : osg::NodeVisitor(mode)
+        {
+        }
+
+        void apply(osg::Node& node) override
+        {
+            const osg::StateSet* stateset = node.getStateSet();
+            if (stateset)
+            {
+                const osg::StateSet::TextureAttributeList& texAttributes = stateset->getTextureAttributeList();
+                for (size_t i = 0; i < texAttributes.size(); i++)
+                {
+                    const osg::StateAttribute* attr = stateset->getTextureAttribute(i, osg::StateAttribute::TEXTURE);
+                    if (!attr)
+                        continue;
+                    const osg::Texture* texture = attr->asTexture();
+                    if (!texture)
+                        continue;
+                    const osg::Image* image = texture->getImage(0);
+                    std::string fileName;
+                    if (image)
+                        fileName = image->getFileName();
+                    mTextures.emplace_back(SceneUtil::getTextureType(*stateset, *texture, i), fileName);
+                }
+            }
+
+            traverse(node);
+        }
+    };
+
+    void addToLevList(ESM::LevelledListBase* list, const ESM::RefId& itemId, int level)
     {
         for (auto& levelItem : list->mList)
         {
@@ -76,12 +138,12 @@ namespace
         }
 
         ESM::LevelledListBase::LevelItem item;
-        item.mId = std::string{itemId};
+        item.mId = itemId;
         item.mLevel = level;
         list->mList.push_back(item);
     }
 
-    void removeFromLevList(ESM::LevelledListBase* list, std::string_view itemId, int level)
+    void removeFromLevList(ESM::LevelledListBase* list, const ESM::RefId& itemId, int level)
     {
         // level of -1 removes all items with that itemId
         for (std::vector<ESM::LevelledListBase::LevelItem>::iterator it = list->mList.begin(); it != list->mList.end();)
@@ -91,7 +153,7 @@ namespace
                 ++it;
                 continue;
             }
-            if (Misc::StringUtils::ciEqual(itemId, it->mId))
+            if (itemId == it->mId)
                 it = list->mList.erase(it);
             else
                 ++it;
@@ -106,10 +168,9 @@ namespace MWScript
     {
         class OpMenuMode : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
                     /*
                         Start of tes3mp change (major)
 
@@ -120,83 +181,92 @@ namespace MWScript
                     /*
                         End of tes3mp change (major)
                     */
-                }
+            }
         };
 
         class OpRandom : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                Interpreter::Type_Integer limit = runtime[0].mInteger;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    Interpreter::Type_Integer limit = runtime[0].mInteger;
-                    runtime.pop();
+                if (limit < 0)
+                    throw std::runtime_error("random: argument out of range (Don't be so negative!)");
 
-                    if (limit<0)
-                        throw std::runtime_error (
-                            "random: argument out of range (Don't be so negative!)");
-
-                    auto& prng = MWBase::Environment::get().getWorld()->getPrng();
-                    runtime.push (static_cast<Interpreter::Type_Float>(::Misc::Rng::rollDice(limit, prng))); // [o, limit)
-                }
+                auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+                runtime.push(static_cast<Interpreter::Type_Float>(::Misc::Rng::rollDice(limit, prng))); // [o, limit)
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpStartScript : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr target = R()(runtime, false);
+                ESM::RefId name = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
+                if (!MWBase::Environment::get().getESMStore()->get<ESM::Script>().search(name))
                 {
-                    MWWorld::Ptr target = R()(runtime, false);
-                    std::string_view name = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-                    MWBase::Environment::get().getScriptManager()->getGlobalScripts().addScript (name, target);
+                    runtime.getContext().report(
+                        "Failed to start global script '" + name.getRefIdString() + "': script record not found");
+                    return;
                 }
+
+                MWBase::Environment::get().getScriptManager()->getGlobalScripts().addScript(name, target);
+            }
         };
 
         class OpScriptRunning : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    std::string_view name = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-                    runtime.push(MWBase::Environment::get().getScriptManager()->getGlobalScripts().isRunning (name));
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                const ESM::RefId& name = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
+                runtime.push(MWBase::Environment::get().getScriptManager()->getGlobalScripts().isRunning(name));
+            }
         };
 
         class OpStopScript : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                const ESM::RefId& name = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
+                if (!MWBase::Environment::get().getESMStore()->get<ESM::Script>().search(name))
                 {
-                    std::string_view name = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-                    MWBase::Environment::get().getScriptManager()->getGlobalScripts().removeScript (name);
+                    runtime.getContext().report(
+                        "Failed to stop global script '" + name.getRefIdString() + "': script record not found");
+                    return;
                 }
+
+                MWBase::Environment::get().getScriptManager()->getGlobalScripts().removeScript(name);
+            }
         };
 
         class OpGetSecondsPassed : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    runtime.push (MWBase::Environment::get().getFrameDuration());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.push(MWBase::Environment::get().getFrameDuration());
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpEnable : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
                     /*
                         Start of tes3mp addition
@@ -237,17 +307,35 @@ namespace MWScript
                     /*
                         End of tes3mp change (major)
                     */
-                }
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpDisable : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr;
+                if (!R::implicit)
                 {
-                    MWWorld::Ptr ptr = R()(runtime);
+                    ESM::RefId name = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                    runtime.pop();
+
+                    ptr = MWBase::Environment::get().getWorld()->searchPtr(name, false);
+                    // We don't normally want to let this go, but some mods insist on trying this
+                    if (ptr.isEmpty())
+                    {
+                        const std::string error = "Failed to find an instance of object " + name.toDebugString();
+                        runtime.getContext().report(error);
+                        Log(Debug::Error) << error;
+                        return;
+                    }
+                }
+                else
+                {
+                    ptr = R()(runtime);
+                }
 
                     /*
                         Start of tes3mp addition
@@ -288,28 +376,26 @@ namespace MWScript
                     /*
                         End of tes3mp change (major)
                     */
-                }
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpGetDisabled : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    runtime.push (!ptr.getRefData().isEnabled());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                runtime.push(!ptr.getRefData().isEnabled());
+            }
         };
 
         class OpPlayBink : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                std::string name{runtime.getStringLiteral(runtime[0].mInteger)};
+                std::string_view name = runtime.getStringLiteral(runtime[0].mInteger);
                 runtime.pop();
 
                 bool allowSkipping = runtime[0].mInteger != 0;
@@ -334,100 +420,90 @@ namespace MWScript
                     End of tes3mp addition
                 */
 
-                MWBase::Environment::get().getWindowManager()->playVideo (name, allowSkipping);
+                MWBase::Environment::get().getWindowManager()->playVideo(name, allowSkipping);
             }
         };
 
         class OpGetPcSleep : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                runtime.push (MWBase::Environment::get().getWindowManager ()->getPlayerSleeping());
+                runtime.push(MWBase::Environment::get().getWindowManager()->getPlayerSleeping());
             }
         };
 
         class OpGetPcJumping : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWBase::World* world = MWBase::Environment::get().getWorld();
-                runtime.push (world->getPlayer().getJumping());
+                runtime.push(world->getPlayer().getJumping());
             }
         };
 
         class OpWakeUpPc : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                MWBase::Environment::get().getWindowManager ()->wakeUpPlayer();
+                MWBase::Environment::get().getWindowManager()->wakeUpPlayer();
             }
         };
 
         class OpXBox : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    runtime.push (0);
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override { runtime.push(0); }
         };
 
         template <class R>
         class OpOnActivate : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    runtime.push (ptr.getRefData().onActivate());
-                }
+                runtime.push(ptr.getRefData().onActivate());
+            }
         };
 
         template <class R>
         class OpActivate : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                InterpreterContext& context = static_cast<InterpreterContext&>(runtime.getContext());
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    InterpreterContext& context =
-                        static_cast<InterpreterContext&> (runtime.getContext());
+                MWWorld::Ptr ptr = R()(runtime);
 
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    if (ptr.getRefData().activateByScript() || ptr.getContainerStore())
-                        context.executeActivation(ptr, MWMechanics::getPlayer());
-                }
+                if (ptr.getRefData().activateByScript() || ptr.getContainerStore())
+                    context.executeActivation(ptr, MWMechanics::getPlayer());
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpLock : public Interpreter::Opcode1
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime, unsigned int arg0) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime, unsigned int arg0) override
+                Interpreter::Type_Integer lockLevel = ptr.getCellRef().getLockLevel();
+                if (lockLevel == 0)
+                { // no lock level was ever set, set to 100 as default
+                    lockLevel = 100;
+                }
+
+                if (arg0 == 1)
                 {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    Interpreter::Type_Integer lockLevel = ptr.getCellRef().getLockLevel();
-                    if(lockLevel==0) { //no lock level was ever set, set to 100 as default
-                        lockLevel = 100;
-                    }
-
-                    if (arg0==1)
-                    {
-                        lockLevel = runtime[0].mInteger;
-                        runtime.pop();
-                    }
+                    lockLevel = runtime[0].mInteger;
+                    runtime.pop();
+                }
 
                     /*
                         Start of tes3mp addition
@@ -460,24 +536,23 @@ namespace MWScript
                         End of tes3mp change (major)
                     */
 
-                    // Instantly reset door to closed state
-                    // This is done when using Lock in scripts, but not when using Lock spells.
-                    if (ptr.getType() == ESM::Door::sRecordId && !ptr.getCellRef().getTeleport())
-                    {
-                        MWBase::Environment::get().getWorld()->activateDoor(ptr, MWWorld::DoorState::Idle);
-                    }
+                // Instantly reset door to closed state
+                // This is done when using Lock in scripts, but not when using Lock spells.
+                if (ptr.getType() == ESM::Door::sRecordId && !ptr.getCellRef().getTeleport())
+                {
+                    MWBase::Environment::get().getWorld()->activateDoor(ptr, MWWorld::DoorState::Idle);
                 }
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpUnlock : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                if (ptr.getCellRef().isLocked())
                     /*
                         Start of tes3mp addition
 
@@ -507,159 +582,139 @@ namespace MWScript
                     /*
                         End of tes3mp change (major)
                     */
-                }
+            }
         };
 
         class OpToggleCollisionDebug : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_CollisionDebug);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_CollisionDebug);
-
-                    runtime.getContext().report (enabled ?
-                        "Collision Mesh Rendering -> On" : "Collision Mesh Rendering -> Off");
-                }
+                runtime.getContext().report(
+                    enabled ? "Collision Mesh Rendering -> On" : "Collision Mesh Rendering -> Off");
+            }
         };
-
 
         class OpToggleCollisionBoxes : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_CollisionDebug);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_CollisionDebug);
-
-                    runtime.getContext().report (enabled ?
-                        "Collision Mesh Rendering -> On" : "Collision Mesh Rendering -> Off");
-                }
+                runtime.getContext().report(
+                    enabled ? "Collision Mesh Rendering -> On" : "Collision Mesh Rendering -> Off");
+            }
         };
 
         class OpToggleWireframe : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_Wireframe);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_Wireframe);
-
-                    runtime.getContext().report (enabled ?
-                        "Wireframe Rendering -> On" : "Wireframe Rendering -> Off");
-                }
+                runtime.getContext().report(enabled ? "Wireframe Rendering -> On" : "Wireframe Rendering -> Off");
+            }
         };
 
         class OpToggleBorders : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleBorders();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleBorders();
-
-                    runtime.getContext().report (enabled ?
-                        "Border Rendering -> On" : "Border Rendering -> Off");
-                }
+                runtime.getContext().report(enabled ? "Border Rendering -> On" : "Border Rendering -> Off");
+            }
         };
 
         class OpTogglePathgrid : public Interpreter::Opcode0
         {
         public:
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                bool enabled =
-                    MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_Pathgrid);
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_Pathgrid);
 
-                runtime.getContext().report (enabled ?
-                    "Path Grid rendering -> On" : "Path Grid Rendering -> Off");
+                runtime.getContext().report(enabled ? "Path Grid rendering -> On" : "Path Grid Rendering -> Off");
             }
         };
 
         class OpFadeIn : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                Interpreter::Type_Float time = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    Interpreter::Type_Float time = runtime[0].mFloat;
-                    runtime.pop();
-
-                    MWBase::Environment::get().getWindowManager()->fadeScreenIn(time, false);
-                }
+                MWBase::Environment::get().getWindowManager()->fadeScreenIn(time, false);
+            }
         };
 
         class OpFadeOut : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                Interpreter::Type_Float time = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    Interpreter::Type_Float time = runtime[0].mFloat;
-                    runtime.pop();
-
-                    MWBase::Environment::get().getWindowManager()->fadeScreenOut(time, false);
-                }
+                MWBase::Environment::get().getWindowManager()->fadeScreenOut(time, false);
+            }
         };
 
         class OpFadeTo : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                Interpreter::Type_Float alpha = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    Interpreter::Type_Float alpha = runtime[0].mFloat;
-                    runtime.pop();
+                Interpreter::Type_Float time = runtime[0].mFloat;
+                runtime.pop();
 
-                    Interpreter::Type_Float time = runtime[0].mFloat;
-                    runtime.pop();
-
-                    MWBase::Environment::get().getWindowManager()->fadeScreenTo(static_cast<int>(alpha), time, false);
-                }
+                MWBase::Environment::get().getWindowManager()->fadeScreenTo(static_cast<int>(alpha), time, false);
+            }
         };
 
         class OpToggleWater : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    runtime.getContext().report(MWBase::Environment::get().getWorld()->toggleWater() ? "Water -> On"
-                                                                                                     : "Water -> Off");
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.getContext().report(
+                    MWBase::Environment::get().getWorld()->toggleWater() ? "Water -> On" : "Water -> Off");
+            }
         };
 
         class OpToggleWorld : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    runtime.getContext().report(MWBase::Environment::get().getWorld()->toggleWorld() ? "World -> On"
-                                                                                                     : "World -> Off");
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.getContext().report(
+                    MWBase::Environment::get().getWorld()->toggleWorld() ? "World -> On" : "World -> Off");
+            }
         };
 
         class OpDontSaveObject : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    // We are ignoring the DontSaveObject statement for now. Probably not worth
-                    // bothering with. The incompatibility we are creating should be marginal at most.
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                // We are ignoring the DontSaveObject statement for now. Probably not worth
+                // bothering with. The incompatibility we are creating should be marginal at most.
+            }
         };
 
         class OpPcForce1stPerson : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 if (!MWBase::Environment::get().getWorld()->isFirstPerson())
                     MWBase::Environment::get().getWorld()->togglePOV(true);
@@ -668,7 +723,7 @@ namespace MWScript
 
         class OpPcForce3rdPerson : public Interpreter::Opcode0
         {
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 if (MWBase::Environment::get().getWorld()->isFirstPerson())
                     MWBase::Environment::get().getWorld()->togglePOV(true);
@@ -689,16 +744,17 @@ namespace MWScript
             static bool sActivate;
 
         public:
-
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                MWBase::World *world =
-                    MWBase::Environment::get().getWorld();
+                MWBase::World* world = MWBase::Environment::get().getWorld();
 
-                if (world->toggleVanityMode(sActivate)) {
+                if (world->toggleVanityMode(sActivate))
+                {
                     runtime.getContext().report(sActivate ? "Vanity Mode -> On" : "Vanity Mode -> Off");
                     sActivate = !sActivate;
-                } else {
+                }
+                else
+                {
                     runtime.getContext().report("Vanity Mode -> No");
                 }
             }
@@ -708,302 +764,312 @@ namespace MWScript
         template <class R>
         class OpGetLocked : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    runtime.push (ptr.getCellRef().getLockLevel() > 0);
-                }
+                runtime.push(ptr.getCellRef().isLocked());
+            }
         };
 
         template <class R>
         class OpGetEffect : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
+                std::string_view effect = runtime.getStringLiteral(runtime[0].mInteger);
+                runtime.pop();
+
+                if (!ptr.getClass().isActor())
                 {
-                    MWWorld::Ptr ptr = R()(runtime);
+                    runtime.push(0);
+                    return;
+                }
 
-                    std::string_view effect = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
+                long key;
 
-                    if (!ptr.getClass().isActor())
+                if (const auto k = ::Misc::StringUtils::toNumeric<long>(effect.data());
+                    k.has_value() && *k >= 0 && *k <= 32767)
+                    key = *k;
+                else
+                    key = ESM::MagicEffect::effectGmstIdToIndex(effect);
+
+                const MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
+                for (const auto& spell : stats.getActiveSpells())
+                {
+                    for (const auto& effect : spell.getEffects())
                     {
-                        runtime.push(0);
-                        return;
-                    }
-
-                    char *end;
-                    long key = strtol(effect.data(), &end, 10);
-                    if(key < 0 || key > 32767 || *end != '\0')
-                        key = ESM::MagicEffect::effectStringToId({effect});
-
-                    const MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
-
-                    const MWMechanics::MagicEffects& effects = stats.getMagicEffects();
-
-                    for (const auto& activeEffect : effects)
-                    {
-                        if (activeEffect.first.mId == key && activeEffect.second.getModifier() > 0)
+                        if (effect.mFlags & ESM::ActiveEffect::Flag_Applied && effect.mEffectId == key)
                         {
                             runtime.push(1);
                             return;
                         }
                     }
-                    runtime.push(0);
-               }
+                }
+                runtime.push(0);
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpAddSoulGem : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
+                ESM::RefId creature = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                    std::string creature{runtime.getStringLiteral(runtime[0].mInteger)};
-                    runtime.pop();
+                ESM::RefId gem = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                    std::string_view gem = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
+                if (!ptr.getClass().isActor())
+                    return;
 
-                    if (!ptr.getClass().hasInventoryStore(ptr))
-                        return;
+                const MWWorld::ESMStore& store = *MWBase::Environment::get().getESMStore();
+                store.get<ESM::Creature>().find(
+                    creature); // This line throws an exception if it can't find the creature
 
-                    const MWWorld::ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
-                    store.get<ESM::Creature>().find(creature); // This line throws an exception if it can't find the creature
+                MWWorld::Ptr item = *ptr.getClass().getContainerStore(ptr).add(gem, 1);
 
-                    MWWorld::Ptr item = *ptr.getClass().getContainerStore(ptr).add(gem, 1, ptr);
+                // Set the soul on just one of the gems, not the whole stack
+                item.getContainerStore()->unstack(item);
+                item.getCellRef().setSoul(creature);
 
-                    // Set the soul on just one of the gems, not the whole stack
-                    item.getContainerStore()->unstack(item, ptr);
-                    item.getCellRef().setSoul(creature);
-
-                    // Restack the gem with other gems with the same soul
-                    item.getContainerStore()->restack(item);
-                }
+                // Restack the gem with other gems with the same soul
+                item.getContainerStore()->restack(item);
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpRemoveSoulGem : public Interpreter::Opcode1
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime, unsigned int arg0) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime, unsigned int arg0) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
+                ESM::RefId soul = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                    std::string_view soul = runtime.getStringLiteral(runtime[0].mInteger);
+                // throw away additional arguments
+                for (unsigned int i = 0; i < arg0; ++i)
                     runtime.pop();
 
-                    // throw away additional arguments
-                    for (unsigned int i=0; i<arg0; ++i)
-                        runtime.pop();
+                if (!ptr.getClass().isActor())
+                    return;
 
-                    if (!ptr.getClass().hasInventoryStore(ptr))
-                        return;
-
-                    MWWorld::InventoryStore& store = ptr.getClass().getInventoryStore(ptr);
-                    for (MWWorld::ContainerStoreIterator it = store.begin(); it != store.end(); ++it)
+                MWWorld::ContainerStore& store = ptr.getClass().getContainerStore(ptr);
+                for (MWWorld::ContainerStoreIterator it = store.begin(); it != store.end(); ++it)
+                {
+                    if (it->getCellRef().getSoul() == soul)
                     {
-                        if (::Misc::StringUtils::ciEqual(it->getCellRef().getSoul(), soul))
-                        {
-                            store.remove(*it, 1, ptr);
-                            return;
-                        }
+                        store.remove(*it, 1);
+                        return;
                     }
                 }
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpDrop : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
 
-                void execute (Interpreter::Runtime& runtime) override
+                MWWorld::Ptr ptr = R()(runtime);
+
+                ESM::RefId item = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
+
+                Interpreter::Type_Integer amount = runtime[0].mInteger;
+                runtime.pop();
+
+                if (amount < 0)
+                    throw std::runtime_error("amount must be non-negative");
+
+                // no-op
+                if (amount == 0)
+                    return;
+
+                if (!ptr.getClass().isActor())
+                    return;
+
+                MWWorld::InventoryStore* invStorePtr = nullptr;
+                if (ptr.getClass().hasInventoryStore(ptr))
                 {
-
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    std::string_view item = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-
-                    Interpreter::Type_Integer amount = runtime[0].mInteger;
-                    runtime.pop();
-
-                    if (amount<0)
-                        throw std::runtime_error ("amount must be non-negative");
-
-                    // no-op
-                    if (amount == 0)
-                        return;
-
-                    if (!ptr.getClass().isActor())
-                        return;
-
-                    if (ptr.getClass().hasInventoryStore(ptr))
+                    invStorePtr = &ptr.getClass().getInventoryStore(ptr);
+                    // Prefer dropping unequipped items first; re-stack if possible by unequipping items before dropping
+                    // them.
+                    int numNotEquipped = invStorePtr->count(item);
+                    for (int slot = 0; slot < MWWorld::InventoryStore::Slots; ++slot)
                     {
-                        // Prefer dropping unequipped items first; re-stack if possible by unequipping items before dropping them.
-                        MWWorld::InventoryStore& store = ptr.getClass().getInventoryStore(ptr);
-                        int numNotEquipped = store.count(item);
-                        for (int slot = 0; slot < MWWorld::InventoryStore::Slots; ++slot)
+                        MWWorld::ConstContainerStoreIterator it = invStorePtr->getSlot(slot);
+                        if (it != invStorePtr->end() && it->getCellRef().getRefId() == item)
                         {
-                            MWWorld::ConstContainerStoreIterator it = store.getSlot (slot);
-                            if (it != store.end() && ::Misc::StringUtils::ciEqual(it->getCellRef().getRefId(), item))
-                            {
-                                numNotEquipped -= it->getRefData().getCount();
-                            }
-                        }
-
-                        for (int slot = 0; slot < MWWorld::InventoryStore::Slots && amount > numNotEquipped; ++slot)
-                        {
-                            MWWorld::ContainerStoreIterator it = store.getSlot (slot);
-                            if (it != store.end() && ::Misc::StringUtils::ciEqual(it->getCellRef().getRefId(), item))
-                            {
-                                int numToRemove = std::min(amount - numNotEquipped, it->getRefData().getCount());
-                                store.unequipItemQuantity(*it, ptr, numToRemove);
-                                numNotEquipped += numToRemove;
-                            }
-                        }
-
-                        for (MWWorld::ContainerStoreIterator iter (store.begin()); iter!=store.end(); ++iter)
-                        {
-                            if (::Misc::StringUtils::ciEqual(iter->getCellRef().getRefId(), item) && !store.isEquipped(*iter))
-                            {
-                                int removed = store.remove(*iter, amount, ptr);
-                                MWWorld::Ptr dropped = MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, *iter, removed);
-                                dropped.getCellRef().setOwner("");
-
-                                amount -= removed;
-
-                                if (amount <= 0)
-                                    break;
-                            }
+                            numNotEquipped -= it->getCellRef().getCount();
                         }
                     }
 
-                    MWWorld::ManualRef ref(MWBase::Environment::get().getWorld()->getStore(), item, 1);
-                    MWWorld::Ptr itemPtr(ref.getPtr());
-                    if (amount > 0)
+                    for (int slot = 0; slot < MWWorld::InventoryStore::Slots && amount > numNotEquipped; ++slot)
                     {
-                        if (itemPtr.getClass().getScript(itemPtr).empty())
+                        MWWorld::ContainerStoreIterator it = invStorePtr->getSlot(slot);
+                        if (it != invStorePtr->end() && it->getCellRef().getRefId() == item)
                         {
-                            MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, itemPtr, amount);
-                        }
-                        else
-                        {
-                            // Dropping one item per time to prevent making stacks of scripted items
-                            for (int i = 0; i < amount; i++)
-                                MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, itemPtr, 1);
+                            int numToRemove = std::min(amount - numNotEquipped, it->getCellRef().getCount());
+                            invStorePtr->unequipItemQuantity(*it, numToRemove);
+                            numNotEquipped += numToRemove;
                         }
                     }
-
-                    MWBase::Environment::get().getSoundManager()->playSound3D(ptr, itemPtr.getClass().getDownSoundId(itemPtr), 1.f, 1.f);
                 }
+
+                MWWorld::ContainerStore& store = ptr.getClass().getContainerStore(ptr);
+                for (MWWorld::ContainerStoreIterator iter(store.begin()); iter != store.end(); ++iter)
+                {
+                    if (iter->getCellRef().getRefId() == item && (!invStorePtr || !invStorePtr->isEquipped(*iter)))
+                    {
+                        int removed = store.remove(*iter, amount);
+                        MWWorld::Ptr dropped
+                            = MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, *iter, removed);
+                        dropped.getCellRef().setOwner(ESM::RefId());
+
+                        amount -= removed;
+
+                        if (amount <= 0)
+                            break;
+                    }
+                }
+
+                MWWorld::ManualRef ref(*MWBase::Environment::get().getESMStore(), item, 1);
+                MWWorld::Ptr itemPtr(ref.getPtr());
+                if (amount > 0)
+                {
+                    if (itemPtr.getClass().getScript(itemPtr).empty())
+                    {
+                        MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, itemPtr, amount);
+                    }
+                    else
+                    {
+                        // Dropping one item per time to prevent making stacks of scripted items
+                        for (int i = 0; i < amount; i++)
+                            MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, itemPtr, 1);
+                    }
+                }
+
+                MWBase::Environment::get().getSoundManager()->playSound3D(
+                    ptr, itemPtr.getClass().getDownSoundId(itemPtr), 1.f, 1.f);
+            }
         };
 
-        template<class R>
+        template <class R>
         class OpDropSoulGem : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
 
-                void execute (Interpreter::Runtime& runtime) override
+                MWWorld::Ptr ptr = R()(runtime);
+
+                ESM::RefId soul = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
+
+                if (!ptr.getClass().isActor())
+                    return;
+
+                MWWorld::ContainerStore& store = ptr.getClass().getContainerStore(ptr);
+
+                for (MWWorld::ContainerStoreIterator iter(store.begin()); iter != store.end(); ++iter)
                 {
-
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    std::string_view soul = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-
-                    if (!ptr.getClass().hasInventoryStore(ptr))
-                        return;
-
-                    MWWorld::InventoryStore& store = ptr.getClass().getInventoryStore(ptr);
-
-                    for (MWWorld::ContainerStoreIterator iter (store.begin()); iter!=store.end(); ++iter)
+                    if (iter->getCellRef().getSoul() == soul)
                     {
-                        if (::Misc::StringUtils::ciEqual(iter->getCellRef().getSoul(), soul))
-                        {
-                            MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, *iter, 1);
-                            store.remove(*iter, 1, ptr);
-                            break;
-                        }
+                        MWBase::Environment::get().getWorld()->dropObjectOnGround(ptr, *iter, 1);
+                        store.remove(*iter, 1);
+                        break;
                     }
                 }
+            }
         };
 
         template <class R>
         class OpGetAttacked : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    runtime.push(ptr.getClass().getCreatureStats (ptr).getAttacked ());
-                }
+                runtime.push(ptr.getClass().getCreatureStats(ptr).getAttacked());
+            }
         };
 
         template <class R>
         class OpGetWeaponDrawn : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                auto& cls = ptr.getClass();
+                if (!cls.hasInventoryStore(ptr) && !cls.isBipedal(ptr))
                 {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    runtime.push((ptr.getClass().hasInventoryStore(ptr) || ptr.getClass().isBipedal(ptr)) &&
-                                ptr.getClass().getCreatureStats (ptr).getDrawState () == MWMechanics::DrawState::Weapon);
+                    runtime.push(0);
+                    return;
                 }
+
+                if (cls.getCreatureStats(ptr).getDrawState() != MWMechanics::DrawState::Weapon)
+                {
+                    runtime.push(0);
+                    return;
+                }
+
+                MWRender::Animation* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
+                runtime.push(anim && anim->getWeaponsShown());
+            }
         };
 
         template <class R>
         class OpGetSpellReadied : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-
-                    runtime.push(ptr.getClass().getCreatureStats (ptr).getDrawState () == MWMechanics::DrawState::Spell);
-                }
+                runtime.push(ptr.getClass().getCreatureStats(ptr).getDrawState() == MWMechanics::DrawState::Spell);
+            }
         };
 
         template <class R>
         class OpGetSpellEffects : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                ESM::RefId id = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
+                if (!ptr.getClass().isActor())
                 {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    std::string_view id = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-
-                    if (!ptr.getClass().isActor())
-                    {
-                        runtime.push(0);
-                        return;
-                    }
-
-                    const MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
-                    runtime.push(stats.getActiveSpells().isSpellActive(id));
+                    runtime.push(0);
+                    return;
                 }
+
+                const MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
+                runtime.push(stats.getActiveSpells().isSpellActive(id));
+            }
         };
 
         class OpGetCurrentTime : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 runtime.push(MWBase::Environment::get().getWorld()->getTimeStamp().getHour());
             }
@@ -1012,15 +1078,14 @@ namespace MWScript
         template <class R>
         class OpSetDelete : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                int parameter = runtime[0].mInteger;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    int parameter = runtime[0].mInteger;
-                    runtime.pop();
-
-                    if (parameter == 1)
+                if (parameter == 1)
                     {
                         /*
                             Start of tes3mp addition
@@ -1056,197 +1121,181 @@ namespace MWScript
                             End of tes3mp change (major)
                         */
                     }
-                    else if (parameter == 0)
-                        MWBase::Environment::get().getWorld()->undeleteObject(ptr);
-                    else
-                        throw std::runtime_error("SetDelete: unexpected parameter");
-                }
+                else if (parameter == 0)
+                    MWBase::Environment::get().getWorld()->undeleteObject(ptr);
+                else
+                    throw std::runtime_error("SetDelete: unexpected parameter");
+            }
         };
 
         class OpGetSquareRoot : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                float param = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    float param = runtime[0].mFloat;
-                    runtime.pop();
+                if (param < 0)
+                    throw std::runtime_error("square root of negative number (we aren't that imaginary)");
 
-                    if (param < 0)
-                        throw std::runtime_error("square root of negative number (we aren't that imaginary)");
-
-                    runtime.push(std::sqrt (param));
-                }
+                runtime.push(std::sqrt(param));
+            }
         };
 
         template <class R>
         class OpFall : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override {}
         };
 
         template <class R>
         class OpGetStandingPc : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    runtime.push (MWBase::Environment::get().getWorld()->getPlayerStandingOn(ptr));
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                runtime.push(MWBase::Environment::get().getWorld()->getPlayerStandingOn(ptr));
+            }
         };
 
         template <class R>
         class OpGetStandingActor : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    runtime.push (MWBase::Environment::get().getWorld()->getActorStandingOn(ptr));
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                runtime.push(MWBase::Environment::get().getWorld()->getActorStandingOn(ptr));
+            }
         };
 
         template <class R>
         class OpGetCollidingPc : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    runtime.push (MWBase::Environment::get().getWorld()->getPlayerCollidingWith(ptr));
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                runtime.push(MWBase::Environment::get().getWorld()->getPlayerCollidingWith(ptr));
+            }
         };
 
         template <class R>
         class OpGetCollidingActor : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    runtime.push (MWBase::Environment::get().getWorld()->getActorCollidingWith(ptr));
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                runtime.push(MWBase::Environment::get().getWorld()->getActorCollidingWith(ptr));
+            }
         };
 
         template <class R>
         class OpHurtStandingActor : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                float healthDiffPerSecond = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    float healthDiffPerSecond = runtime[0].mFloat;
-                    runtime.pop();
-
-                    MWBase::Environment::get().getWorld()->hurtStandingActors(ptr, healthDiffPerSecond);
-                }
+                MWBase::Environment::get().getWorld()->hurtStandingActors(ptr, healthDiffPerSecond);
+            }
         };
 
         template <class R>
         class OpHurtCollidingActor : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
+                float healthDiffPerSecond = runtime[0].mFloat;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
-                    float healthDiffPerSecond = runtime[0].mFloat;
-                    runtime.pop();
-
-                    MWBase::Environment::get().getWorld()->hurtCollidingActors(ptr, healthDiffPerSecond);
-                }
+                MWBase::Environment::get().getWorld()->hurtCollidingActors(ptr, healthDiffPerSecond);
+            }
         };
 
         class OpGetWindSpeed : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    runtime.push(MWBase::Environment::get().getWorld()->getWindSpeed());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.push(MWBase::Environment::get().getWorld()->getWindSpeed());
+            }
         };
 
         template <class R>
         class OpHitOnMe : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
+                ESM::RefId objectID = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                    std::string_view objectID = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-
-                    MWMechanics::CreatureStats &stats = ptr.getClass().getCreatureStats(ptr);
-                    bool hit = ::Misc::StringUtils::ciEqual(objectID, stats.getLastHitObject());
-                    runtime.push(hit);
-                    if(hit)
-                        stats.clearLastHitObject();
-                }
+                MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
+                bool hit = objectID == stats.getLastHitObject();
+                runtime.push(hit);
+                if (hit)
+                    stats.clearLastHitObject();
+            }
         };
 
         template <class R>
         class OpHitAttemptOnMe : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWWorld::Ptr ptr = R()(runtime);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWWorld::Ptr ptr = R()(runtime);
+                ESM::RefId objectID = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
+                runtime.pop();
 
-                    std::string_view objectID = runtime.getStringLiteral(runtime[0].mInteger);
-                    runtime.pop();
-
-                    MWMechanics::CreatureStats &stats = ptr.getClass().getCreatureStats(ptr);
-                    bool hit = ::Misc::StringUtils::ciEqual(objectID, stats.getLastHitAttemptObject());
-                    runtime.push(hit);
-                    if(hit)
-                        stats.clearLastHitAttemptObject();
-                }
+                MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
+                bool hit = objectID == stats.getLastHitAttemptObject();
+                runtime.push(hit);
+                if (hit)
+                    stats.clearLastHitAttemptObject();
+            }
         };
 
         template <bool Enable>
         class OpEnableTeleporting : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWBase::World *world = MWBase::Environment::get().getWorld();
-                    world->enableTeleporting(Enable);
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWBase::World* world = MWBase::Environment::get().getWorld();
+                world->enableTeleporting(Enable);
+            }
         };
 
         template <bool Enable>
         class OpEnableLevitation : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWBase::World *world = MWBase::Environment::get().getWorld();
-                    world->enableLevitation(Enable);
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWBase::World* world = MWBase::Environment::get().getWorld();
+                world->enableLevitation(Enable);
+            }
         };
 
         template <class R>
         class OpShow : public Interpreter::Opcode0
         {
         public:
-
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWWorld::Ptr ptr = R()(runtime, false);
                 std::string_view var = runtime.getStringLiteral(runtime[0].mInteger);
@@ -1256,45 +1305,47 @@ namespace MWScript
 
                 if (!ptr.isEmpty())
                 {
-                    const std::string& script = ptr.getClass().getScript(ptr);
+                    ESM::RefId script = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                     if (!script.empty())
                     {
-                        const Compiler::Locals& locals =
-                            MWBase::Environment::get().getScriptManager()->getLocals(script);
+                        const Compiler::Locals& locals
+                            = MWBase::Environment::get().getScriptManager()->getLocals(script);
                         char type = locals.getType(var);
-                        std::string refId = ptr.getCellRef().getRefId();
+                        std::string refId = ptr.getCellRef().getRefId().getRefIdString();
                         if (refId.find(' ') != std::string::npos)
                             refId = '"' + refId + '"';
                         switch (type)
                         {
-                        case 'l':
-                        case 's':
-                            output << refId << "." << var << " = " << ptr.getRefData().getLocals().getIntVar(script, var);
-                            break;
-                        case 'f':
-                            output << refId << "." << var << " = " << ptr.getRefData().getLocals().getFloatVar(script, var);
-                            break;
+                            case 'l':
+                            case 's':
+                                output << refId << "." << var << " = "
+                                       << ptr.getRefData().getLocals().getIntVar(script, var);
+                                break;
+                            case 'f':
+                                output << refId << "." << var << " = "
+                                       << ptr.getRefData().getLocals().getFloatVar(script, var);
+                                break;
                         }
                     }
                 }
                 if (output.rdbuf()->in_avail() == 0)
                 {
-                    MWBase::World *world = MWBase::Environment::get().getWorld();
-                    char type = world->getGlobalVariableType (var);
+                    MWBase::World* world = MWBase::Environment::get().getWorld();
+                    char type = world->getGlobalVariableType(var);
 
                     switch (type)
                     {
-                    case 's':
-                        output << var << " = " << runtime.getContext().getGlobalShort (var);
-                        break;
-                    case 'l':
-                        output << var << " = " << runtime.getContext().getGlobalLong (var);
-                        break;
-                    case 'f':
-                        output << var << " = " << runtime.getContext().getGlobalFloat (var);
-                        break;
-                    default:
-                        output << "unknown variable";
+                        case 's':
+                            output << var << " = " << runtime.getContext().getGlobalShort(var);
+                            break;
+                        case 'l':
+                            output << var << " = " << runtime.getContext().getGlobalLong(var);
+                            break;
+                        case 'f':
+                            output << var << " = " << runtime.getContext().getGlobalFloat(var);
+                            break;
+                        default:
+                            output << "unknown variable";
                     }
                 }
                 runtime.getContext().report(output.str());
@@ -1304,73 +1355,74 @@ namespace MWScript
         template <class R>
         class OpShowVars : public Interpreter::Opcode0
         {
-            void printLocalVars(Interpreter::Runtime &runtime, const MWWorld::Ptr &ptr)
+            void printLocalVars(Interpreter::Runtime& runtime, const MWWorld::Ptr& ptr)
             {
                 std::stringstream str;
 
-                const std::string script = ptr.getClass().getScript(ptr);
-                if(script.empty())
-                    str<< ptr.getCellRef().getRefId()<<" does not have a script.";
+                const ESM::RefId& script = ptr.getClass().getScript(ptr);
+                if (script.empty())
+                    str << ptr.getCellRef().getRefId() << " does not have a script.";
                 else
                 {
-                    str<< "Local variables for "<<ptr.getCellRef().getRefId();
+                    str << "Local variables for " << ptr.getCellRef().getRefId();
 
-                    const Locals &locals = ptr.getRefData().getLocals();
-                    const Compiler::Locals &complocals = MWBase::Environment::get().getScriptManager()->getLocals(script);
+                    const Locals& locals = ptr.getRefData().getLocals();
+                    const Compiler::Locals& complocals
+                        = MWBase::Environment::get().getScriptManager()->getLocals(script);
 
-                    const std::vector<std::string> *names = &complocals.get('s');
-                    for(size_t i = 0;i < names->size();++i)
+                    const std::vector<std::string>* names = &complocals.get('s');
+                    for (size_t i = 0; i < names->size(); ++i)
                     {
-                        if(i >= locals.mShorts.size())
+                        if (i >= locals.mShorts.size())
                             break;
-                        str<<std::endl<< "  "<<(*names)[i]<<" = "<<locals.mShorts[i]<<" (short)";
+                        str << std::endl << "  " << (*names)[i] << " = " << locals.mShorts[i] << " (short)";
                     }
                     names = &complocals.get('l');
-                    for(size_t i = 0;i < names->size();++i)
+                    for (size_t i = 0; i < names->size(); ++i)
                     {
-                        if(i >= locals.mLongs.size())
+                        if (i >= locals.mLongs.size())
                             break;
-                        str<<std::endl<< "  "<<(*names)[i]<<" = "<<locals.mLongs[i]<<" (long)";
+                        str << std::endl << "  " << (*names)[i] << " = " << locals.mLongs[i] << " (long)";
                     }
                     names = &complocals.get('f');
-                    for(size_t i = 0;i < names->size();++i)
+                    for (size_t i = 0; i < names->size(); ++i)
                     {
-                        if(i >= locals.mFloats.size())
+                        if (i >= locals.mFloats.size())
                             break;
-                        str<<std::endl<< "  "<<(*names)[i]<<" = "<<locals.mFloats[i]<<" (float)";
+                        str << std::endl << "  " << (*names)[i] << " = " << locals.mFloats[i] << " (float)";
                     }
                 }
 
                 runtime.getContext().report(str.str());
             }
 
-            void printGlobalVars(Interpreter::Runtime &runtime)
+            void printGlobalVars(Interpreter::Runtime& runtime)
             {
                 std::stringstream str;
-                str<< "Global variables:";
+                str << "Global variables:";
 
-                MWBase::World *world = MWBase::Environment::get().getWorld();
+                MWBase::World* world = MWBase::Environment::get().getWorld();
                 std::vector<std::string> names = runtime.getContext().getGlobals();
-                for(size_t i = 0;i < names.size();++i)
+                for (size_t i = 0; i < names.size(); ++i)
                 {
-                    char type = world->getGlobalVariableType (names[i]);
+                    char type = world->getGlobalVariableType(names[i]);
                     str << std::endl << " " << names[i] << " = ";
 
                     switch (type)
                     {
                         case 's':
 
-                            str << runtime.getContext().getGlobalShort (names[i]) << " (short)";
+                            str << runtime.getContext().getGlobalShort(names[i]) << " (short)";
                             break;
 
                         case 'l':
 
-                            str << runtime.getContext().getGlobalLong (names[i]) << " (long)";
+                            str << runtime.getContext().getGlobalLong(names[i]) << " (long)";
                             break;
 
                         case 'f':
 
-                            str << runtime.getContext().getGlobalFloat (names[i]) << " (float)";
+                            str << runtime.getContext().getGlobalFloat(names[i]) << " (float)";
                             break;
 
                         default:
@@ -1379,7 +1431,7 @@ namespace MWScript
                     }
                 }
 
-                runtime.getContext().report (str.str());
+                runtime.getContext().report(str.str());
             }
 
         public:
@@ -1399,7 +1451,7 @@ namespace MWScript
         class OpToggleScripts : public Interpreter::Opcode0
         {
         public:
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 bool enabled = MWBase::Environment::get().getWorld()->toggleScripts();
 
@@ -1409,33 +1461,34 @@ namespace MWScript
 
         class OpToggleGodMode : public Interpreter::Opcode0
         {
-            public:
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled = MWBase::Environment::get().getWorld()->toggleGodMode();
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleGodMode();
 
-                    runtime.getContext().report (enabled ? "God Mode -> On" : "God Mode -> Off");
-                }
+                runtime.getContext().report(enabled ? "God Mode -> On" : "God Mode -> Off");
+            }
         };
 
         template <class R>
         class OpCast : public Interpreter::Opcode0
         {
         public:
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWWorld::Ptr ptr = R()(runtime);
 
-                std::string spellId{runtime.getStringLiteral(runtime[0].mInteger)};
+                ESM::RefId spellId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
 
-                std::string targetId = ::Misc::StringUtils::lowerCase(runtime.getStringLiteral(runtime[0].mInteger));
+                ESM::RefId targetId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
 
-                const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(spellId);
+                const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(spellId);
                 if (!spell)
                 {
-                    runtime.getContext().report("spellcasting failed: cannot find spell \""+spellId+"\"");
+                    runtime.getContext().report(
+                        "spellcasting failed: cannot find spell \"" + spellId.getRefIdString() + "\"");
                     return;
                 }
 
@@ -1450,7 +1503,7 @@ namespace MWScript
                     if (!MWBase::Environment::get().getMechanicsManager()->isCastingSpell(ptr))
                     {
                         MWMechanics::AiCast castPackage(targetId, spell->mId, true);
-                        ptr.getClass().getCreatureStats (ptr).getAiSequence().stack(castPackage, ptr);
+                        ptr.getClass().getCreatureStats(ptr).getAiSequence().stack(castPackage, ptr);
                     }
                     return;
                 }
@@ -1460,7 +1513,7 @@ namespace MWScript
                     return;
 
                 MWMechanics::CastSpell cast(ptr, target, false, true);
-                cast.playSpellCastingEffects(spell->mId, false);
+                cast.playSpellCastingEffects(spell);
                 cast.mHitPosition = target.getRefData().getPosition().asVec3();
                 cast.mAlwaysSucceed = true;
                 cast.cast(spell);
@@ -1471,17 +1524,18 @@ namespace MWScript
         class OpExplodeSpell : public Interpreter::Opcode0
         {
         public:
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWWorld::Ptr ptr = R()(runtime);
 
-                std::string spellId{runtime.getStringLiteral(runtime[0].mInteger)};
+                ESM::RefId spellId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
 
-                const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(spellId);
+                const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(spellId);
                 if (!spell)
                 {
-                    runtime.getContext().report("spellcasting failed: cannot find spell \""+spellId+"\"");
+                    runtime.getContext().report(
+                        "spellcasting failed: cannot find spell \"" + spellId.getRefIdString() + "\"");
                     return;
                 }
 
@@ -1496,7 +1550,7 @@ namespace MWScript
                     if (!MWBase::Environment::get().getMechanicsManager()->isCastingSpell(ptr))
                     {
                         MWMechanics::AiCast castPackage(ptr.getCellRef().getRefId(), spell->mId, true);
-                        ptr.getClass().getCreatureStats (ptr).getAiSequence().stack(castPackage, ptr);
+                        ptr.getClass().getCreatureStats(ptr).getAiSequence().stack(castPackage, ptr);
                     }
                     return;
                 }
@@ -1511,7 +1565,7 @@ namespace MWScript
         class OpGoToJail : public Interpreter::Opcode0
         {
         public:
-            void execute (Interpreter::Runtime& runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWBase::World* world = MWBase::Environment::get().getWorld();
                 world->goToJail();
@@ -1521,19 +1575,21 @@ namespace MWScript
         class OpPayFine : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWWorld::Ptr player = MWMechanics::getPlayer();
                 player.getClass().getNpcStats(player).setBounty(0);
-                MWBase::Environment::get().getWorld()->confiscateStolenItems(player);
-                MWBase::Environment::get().getWorld()->getPlayer().recordCrimeId();
+                MWBase::World* world = MWBase::Environment::get().getWorld();
+                world->confiscateStolenItems(player);
+                world->getPlayer().recordCrimeId();
+                world->getPlayer().setDrawState(MWMechanics::DrawState::Nothing);
             }
         };
 
         class OpPayFineThief : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
                 MWWorld::Ptr player = MWMechanics::getPlayer();
                 player.getClass().getNpcStats(player).setBounty(0);
@@ -1543,29 +1599,27 @@ namespace MWScript
 
         class OpGetPcInJail : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime &runtime) override
-                {
-                    runtime.push (MWBase::Environment::get().getWorld()->isPlayerInJail());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.push(MWBase::Environment::get().getWorld()->isPlayerInJail());
+            }
         };
 
         class OpGetPcTraveling : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime &runtime) override
-                {
-                    runtime.push (MWBase::Environment::get().getWorld()->isPlayerTraveling());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                runtime.push(MWBase::Environment::get().getWorld()->isPlayerTraveling());
+            }
         };
 
         template <class R>
         class OpBetaComment : public Interpreter::Opcode1
         {
         public:
-            void execute(Interpreter::Runtime &runtime, unsigned int arg0) override
+            void execute(Interpreter::Runtime& runtime, unsigned int arg0) override
             {
                 MWWorld::Ptr ptr = R()(runtime);
 
@@ -1574,7 +1628,13 @@ namespace MWScript
                 msg << "Report time: ";
 
                 std::time_t currentTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-                msg << std::put_time(std::gmtime(&currentTime), "%Y.%m.%d %T UTC") << std::endl;
+                tm timeinfo{};
+#ifdef _WIN32
+                gmtime_s(&timeinfo, &currentTime);
+#else
+                gmtime_r(&currentTime, &timeinfo);
+#endif
+                msg << std::put_time(&timeinfo, "%Y.%m.%d %T UTC") << std::endl;
 
                 msg << "Content file: " << ptr.getCellRef().getRefNum().mContentFile;
 
@@ -1584,14 +1644,14 @@ namespace MWScript
                 {
                     std::vector<std::string> contentFiles = MWBase::Environment::get().getWorld()->getContentFiles();
 
-                    msg << " [" << contentFiles.at (ptr.getCellRef().getRefNum().mContentFile) << "]" << std::endl;
+                    msg << " [" << contentFiles.at(ptr.getCellRef().getRefNum().mContentFile) << "]" << std::endl;
                 }
 
                 msg << "RefNum: " << ptr.getCellRef().getRefNum().mIndex << std::endl;
 
                 if (ptr.getRefData().isDeletedByContentFile())
                     msg << "[Deleted by content file]" << std::endl;
-                if (!ptr.getRefData().getCount())
+                if (!ptr.getCellRef().getCount())
                     msg << "[Deleted]" << std::endl;
 
                 msg << "RefID: " << ptr.getCellRef().getRefId() << std::endl;
@@ -1602,17 +1662,65 @@ namespace MWScript
                     MWWorld::CellStore* cell = ptr.getCell();
                     msg << "Cell: " << MWBase::Environment::get().getWorld()->getCellName(cell) << std::endl;
                     if (cell->getCell()->isExterior())
-                        msg << "Grid: " << cell->getCell()->getGridX() << " " << cell->getCell()->getGridY() << std::endl;
-                    osg::Vec3f pos (ptr.getRefData().getPosition().asVec3());
+                        msg << "Grid: " << cell->getCell()->getGridX() << " " << cell->getCell()->getGridY()
+                            << std::endl;
+                    osg::Vec3f pos(ptr.getRefData().getPosition().asVec3());
                     msg << "Coordinates: " << pos.x() << " " << pos.y() << " " << pos.z() << std::endl;
                     auto vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
-                    std::string model = ::Misc::ResourceHelpers::correctActorModelPath(ptr.getClass().getModel(ptr), vfs);
-                    msg << "Model: " << model << std::endl;
-                    if(!model.empty())
+                    const VFS::Path::Normalized model
+                        = ::Misc::ResourceHelpers::correctActorModelPath(ptr.getClass().getCorrectedModel(ptr), vfs);
+                    msg << "Model: " << model.value() << std::endl;
+                    if (!model.empty())
                     {
                         const std::string archive = vfs->getArchive(model);
-                        if(!archive.empty())
+                        if (!archive.empty())
                             msg << "(" << archive << ")" << std::endl;
+                        TextureFetchVisitor visitor;
+                        SceneUtil::PositionAttitudeTransform* baseNode = ptr.getRefData().getBaseNode();
+                        if (baseNode)
+                            baseNode->accept(visitor);
+                        // The instance might not have a physical model due to paging or scripting.
+                        // If this is the case, fall back to the template
+                        if (visitor.mTextures.empty())
+                        {
+                            Resource::SceneManager* sceneManager
+                                = MWBase::Environment::get().getResourceSystem()->getSceneManager();
+                            const_cast<osg::Node*>(sceneManager->getTemplate(model).get())->accept(visitor);
+                            msg << "Bound textures: [None]" << std::endl;
+                            if (!visitor.mTextures.empty())
+                                msg << "Model textures: ";
+                        }
+                        else
+                        {
+                            msg << "Bound textures: ";
+                        }
+                        if (!visitor.mTextures.empty())
+                        {
+                            msg << std::endl;
+                            std::string lastTextureSrc;
+                            for (auto& [textureName, fileName] : visitor.mTextures)
+                            {
+                                std::string textureSrc;
+                                if (!fileName.empty())
+                                    textureSrc = vfs->getArchive(fileName);
+
+                                if (lastTextureSrc.empty() || textureSrc != lastTextureSrc)
+                                {
+                                    lastTextureSrc = std::move(textureSrc);
+                                    if (lastTextureSrc.empty())
+                                        lastTextureSrc = "[No Source]";
+
+                                    msg << "  " << lastTextureSrc << std::endl;
+                                }
+                                msg << "    ";
+                                msg << (textureName.empty() ? "[Anonymous]: " : textureName) << ": ";
+                                msg << (fileName.empty() ? "[No File]" : fileName) << std::endl;
+                            }
+                        }
+                        else
+                        {
+                            msg << "[None]" << std::endl;
+                        }
                     }
                     if (!ptr.getClass().getScript(ptr).empty())
                         msg << "Script: " << ptr.getClass().getScript(ptr) << std::endl;
@@ -1636,72 +1744,76 @@ namespace MWScript
         class OpAddToLevCreature : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                std::string levId{runtime.getStringLiteral(runtime[0].mInteger)};
+                const ESM::RefId& levId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
-                std::string_view creatureId = runtime.getStringLiteral(runtime[0].mInteger);
+                const ESM::RefId& creatureId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
                 int level = runtime[0].mInteger;
                 runtime.pop();
 
-                ESM::CreatureLevList listCopy = *MWBase::Environment::get().getWorld()->getStore().get<ESM::CreatureLevList>().find(levId);
+                ESM::CreatureLevList listCopy
+                    = *MWBase::Environment::get().getESMStore()->get<ESM::CreatureLevList>().find(levId);
                 addToLevList(&listCopy, creatureId, level);
-                MWBase::Environment::get().getWorld()->createOverrideRecord(listCopy);
+                MWBase::Environment::get().getESMStore()->overrideRecord(listCopy);
             }
         };
 
         class OpRemoveFromLevCreature : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                std::string levId{runtime.getStringLiteral(runtime[0].mInteger)};
+                const ESM::RefId& levId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
-                std::string_view creatureId = runtime.getStringLiteral(runtime[0].mInteger);
+                const ESM::RefId& creatureId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
                 int level = runtime[0].mInteger;
                 runtime.pop();
 
-                ESM::CreatureLevList listCopy = *MWBase::Environment::get().getWorld()->getStore().get<ESM::CreatureLevList>().find(levId);
+                ESM::CreatureLevList listCopy
+                    = *MWBase::Environment::get().getESMStore()->get<ESM::CreatureLevList>().find(levId);
                 removeFromLevList(&listCopy, creatureId, level);
-                MWBase::Environment::get().getWorld()->createOverrideRecord(listCopy);
+                MWBase::Environment::get().getESMStore()->overrideRecord(listCopy);
             }
         };
 
         class OpAddToLevItem : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                std::string levId{runtime.getStringLiteral(runtime[0].mInteger)};
+                const ESM::RefId& levId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
-                std::string_view itemId = runtime.getStringLiteral(runtime[0].mInteger);
+                const ESM::RefId& itemId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
                 int level = runtime[0].mInteger;
                 runtime.pop();
 
-                ESM::ItemLevList listCopy = *MWBase::Environment::get().getWorld()->getStore().get<ESM::ItemLevList>().find(levId);
+                ESM::ItemLevList listCopy
+                    = *MWBase::Environment::get().getESMStore()->get<ESM::ItemLevList>().find(levId);
                 addToLevList(&listCopy, itemId, level);
-                MWBase::Environment::get().getWorld()->createOverrideRecord(listCopy);
+                MWBase::Environment::get().getESMStore()->overrideRecord(listCopy);
             }
         };
 
         class OpRemoveFromLevItem : public Interpreter::Opcode0
         {
         public:
-            void execute(Interpreter::Runtime &runtime) override
+            void execute(Interpreter::Runtime& runtime) override
             {
-                std::string levId{runtime.getStringLiteral(runtime[0].mInteger)};
+                const ESM::RefId& levId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
-                std::string_view itemId = runtime.getStringLiteral(runtime[0].mInteger);
+                const ESM::RefId& itemId = ESM::RefId::stringRefId(runtime.getStringLiteral(runtime[0].mInteger));
                 runtime.pop();
                 int level = runtime[0].mInteger;
                 runtime.pop();
 
-                ESM::ItemLevList listCopy = *MWBase::Environment::get().getWorld()->getStore().get<ESM::ItemLevList>().find(levId);
+                ESM::ItemLevList listCopy
+                    = *MWBase::Environment::get().getESMStore()->get<ESM::ItemLevList>().find(levId);
                 removeFromLevList(&listCopy, itemId, level);
-                MWBase::Environment::get().getWorld()->createOverrideRecord(listCopy);
+                MWBase::Environment::get().getESMStore()->overrideRecord(listCopy);
             }
         };
 
@@ -1709,128 +1821,174 @@ namespace MWScript
         class OpShowSceneGraph : public Interpreter::Opcode1
         {
         public:
-            void execute(Interpreter::Runtime &runtime, unsigned int arg0) override
+            void execute(Interpreter::Runtime& runtime, unsigned int arg0) override
             {
                 MWWorld::Ptr ptr = R()(runtime, false);
 
                 int confirmed = 0;
-                if (arg0==1)
+                if (arg0 == 1)
                 {
                     confirmed = runtime[0].mInteger;
                     runtime.pop();
                 }
 
                 if (ptr.isEmpty() && !confirmed)
-                    runtime.getContext().report("Exporting the entire scene graph will result in a large file. Confirm this action using 'showscenegraph 1' or select an object instead.");
+                    runtime.getContext().report(
+                        "Exporting the entire scene graph will result in a large file. Confirm this action using "
+                        "'showscenegraph 1' or select an object instead.");
                 else
                 {
-                    const std::string& filename = MWBase::Environment::get().getWorld()->exportSceneGraph(ptr);
-                    runtime.getContext().report("Wrote '" + filename + "'");
+                    const auto filename = MWBase::Environment::get().getWorld()->exportSceneGraph(ptr);
+                    runtime.getContext().report("Wrote '" + Files::pathToUnicodeString(filename) + "'");
                 }
             }
         };
 
         class OpToggleNavMesh : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_NavMesh);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_NavMesh);
-
-                    runtime.getContext().report (enabled ?
-                        "Navigation Mesh Rendering -> On" : "Navigation Mesh Rendering -> Off");
-                }
+                runtime.getContext().report(
+                    enabled ? "Navigation Mesh Rendering -> On" : "Navigation Mesh Rendering -> Off");
+            }
         };
 
         class OpToggleActorsPaths : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_ActorsPaths);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_ActorsPaths);
-
-                    runtime.getContext().report (enabled ?
-                        "Agents Paths Rendering -> On" : "Agents Paths Rendering -> Off");
-                }
+                runtime.getContext().report(enabled ? "Agents Paths Rendering -> On" : "Agents Paths Rendering -> Off");
+            }
         };
 
         class OpSetNavMeshNumberToRender : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                const auto navMeshNumber = runtime[0].mInteger;
+                runtime.pop();
 
-                void execute (Interpreter::Runtime& runtime) override
+                if (navMeshNumber < 0)
                 {
-                    const auto navMeshNumber = runtime[0].mInteger;
-                    runtime.pop();
-
-                    if (navMeshNumber < 0)
-                    {
-                        runtime.getContext().report("Invalid navmesh number: use not less than zero values");
-                        return;
-                    }
-
-                    MWBase::Environment::get().getWorld()->setNavMeshNumberToRender(static_cast<std::size_t>(navMeshNumber));
+                    runtime.getContext().report("Invalid navmesh number: use not less than zero values");
+                    return;
                 }
+
+                MWBase::Environment::get().getWorld()->setNavMeshNumberToRender(
+                    static_cast<std::size_t>(navMeshNumber));
+            }
         };
 
         template <class R>
         class OpRepairedOnMe : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    // Broken in vanilla and deliberately no-op.
-                    runtime.push(0);
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                // Broken in vanilla and deliberately no-op.
+                runtime.push(0);
+            }
         };
 
         class OpToggleRecastMesh : public Interpreter::Opcode0
         {
-            public:
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                bool enabled = MWBase::Environment::get().getWorld()->toggleRenderMode(MWRender::Render_RecastMesh);
 
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    bool enabled =
-                        MWBase::Environment::get().getWorld()->toggleRenderMode (MWRender::Render_RecastMesh);
-
-                    runtime.getContext().report (enabled ?
-                        "Recast Mesh Rendering -> On" : "Recast Mesh Rendering -> Off");
-                }
+                runtime.getContext().report(enabled ? "Recast Mesh Rendering -> On" : "Recast Mesh Rendering -> Off");
+            }
         };
 
         class OpHelp : public Interpreter::Opcode0
         {
-            public:
-
-                void execute(Interpreter::Runtime& runtime) override
-                {
-                    std::stringstream message;
-                    message << MWBase::Environment::get().getWindowManager()->getVersionDescription() << "\n\n";
-                    std::vector<std::string> commands;
-                    MWBase::Environment::get().getScriptManager()->getExtensions().listKeywords(commands);
-                    for(const auto& command : commands)
-                        message << command << "\n";
-                    runtime.getContext().report(message.str());
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                std::stringstream message;
+                message << MWBase::Environment::get().getWindowManager()->getVersionDescription() << "\n\n";
+                std::vector<std::string> commands;
+                MWBase::Environment::get().getScriptManager()->getExtensions().listKeywords(commands);
+                for (const auto& command : commands)
+                    message << command << "\n";
+                runtime.getContext().report(message.str());
+            }
         };
 
         class OpReloadLua : public Interpreter::Opcode0
         {
-            public:
-
-                void execute (Interpreter::Runtime& runtime) override
-                {
-                    MWBase::Environment::get().getLuaManager()->reloadAllScripts();
-                    runtime.getContext().report("All Lua scripts are reloaded");
-                }
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                MWBase::Environment::get().getLuaManager()->reloadAllScripts();
+                runtime.getContext().report("All Lua scripts are reloaded");
+            }
         };
 
-        void installOpcodes (Interpreter::Interpreter& interpreter)
+        class OpTestModels : public Interpreter::Opcode0
+        {
+            template <class T>
+            void test(int& count) const
+            {
+                Resource::SceneManager* sceneManager
+                    = MWBase::Environment::get().getResourceSystem()->getSceneManager();
+                const MWWorld::ESMStore& store = *MWBase::Environment::get().getESMStore();
+                for (const T& record : store.get<T>())
+                {
+                    MWWorld::ManualRef ref(store, record.mId);
+                    VFS::Path::Normalized model(ref.getPtr().getClass().getCorrectedModel(ref.getPtr()));
+                    if (!model.empty())
+                    {
+                        sceneManager->getTemplate(model);
+                        ++count;
+                    }
+                }
+            }
+
+        public:
+            void execute(Interpreter::Runtime& runtime) override
+            {
+                Resource::SceneManager* sceneManager
+                    = MWBase::Environment::get().getResourceSystem()->getSceneManager();
+                double delay = sceneManager->getExpiryDelay();
+                sceneManager->setExpiryDelay(0.0);
+                int count = 0;
+
+                test<ESM::Activator>(count);
+                test<ESM::Apparatus>(count);
+                test<ESM::Armor>(count);
+                test<ESM::Potion>(count);
+                test<ESM::BodyPart>(count);
+                test<ESM::Book>(count);
+                test<ESM::Clothing>(count);
+                test<ESM::Container>(count);
+                test<ESM::Creature>(count);
+                test<ESM::Door>(count);
+                test<ESM::Ingredient>(count);
+                test<ESM::Light>(count);
+                test<ESM::Lockpick>(count);
+                test<ESM::Miscellaneous>(count);
+                test<ESM::Probe>(count);
+                test<ESM::Repair>(count);
+                test<ESM::Static>(count);
+                test<ESM::Weapon>(count);
+
+                sceneManager->setExpiryDelay(delay);
+                std::stringstream message;
+                message << "Attempted to load models for " << count << " objects. Check the log for details.";
+                runtime.getContext().report(message.str());
+            }
+        };
+
+        void installOpcodes(Interpreter::Interpreter& interpreter)
         {
             interpreter.installSegment5<OpMenuMode>(Compiler::Misc::opcodeMenuMode);
             interpreter.installSegment5<OpRandom>(Compiler::Misc::opcodeRandom);
@@ -1904,15 +2062,19 @@ namespace MWScript
             interpreter.installSegment5<OpGetStandingPc<ImplicitRef>>(Compiler::Misc::opcodeGetStandingPc);
             interpreter.installSegment5<OpGetStandingPc<ExplicitRef>>(Compiler::Misc::opcodeGetStandingPcExplicit);
             interpreter.installSegment5<OpGetStandingActor<ImplicitRef>>(Compiler::Misc::opcodeGetStandingActor);
-            interpreter.installSegment5<OpGetStandingActor<ExplicitRef>>(Compiler::Misc::opcodeGetStandingActorExplicit);
+            interpreter.installSegment5<OpGetStandingActor<ExplicitRef>>(
+                Compiler::Misc::opcodeGetStandingActorExplicit);
             interpreter.installSegment5<OpGetCollidingPc<ImplicitRef>>(Compiler::Misc::opcodeGetCollidingPc);
             interpreter.installSegment5<OpGetCollidingPc<ExplicitRef>>(Compiler::Misc::opcodeGetCollidingPcExplicit);
             interpreter.installSegment5<OpGetCollidingActor<ImplicitRef>>(Compiler::Misc::opcodeGetCollidingActor);
-            interpreter.installSegment5<OpGetCollidingActor<ExplicitRef>>(Compiler::Misc::opcodeGetCollidingActorExplicit);
+            interpreter.installSegment5<OpGetCollidingActor<ExplicitRef>>(
+                Compiler::Misc::opcodeGetCollidingActorExplicit);
             interpreter.installSegment5<OpHurtStandingActor<ImplicitRef>>(Compiler::Misc::opcodeHurtStandingActor);
-            interpreter.installSegment5<OpHurtStandingActor<ExplicitRef>>(Compiler::Misc::opcodeHurtStandingActorExplicit);
+            interpreter.installSegment5<OpHurtStandingActor<ExplicitRef>>(
+                Compiler::Misc::opcodeHurtStandingActorExplicit);
             interpreter.installSegment5<OpHurtCollidingActor<ImplicitRef>>(Compiler::Misc::opcodeHurtCollidingActor);
-            interpreter.installSegment5<OpHurtCollidingActor<ExplicitRef>>(Compiler::Misc::opcodeHurtCollidingActorExplicit);
+            interpreter.installSegment5<OpHurtCollidingActor<ExplicitRef>>(
+                Compiler::Misc::opcodeHurtCollidingActorExplicit);
             interpreter.installSegment5<OpGetWindSpeed>(Compiler::Misc::opcodeGetWindSpeed);
             interpreter.installSegment5<OpHitOnMe<ImplicitRef>>(Compiler::Misc::opcodeHitOnMe);
             interpreter.installSegment5<OpHitOnMe<ExplicitRef>>(Compiler::Misc::opcodeHitOnMeExplicit);
@@ -1951,6 +2113,7 @@ namespace MWScript
             interpreter.installSegment5<OpToggleRecastMesh>(Compiler::Misc::opcodeToggleRecastMesh);
             interpreter.installSegment5<OpHelp>(Compiler::Misc::opcodeHelp);
             interpreter.installSegment5<OpReloadLua>(Compiler::Misc::opcodeReloadLua);
+            interpreter.installSegment5<OpTestModels>(Compiler::Misc::opcodeTestModels);
         }
     }
 }

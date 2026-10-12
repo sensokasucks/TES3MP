@@ -2,13 +2,12 @@
 #define OPENMW_MWRENDER_TRANSPARENTPASS_H
 
 #include <array>
+#include <memory>
 
 #include <osg/FrameBufferObject>
 #include <osg/StateSet>
 
 #include <osgUtil/RenderBin>
-
-#include "postprocessor.hpp"
 
 namespace Shader
 {
@@ -27,8 +26,8 @@ namespace MWRender
     public:
         TransparentDepthBinCallback(Shader::ShaderManager& shaderManager, bool postPass);
 
-        void drawImplementation(osgUtil::RenderBin* bin, osg::RenderInfo& renderInfo, osgUtil::RenderLeaf*& previous) override;
-        void dirtyFrame(int frameId);
+        void drawImplementation(
+            osgUtil::RenderBin* bin, osg::RenderInfo& renderInfo, osgUtil::RenderLeaf*& previous) override;
 
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mFbo;
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mMsaaFbo;

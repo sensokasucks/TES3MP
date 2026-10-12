@@ -20,16 +20,16 @@
 #include "../mwworld/containerstore.hpp"
 #include "../mwworld/esmstore.hpp"
 
-#include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
+#include "../mwbase/world.hpp"
 
 #include "creaturestats.hpp"
 
 namespace MWMechanics
 {
 
-    Security::Security(const MWWorld::Ptr &actor)
+    Security::Security(const MWWorld::Ptr& actor)
         : mActor(actor)
     {
         CreatureStats& creatureStats = actor.getClass().getCreatureStats(actor);
@@ -39,12 +39,12 @@ namespace MWMechanics
         mFatigueTerm = creatureStats.getFatigueTerm();
     }
 
-    void Security::pickLock(const MWWorld::Ptr &lock, const MWWorld::Ptr &lockpick,
-                            std::string& resultMessage, std::string& resultSound)
+    void Security::pickLock(const MWWorld::Ptr& lock, const MWWorld::Ptr& lockpick, std::string_view& resultMessage,
+        std::string_view& resultSound)
     {
-        if (lock.getCellRef().getLockLevel() <= 0 ||
-            lock.getCellRef().getLockLevel() == ESM::UnbreakableLock ||
-            !lock.getClass().hasToolTip(lock)) //If it's unlocked or can not be unlocked back out immediately
+        // If it's unlocked or can not be unlocked back out immediately. Note that we're not strictly speaking checking
+        // if the ref is locked, lock levels <= 0 can exist but they cannot be picked
+        if (lock.getCellRef().getLockLevel() <= 0 || !lock.getClass().hasToolTip(lock))
             return;
 
         int uses = lockpick.getClass().getItemHealth(lockpick);
@@ -55,7 +55,11 @@ namespace MWMechanics
 
         float pickQuality = lockpick.get<ESM::Lockpick>()->mBase->mData.mQuality;
 
-        float fPickLockMult = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fPickLockMult")->mValue.getFloat();
+        float fPickLockMult = MWBase::Environment::get()
+                                  .getESMStore()
+                                  ->get<ESM::GameSetting>()
+                                  .find("fPickLockMult")
+                                  ->mValue.getFloat();
 
         float x = 0.2f * mAgility + 0.1f * mLuck + mSecuritySkill;
         x *= pickQuality * mFatigueTerm;
@@ -98,7 +102,7 @@ namespace MWMechanics
 
                 resultMessage = "#{sLockSuccess}";
                 resultSound = "Open Lock";
-                mActor.getClass().skillUsageSucceeded(mActor, ESM::Skill::Security, 1);
+                mActor.getClass().skillUsageSucceeded(mActor, ESM::Skill::Security, ESM::Skill::Security_PickLock);
             }
             else
                 resultMessage = "#{sLockFail}";
@@ -106,11 +110,11 @@ namespace MWMechanics
 
         lockpick.getCellRef().setCharge(--uses);
         if (!uses)
-            lockpick.getContainerStore()->remove(lockpick, 1, mActor);
+            lockpick.getContainerStore()->remove(lockpick, 1);
     }
 
-    void Security::probeTrap(const MWWorld::Ptr &trap, const MWWorld::Ptr &probe,
-                             std::string& resultMessage, std::string& resultSound)
+    void Security::probeTrap(const MWWorld::Ptr& trap, const MWWorld::Ptr& probe, std::string_view& resultMessage,
+        std::string_view& resultSound)
     {
         if (trap.getCellRef().getTrap().empty())
             return;
@@ -121,10 +125,15 @@ namespace MWMechanics
 
         float probeQuality = probe.get<ESM::Probe>()->mBase->mData.mQuality;
 
-        const ESM::Spell* trapSpell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().find(trap.getCellRef().getTrap());
+        const ESM::Spell* trapSpell
+            = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().find(trap.getCellRef().getTrap());
         int trapSpellPoints = trapSpell->mData.mCost;
 
-        float fTrapCostMult = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fTrapCostMult")->mValue.getFloat();
+        float fTrapCostMult = MWBase::Environment::get()
+                                  .getESMStore()
+                                  ->get<ESM::GameSetting>()
+                                  .find("fTrapCostMult")
+                                  ->mValue.getFloat();
 
         float x = 0.2f * mAgility + 0.1f * mLuck + mSecuritySkill;
         x += fTrapCostMult * trapSpellPoints;
@@ -146,14 +155,14 @@ namespace MWMechanics
                     Disable unilateral trap disarming on this client and expect the server's reply to our
                     packet to do it instead
                 */
-                //trap.getCellRef().setTrap("");
+                //trap.getCellRef().setTrap(ESM::RefId());
                 /*
                     End of tes3mp change (major)
                 */
 
                 resultSound = "Disarm Trap";
                 resultMessage = "#{sTrapSuccess}";
-                mActor.getClass().skillUsageSucceeded(mActor, ESM::Skill::Security, 0);
+                mActor.getClass().skillUsageSucceeded(mActor, ESM::Skill::Security, ESM::Skill::Security_DisarmTrap);
 
                 /*
                     Start of tes3mp addition
@@ -175,7 +184,7 @@ namespace MWMechanics
 
         probe.getCellRef().setCharge(--uses);
         if (!uses)
-            probe.getContainerStore()->remove(probe, 1, mActor);
+            probe.getContainerStore()->remove(probe, 1);
     }
 
 }

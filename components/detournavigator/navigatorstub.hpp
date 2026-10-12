@@ -3,6 +3,8 @@
 
 #include "navigator.hpp"
 #include "settings.hpp"
+#include "stats.hpp"
+#include "updateguard.hpp"
 
 namespace Loading
 {
@@ -16,100 +18,78 @@ namespace DetourNavigator
     public:
         NavigatorStub() = default;
 
-        void addAgent(const AgentBounds& /*agentBounds*/) override {}
+        ScopedUpdateGuard makeUpdateGuard() override { return nullptr; }
+
+        bool addAgent(const AgentBounds& /*agentBounds*/) override { return true; }
 
         void removeAgent(const AgentBounds& /*agentBounds*/) override {}
 
-        void setWorldspace(std::string_view /*worldspace*/) override {}
-
-        bool addObject(const ObjectId /*id*/, const ObjectShapes& /*shapes*/, const btTransform& /*transform*/) override
+        void updateBounds(ESM::RefId /*worldspace*/, const std::optional<CellGridBounds>& /*cellGridBounds*/,
+            const osg::Vec3f& /*playerPosition*/, const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool addObject(const ObjectId /*id*/, const DoorShapes& /*shapes*/, const btTransform& /*transform*/) override
+        void addObject(const ObjectId /*id*/, const ObjectShapes& /*shapes*/, const btTransform& /*transform*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool updateObject(const ObjectId /*id*/, const ObjectShapes& /*shapes*/, const btTransform& /*transform*/) override
+        void addObject(const ObjectId /*id*/, const DoorShapes& /*shapes*/, const btTransform& /*transform*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool updateObject(const ObjectId /*id*/, const DoorShapes& /*shapes*/, const btTransform& /*transform*/) override
+        void updateObject(const ObjectId /*id*/, const ObjectShapes& /*shapes*/, const btTransform& /*transform*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool removeObject(const ObjectId /*id*/) override
+        void updateObject(const ObjectId /*id*/, const DoorShapes& /*shapes*/, const btTransform& /*transform*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool addWater(const osg::Vec2i& /*cellPosition*/, int /*cellSize*/, float /*level*/) override
+        void removeObject(const ObjectId /*id*/, const UpdateGuard* /*guard*/) override {}
+
+        void addWater(const osg::Vec2i& /*cellPosition*/, int /*cellSize*/, float /*level*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool removeWater(const osg::Vec2i& /*cellPosition*/) override
+        void removeWater(const osg::Vec2i& /*cellPosition*/, const UpdateGuard* /*guard*/) override {}
+
+        void addHeightfield(const osg::Vec2i& /*cellPosition*/, int /*cellSize*/, const HeightfieldShape& /*height*/,
+            const UpdateGuard* /*guard*/) override
         {
-            return false;
         }
 
-        bool addHeightfield(const osg::Vec2i& /*cellPosition*/, int /*cellSize*/, const HeightfieldShape& /*height*/) override
-        {
-            return false;
-        }
-
-        bool removeHeightfield(const osg::Vec2i& /*cellPosition*/) override
-        {
-            return false;
-        }
+        void removeHeightfield(const osg::Vec2i& /*cellPosition*/, const UpdateGuard* /*guard*/) override {}
 
         void addPathgrid(const ESM::Cell& /*cell*/, const ESM::Pathgrid& /*pathgrid*/) override {}
 
         void removePathgrid(const ESM::Pathgrid& /*pathgrid*/) override {}
 
-        void update(const osg::Vec3f& /*playerPosition*/) override {}
+        void update(const osg::Vec3f& /*playerPosition*/, const UpdateGuard* /*guard*/) override {}
 
-        void updateBounds(const osg::Vec3f& /*playerPosition*/) override {}
-
-        void updatePlayerPosition(const osg::Vec3f& /*playerPosition*/) override {};
-
-        void setUpdatesEnabled(bool /*enabled*/) override {}
-
-        void wait(Loading::Listener& /*listener*/, WaitConditionType /*waitConditionType*/) override {}
+        void wait(WaitConditionType /*waitConditionType*/, Loading::Listener* /*listener*/) override {}
 
         SharedNavMeshCacheItem getNavMesh(const AgentBounds& /*agentBounds*/) const override
         {
             return mEmptyNavMeshCacheItem;
         }
 
-        std::map<AgentBounds, SharedNavMeshCacheItem> getNavMeshes() const override
-        {
-            return {};
-        }
+        std::map<AgentBounds, SharedNavMeshCacheItem> getNavMeshes() const override { return {}; }
 
-        const Settings& getSettings() const override
-        {
-            return mDefaultSettings;
-        }
+        const Settings& getSettings() const override { return mDefaultSettings; }
 
-        void reportStats(unsigned int /*frameNumber*/, osg::Stats& /*stats*/) const override {}
+        Stats getStats() const override { return Stats{}; }
 
-        RecastMeshTiles getRecastMeshTiles() const override
-        {
-            return {};
-        }
+        RecastMeshTiles getRecastMeshTiles() const override { return {}; }
 
-        float getMaxNavmeshAreaRealRadius() const override
-        {
-            return std::numeric_limits<float>::max();
-        }
+        float getMaxNavmeshAreaRealRadius() const override { return std::numeric_limits<float>::max(); }
 
     private:
-        Settings mDefaultSettings {};
+        Settings mDefaultSettings{};
         SharedNavMeshCacheItem mEmptyNavMeshCacheItem;
     };
 }

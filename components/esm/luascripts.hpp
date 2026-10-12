@@ -1,9 +1,12 @@
 #ifndef OPENMW_ESM_LUASCRIPTS_H
 #define OPENMW_ESM_LUASCRIPTS_H
 
+#include <components/esm/refid.hpp>
+#include <components/vfs/pathutil.hpp>
+
 #include <cstdint>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace ESM
 {
@@ -15,24 +18,27 @@ namespace ESM
     struct LuaScriptCfg
     {
         using Flags = uint32_t;
-        static constexpr Flags sGlobal = 1ull << 0;  // start as a global script
-        static constexpr Flags sCustom = 1ull << 1;  // local; can be attached/detached by a global script
-        static constexpr Flags sPlayer = 1ull << 2;  // auto attach to players
+        static constexpr Flags sGlobal = 1ull << 0; // start as a global script
+        static constexpr Flags sCustom = 1ull << 1; // local; can be attached/detached by a global script
+        static constexpr Flags sPlayer = 1ull << 2; // auto attach to players
 
-        static constexpr Flags sMerge = 1ull << 3;  // merge with configuration for this script from previous content files.
+        // merge with configuration for this script from previous content files.
+        static constexpr Flags sMerge = 1ull << 3;
 
-        std::string mScriptPath;  // VFS path to the script.
-        std::string mInitializationData;  // Serialized Lua table. It is a binary data. Can contain '\0'.
-        Flags mFlags;  // bitwise OR of Flags.
+        static constexpr Flags sMenu = 1ull << 4; // start as a menu script
+
+        VFS::Path::Normalized mScriptPath;
+        std::string mInitializationData; // Serialized Lua table. It is a binary data. Can contain '\0'.
+        Flags mFlags; // bitwise OR of Flags.
 
         // Auto attach as a local script to objects of specific types (i.e. Container, Door, Activator, etc.)
-        std::vector<uint32_t> mTypes;  // values are ESM::RecNameInts
+        std::vector<uint32_t> mTypes; // values are ESM::RecNameInts
 
         // Auto attach as a local script to objects with specific recordIds (i.e. specific door type, or an unique NPC)
         struct PerRecordCfg
         {
-            bool mAttach;  // true - attach, false - don't attach (overrides previous attach)
-            std::string mRecordId;
+            bool mAttach; // true - attach, false - don't attach (overrides previous attach)
+            ESM::RefId mRecordId;
             // Initialization data for this specific record. If empty than LuaScriptCfg::mInitializationData is used.
             std::string mInitializationData;
         };
@@ -42,7 +48,7 @@ namespace ESM
         // content file as this LuaScriptCfg or in one of its deps.
         struct PerRefCfg
         {
-            bool mAttach;  // true - attach, false - don't attach (overrides previous attach)
+            bool mAttach; // true - attach, false - don't attach (overrides previous attach)
             uint32_t mRefnumIndex;
             int32_t mRefnumContentFile;
             // Initialization data for this specific refnum. If empty than LuaScriptCfg::mInitializationData is used.
@@ -55,10 +61,10 @@ namespace ESM
     {
         std::vector<LuaScriptCfg> mScripts;
 
-        void load(ESMReader &esm);
-        void adjustRefNums(const ESMReader &esm);
+        void load(ESMReader& esm);
+        void adjustRefNums(const ESMReader& esm);
 
-        void save(ESMWriter &esm) const;
+        void save(ESMWriter& esm) const;
     };
 
     // LuaTimer, LuaScript, LuaScripts are used in saved game files.
@@ -76,13 +82,13 @@ namespace ESM
         Type mType;
         double mTime;
         std::string mCallbackName;
-        std::string mCallbackArgument;  // Serialized Lua table. It is a binary data. Can contain '\0'.
+        std::string mCallbackArgument; // Serialized Lua table. It is a binary data. Can contain '\0'.
     };
 
     struct LuaScript
     {
-        std::string mScriptPath;
-        std::string mData;  // Serialized Lua table. It is a binary data. Can contain '\0'.
+        VFS::Path::Normalized mScriptPath;
+        std::string mData; // Serialized Lua table. It is a binary data. Can contain '\0'.
         std::vector<LuaTimer> mTimers;
     };
 
@@ -90,8 +96,8 @@ namespace ESM
     {
         std::vector<LuaScript> mScripts;
 
-        void load(ESMReader &esm);
-        void save(ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 
     // Saves binary string `data` (can contain '\0') as LUAD record.
@@ -103,4 +109,3 @@ namespace ESM
 }
 
 #endif
-

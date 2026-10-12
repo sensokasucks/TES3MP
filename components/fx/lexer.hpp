@@ -1,16 +1,11 @@
 #ifndef OPENMW_COMPONENTS_FX_LEXER_H
 #define OPENMW_COMPONENTS_FX_LEXER_H
 
-#include <string_view>
-#include <string>
-#include <variant>
+#include <cstddef>
 #include <optional>
-#include <cstdint>
 #include <stdexcept>
-
-#include <osg/Vec2f>
-#include <osg/Vec3f>
-#include <osg/Vec4f>
+#include <string>
+#include <string_view>
 
 #include "lexer_types.hpp"
 
@@ -20,8 +15,14 @@ namespace fx
     {
         struct LexerException : std::runtime_error
         {
-            LexerException(const std::string& message) : std::runtime_error(message) {}
-            LexerException(const char* message) : std::runtime_error(message) {}
+            LexerException(const std::string& message)
+                : std::runtime_error(message)
+            {
+            }
+            LexerException(const char* message)
+                : std::runtime_error(message)
+            {
+            }
         };
 
         class Lexer
@@ -29,7 +30,7 @@ namespace fx
         public:
             struct Block
             {
-                int line;
+                std::size_t line;
                 std::string_view content;
             };
 

@@ -2,41 +2,35 @@
 
 #include <stdexcept>
 
+#include <components/esm/defs.hpp>
+#include <components/misc/concepts.hpp>
+
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    const Class::Specialization Class::sSpecializationIds[3] = {
-      Class::Combat,
-      Class::Magic,
-      Class::Stealth
-    };
+    const std::string_view Class::sGmstSpecializationIds[3]
+        = { "sSpecializationCombat", "sSpecializationMagic", "sSpecializationStealth" };
+    const std::array<std::string_view, 3> Class::specializationIndexToLuaId = { "combat", "magic", "stealth" };
 
-    const char *Class::sGmstSpecializationIds[3] = {
-      "sSpecializationCombat",
-      "sSpecializationMagic",
-      "sSpecializationStealth"
-    };
-
-    int& Class::CLDTstruct::getSkill (int index, bool major)
+    template <Misc::SameAsWithoutCvref<Class::CLDTstruct> T>
+    void decompose(T&& v, const auto& f)
     {
-        if (index<0 || index>=5)
-            throw std::logic_error ("skill index out of range");
-
-        return mSkills[index][major ? 1 : 0];
+        f(v.mAttribute, v.mSpecialization, v.mSkills, v.mIsPlayable, v.mServices);
     }
 
-    int Class::CLDTstruct::getSkill (int index, bool major) const
+    int32_t& Class::CLDTstruct::getSkill(int index, bool major)
     {
-        if (index<0 || index>=5)
-            throw std::logic_error ("skill index out of range");
-
-        return mSkills[index][major ? 1 : 0];
+        return mSkills.at(index)[major ? 1 : 0];
     }
 
-    void Class::load(ESMReader &esm, bool &isDeleted)
+    int32_t Class::CLDTstruct::getSkill(int index, bool major) const
+    {
+        return mSkills.at(index)[major ? 1 : 0];
+    }
+
+    void Class::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -49,14 +43,14 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
                 case fourCC("CLDT"):
-                    esm.getHTSized<60>(mData);
+                    esm.getSubComposite(mData);
                     if (mData.mIsPlayable > 1)
                         esm.fail("Unknown bool value");
                     hasData = true;
@@ -79,9 +73,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing CLDT subrecord");
     }
-    void Class::save(ESMWriter &esm, bool isDeleted) const
+    void Class::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
 
         if (isDeleted)
         {
@@ -90,7 +84,7 @@ namespace ESM
         }
 
         esm.writeHNOCString("FNAM", mName);
-        esm.writeHNT("CLDT", mData, 60);
+        esm.writeNamedComposite("CLDT", mData);
         esm.writeHNOString("DESC", mDescription);
     }
 
@@ -100,13 +94,12 @@ namespace ESM
         mName.clear();
         mDescription.clear();
 
-        mData.mAttribute[0] = mData.mAttribute[1] = 0;
+        mData.mAttribute.fill(0);
         mData.mSpecialization = 0;
         mData.mIsPlayable = 0;
-        mData.mCalc = 0;
+        mData.mServices = 0;
 
-        for (int i=0; i<5; ++i)
-            for (int i2=0; i2<2; ++i2)
-                mData.mSkills[i][i2] = 0;
+        for (auto& skills : mData.mSkills)
+            skills.fill(0);
     }
 }

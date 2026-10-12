@@ -27,51 +27,67 @@
 #include "loadmstt.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: testing only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::MovableStatic::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_MODL: reader.getZString(mModel);    break;
-            case ESM4::SUB_DATA: reader.get(mData);            break;
-            case ESM4::SUB_SNAM: reader.get(mLoopingSound);    break;
-            case ESM4::SUB_DEST: // destruction data
-            case ESM4::SUB_OBND: // object bounds
-            case ESM4::SUB_MODT: // model texture data
-            case ESM4::SUB_DMDL:
-            case ESM4::SUB_DMDT:
-            case ESM4::SUB_DSTD:
-            case ESM4::SUB_DSTF:
-            case ESM4::SUB_MODS:
-            case ESM4::SUB_FULL:
-            case ESM4::SUB_MODB:
-            {
-                //std::cout << "MSTT " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("FULL"):
+                reader.getLocalizedString(mFullName);
+                break;
+            case ESM::fourCC("MODL"):
+                reader.getZString(mModel);
+                break;
+            case ESM::fourCC("DATA"):
+                reader.get(mData);
+                break;
+            case ESM::fourCC("SNAM"):
+                reader.getFormId(mLoopingSound);
+                break;
+            case ESM::fourCC("DAMC"): // Destructible
+            case ESM::fourCC("DEST"):
+            case ESM::fourCC("DMDC"):
+            case ESM::fourCC("DMDL"):
+            case ESM::fourCC("DMDT"):
+            case ESM::fourCC("DMDS"):
+            case ESM::fourCC("DSTA"):
+            case ESM::fourCC("DSTD"):
+            case ESM::fourCC("DSTF"): // Destructible end
+            case ESM::fourCC("OBND"): // object bounds
+            case ESM::fourCC("KSIZ"):
+            case ESM::fourCC("KWDA"):
+            case ESM::fourCC("VMAD"):
+            case ESM::fourCC("MODT"): // Model data
+            case ESM::fourCC("MODC"):
+            case ESM::fourCC("MODS"):
+            case ESM::fourCC("MODF"): // Model data end
+            case ESM::fourCC("MODB"):
+            case ESM::fourCC("PRPS"):
+            case ESM::fourCC("PTRN"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::MSTT::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::MovableStatic::save(ESM4::Writer& writer) const
+// void ESM4::MovableStatic::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::MovableStatic::blank()
+// void ESM4::MovableStatic::blank()
 //{
-//}
+// }

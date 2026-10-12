@@ -2,20 +2,23 @@
 #define OPENMW_MWRENDER_POSTPROCESSOR_H
 
 #include <array>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
-#include <osg/Texture2D>
-#include <osg/Group>
-#include <osg/FrameBufferObject>
+#include <filesystem>
+
 #include <osg/Camera>
+#include <osg/FrameBufferObject>
+#include <osg/Group>
+#include <osg/Texture2D>
 
 #include <osgViewer/Viewer>
 
+#include <components/debug/debuglog.hpp>
 #include <components/fx/stateupdater.hpp>
 #include <components/fx/technique.hpp>
-#include <components/debug/debuglog.hpp>
+#include <components/misc/strings/algorithm.hpp>
 
 #include "pingpongcanvas.hpp"
 #include "transparentpass.hpp"
@@ -48,12 +51,13 @@ namespace MWRender
     class PingPongCull;
     class PingPongCanvas;
     class TransparentDepthBinCallback;
+    class DistortionCallback;
 
     class PostProcessor : public osg::Group
     {
     public:
-        using FBOArray = std::array<osg::ref_ptr<osg::FrameBufferObject>, 5>;
-        using TextureArray = std::array<osg::ref_ptr<osg::Texture>, 5>;
+        using FBOArray = std::array<osg::ref_ptr<osg::FrameBufferObject>, 6>;
+        using TextureArray = std::array<osg::ref_ptr<osg::Texture>, 6>;
         using TechniqueList = std::vector<std::shared_ptr<fx::Technique>>;
 
         enum TextureIndex
@@ -62,7 +66,8 @@ namespace MWRender
             Tex_Scene_LDR,
             Tex_Depth,
             Tex_OpaqueDepth,
-            Tex_Normal
+            Tex_Normal,
+            Tex_Distortion,
         };
 
         enum FBOIndex
@@ -71,7 +76,8 @@ namespace MWRender
             FBO_Multisample,
             FBO_FirstPerson,
             FBO_OpaqueDepth,
-            FBO_Intercept
+            FBO_Intercept,
+            FBO_Distortion,
         };
 
         enum TextureUnits
@@ -81,6 +87,7 @@ namespace MWRender
             Unit_Depth,
             Unit_EyeAdaptation,
             Unit_Normals,
+            Unit_Distortion,
             Unit_NextFree
         };
 
@@ -91,25 +98,35 @@ namespace MWRender
             Status_Unchanged
         };
 
-        PostProcessor(RenderingManager& rendering, osgViewer::Viewer* viewer, osg::Group* rootNode, const VFS::Manager* vfs);
+        PostProcessor(
+            RenderingManager& rendering, osgViewer::Viewer* viewer, osg::Group* rootNode, const VFS::Manager* vfs);
 
         ~PostProcessor();
 
         void traverse(osg::NodeVisitor& nv) override;
 
-        osg::ref_ptr<osg::FrameBufferObject> getFbo(FBOIndex index, unsigned int frameId) { return mFbos[frameId][index]; }
+        osg::ref_ptr<osg::FrameBufferObject> getFbo(FBOIndex index, unsigned int frameId)
+        {
+            return mFbos[frameId][index];
+        }
 
-        osg::ref_ptr<osg::Texture> getTexture(TextureIndex index, unsigned int frameId) { return mTextures[frameId][index]; }
+        osg::ref_ptr<osg::Texture> getTexture(TextureIndex index, unsigned int frameId)
+        {
+            return mTextures[frameId][index];
+        }
 
-        osg::ref_ptr<osg::FrameBufferObject> getPrimaryFbo(unsigned int frameId) { return mFbos[frameId][FBO_Multisample] ? mFbos[frameId][FBO_Multisample] : mFbos[frameId][FBO_Primary]; }
+        osg::ref_ptr<osg::FrameBufferObject> getPrimaryFbo(unsigned int frameId)
+        {
+            return mFbos[frameId][FBO_Multisample] ? mFbos[frameId][FBO_Multisample] : mFbos[frameId][FBO_Primary];
+        }
+
+        osg::ref_ptr<osg::Camera> getHUDCamera() { return mHUDCamera; }
 
         osg::ref_ptr<fx::StateUpdater> getStateUpdater() { return mStateUpdater; }
 
         const TechniqueList& getTechniques() { return mTechniques; }
 
         const TechniqueList& getTemplates() const { return mTemplates; }
-
-        osg::ref_ptr<PingPongCanvas> getCanvas() { return mPingPongCanvas; }
 
         const auto& getTechniqueMap() const { return mTechniqueFileMap; }
 
@@ -159,19 +176,19 @@ namespace MWRender
 
         void toggleMode();
 
-        std::shared_ptr<fx::Technique> loadTechnique(const std::string& name, bool loadNextFrame=false);
+        std::shared_ptr<fx::Technique> loadTechnique(const std::string& name, bool loadNextFrame = false);
 
-        bool isEnabled() const { return mUsePostProcessing && mEnabled; }
-
-        bool softParticlesEnabled() const {return mSoftParticles; }
-
-        bool getHDR() const { return mHDR; }
+        bool isEnabled() const { return mUsePostProcessing; }
 
         void disable();
 
-        void enable(bool usePostProcessing = true);
+        void enable();
 
-        void setRenderTargetSize(int width, int height) { mWidth = width; mHeight = height; }
+        void setRenderTargetSize(int width, int height)
+        {
+            mWidth = width;
+            mHeight = height;
+        }
 
         void disableDynamicShaders();
 
@@ -180,25 +197,19 @@ namespace MWRender
 
         void triggerShaderReload();
 
-        bool mEnableLiveReload;
+        bool mEnableLiveReload = false;
 
         void loadChain();
         void saveChain();
 
-
     private:
-
         void populateTechniqueFiles();
 
         size_t frame() const { return mViewer->getFrameStamp()->getFrameNumber(); }
 
         void createObjectsForFrame(size_t frameId);
 
-        void createTexturesAndCamera(size_t frameId);
-
-        void reloadMainPass(fx::Technique& technique);
-
-        void dirtyTechniques();
+        void dirtyTechniques(bool dirtyAttachments = false);
 
         void update(size_t frameId);
 
@@ -217,46 +228,44 @@ namespace MWRender
         TechniqueList mTechniques;
         TechniqueList mTemplates;
         TechniqueList mQueuedTemplates;
+        TechniqueList mInternalTechniques;
 
-        std::unordered_map<std::string, boost::filesystem::path> mTechniqueFileMap;
-
-        int mSamples;
-
-        bool mDirty;
-        size_t mDirtyFrameId;
+        std::unordered_map<std::string, std::filesystem::path, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual>
+            mTechniqueFileMap;
 
         RenderingManager& mRendering;
         osgViewer::Viewer* mViewer;
         const VFS::Manager* mVFS;
 
-        bool mTriggerShaderReload;
-        bool mReload;
-        bool mEnabled;
-        bool mUsePostProcessing;
-        bool mSoftParticles;
-        bool mDisableDepthPasses;
+        size_t mDirtyFrameId = 0;
+        size_t mLastFrameNumber = 0;
+        float mLastSimulationTime = 0.f;
 
-        size_t mLastFrameNumber;
-        float mLastSimulationTime;
+        bool mDirty = false;
+        bool mReload = true;
+        bool mTriggerShaderReload = false;
+        bool mUsePostProcessing = false;
 
-        bool mExteriorFlag;
-        bool mUnderwater;
-        bool mHDR;
-        bool mNormals;
-        bool mPrevNormals;
-        bool mNormalsSupported;
-        bool mPassLights;
-        bool mPrevPassLights;
-        bool mUBO;
+        bool mUBO = false;
+        bool mHDR = false;
+        bool mNormals = false;
+        bool mUnderwater = false;
+        bool mPassLights = false;
+        bool mPrevNormals = false;
+        bool mExteriorFlag = false;
+        bool mNormalsSupported = false;
+        bool mPrevPassLights = false;
+
         int mGLSLVersion;
+        int mWidth;
+        int mHeight;
+        int mSamples;
 
         osg::ref_ptr<fx::StateUpdater> mStateUpdater;
         osg::ref_ptr<PingPongCull> mPingPongCull;
-        osg::ref_ptr<PingPongCanvas> mPingPongCanvas;
+        std::array<osg::ref_ptr<PingPongCanvas>, 2> mCanvases;
         osg::ref_ptr<TransparentDepthBinCallback> mTransparentDepthPostPass;
-    
-        int mWidth;
-        int mHeight;
+        osg::ref_ptr<DistortionCallback> mDistortionCallback;
 
         fx::DispatchArray mTemplateData;
     };

@@ -1,11 +1,8 @@
 #ifndef OPENMW_COMPONENTS_SHADERVISITOR_H
 #define OPENMW_COMPONENTS_SHADERVISITOR_H
 
-#include <array>
-
 #include <osg/NodeVisitor>
 #include <osg/Program>
-#include <osg/Texture2D>
 
 namespace Resource
 {
@@ -21,7 +18,8 @@ namespace Shader
     class ShaderVisitor : public osg::NodeVisitor
     {
     public:
-        ShaderVisitor(ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string& defaultShaderPrefix);
+        ShaderVisitor(
+            ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string& defaultShaderPrefix);
 
         void setProgramTemplate(const osg::Program* programTemplate) { mProgramTemplate = programTemplate; }
 
@@ -30,8 +28,10 @@ namespace Shader
         void setForceShaders(bool force);
 
         /// Set if we are allowed to modify StateSets encountered in the graph (default true).
-        /// @par If set to false, then instead of modifying, the StateSet will be cloned and this new StateSet will be assigned to the node.
-        /// @par This option is useful when the ShaderVisitor is run on a "live" subgraph that may have already been submitted for rendering.
+        /// @par If set to false, then instead of modifying, the StateSet will be cloned and this new StateSet will be
+        /// assigned to the node.
+        /// @par This option is useful when the ShaderVisitor is run on a "live" subgraph that may have already been
+        /// submitted for rendering.
         void setAllowedToModifyStateSets(bool allowed);
 
         /// Automatically use normal maps if a file with suitable name exists (see normal map pattern).
@@ -50,6 +50,8 @@ namespace Shader
         void setAdjustCoverageForAlphaTest(bool adjustCoverage);
 
         void setSupportsNormalsRT(bool supports) { mSupportsNormalsRT = supports; }
+
+        void setWeatherParticleOcclusion(bool value) { mWeatherParticleOcclusion = value; }
 
         void apply(osg::Node& node) override;
 
@@ -78,6 +80,7 @@ namespace Shader
         bool mAdjustCoverageForAlphaTest;
 
         bool mSupportsNormalsRT;
+        bool mWeatherParticleOcclusion = false;
 
         ShaderManager& mShaderManager;
         Resource::ImageManager& mImageManager;
@@ -105,7 +108,9 @@ namespace Shader
             bool mBlendFuncOverridden;
             bool mAdditiveBlending;
 
+            bool mDiffuseHeight; // true if diffuse map has height info in alpha channel
             bool mNormalHeight; // true if normal map has height info in alpha channel
+            bool mReconstructNormalZ; // used for red-green normal maps (e.g. BC5)
 
             // -1 == no tangents required
             int mTexStageRequiringTangents;

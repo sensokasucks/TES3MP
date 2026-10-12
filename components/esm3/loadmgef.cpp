@@ -1,17 +1,392 @@
 #include "loadmgef.hpp"
 
-#include <sstream>
-
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
+#include "loadskil.hpp"
+
+#include <components/misc/strings/algorithm.hpp>
 
 namespace ESM
 {
-namespace
-{
-    static const char *sIds[MagicEffect::Length] =
+    namespace
     {
+        const int NumberOfHardcodedFlags = 143;
+        const int HardcodedFlags[NumberOfHardcodedFlags] = { 0x11c8, 0x11c0, 0x11c8, 0x11e0, 0x11e0, 0x11e0, 0x11e0,
+            0x11d0, 0x11c0, 0x11c0, 0x11e0, 0x11c0, 0x11184, 0x11184, 0x1f0, 0x1f0, 0x1f0, 0x11d2, 0x11f0, 0x11d0,
+            0x11d0, 0x11d1, 0x1d2, 0x1f0, 0x1d0, 0x1d0, 0x1d1, 0x1f0, 0x11d0, 0x11d0, 0x11d0, 0x11d0, 0x11d0, 0x11d0,
+            0x11d0, 0x11d0, 0x11d0, 0x1d0, 0x1d0, 0x11c8, 0x31c0, 0x11c0, 0x11c0, 0x11c0, 0x1180, 0x11d8, 0x11d8,
+            0x11d0, 0x11d0, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11c4, 0x111b8,
+            0x1040, 0x104c, 0x104c, 0x104c, 0x104c, 0x1040, 0x1040, 0x1040, 0x11c0, 0x11c0, 0x1cc, 0x1cc, 0x1cc, 0x1cc,
+            0x1cc, 0x1c2, 0x1c0, 0x1c0, 0x1c0, 0x1c1, 0x11c2, 0x11c0, 0x11c0, 0x11c0, 0x11c1, 0x11c0, 0x21192, 0x20190,
+            0x20190, 0x20190, 0x21191, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0,
+            0x1c0, 0x11190, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048,
+            0x9048, 0x9048, 0x9048, 0x9048, 0x11c0, 0x1180, 0x1180, 0x5048, 0x5048, 0x5048, 0x5048, 0x5048, 0x5048,
+            0x1188, 0x5048, 0x5048, 0x5048, 0x5048, 0x5048, 0x1048, 0x104c, 0x1048, 0x40, 0x11c8, 0x1048, 0x1048,
+            0x1048, 0x1048, 0x1048, 0x1048 };
+    }
+
+    void MagicEffect::load(ESMReader& esm, bool& isDeleted)
+    {
+        isDeleted = false; // MagicEffect record can't be deleted now (may be changed in the future)
+        mRecordFlags = esm.getRecordFlags();
+
+        esm.getHNT(mIndex, "INDX");
+
+        mId = indexToRefId(mIndex);
+
+        esm.getSubNameIs("MEDT");
+        esm.getSubHeader();
+        int32_t school;
+        esm.getT(school);
+        mData.mSchool = MagicSchool::indexToSkillRefId(school);
+        esm.getT(mData.mBaseCost);
+        esm.getT(mData.mFlags);
+        esm.getT(mData.mRed);
+        esm.getT(mData.mGreen);
+        esm.getT(mData.mBlue);
+        esm.getT(mData.mUnknown1);
+        esm.getT(mData.mSpeed);
+        esm.getT(mData.mUnknown2);
+
+        if (esm.getFormatVersion() == DefaultFormatVersion)
+        {
+            // don't allow mods to change fixed flags in the legacy format
+            mData.mFlags &= (AllowSpellmaking | AllowEnchanting | NegativeLight);
+            if (mIndex >= 0 && mIndex < NumberOfHardcodedFlags)
+                mData.mFlags |= HardcodedFlags[mIndex];
+        }
+
+        // vanilla MW accepts the _SND subrecords before or after DESC... I hope
+        // this isn't true for other records, or we have to do a mass-refactor
+        while (esm.hasMoreSubs())
+        {
+            esm.getSubName();
+            switch (esm.retSubName().toInt())
+            {
+                case fourCC("ITEX"):
+                    mIcon = esm.getHString();
+                    break;
+                case fourCC("PTEX"):
+                    mParticle = esm.getHString();
+                    break;
+                case fourCC("BSND"):
+                    mBoltSound = esm.getRefId();
+                    break;
+                case fourCC("CSND"):
+                    mCastSound = esm.getRefId();
+                    break;
+                case fourCC("HSND"):
+                    mHitSound = esm.getRefId();
+                    break;
+                case fourCC("ASND"):
+                    mAreaSound = esm.getRefId();
+                    break;
+                case fourCC("CVFX"):
+                    mCasting = esm.getRefId();
+                    break;
+                case fourCC("BVFX"):
+                    mBolt = esm.getRefId();
+                    break;
+                case fourCC("HVFX"):
+                    mHit = esm.getRefId();
+                    break;
+                case fourCC("AVFX"):
+                    mArea = esm.getRefId();
+                    break;
+                case fourCC("DESC"):
+                    mDescription = esm.getHString();
+                    break;
+                default:
+                    esm.fail("Unknown subrecord");
+            }
+        }
+    }
+    void MagicEffect::save(ESMWriter& esm, bool /*isDeleted*/) const
+    {
+        esm.writeHNT("INDX", mIndex);
+
+        esm.startSubRecord("MEDT");
+        esm.writeT(MagicSchool::skillRefIdToIndex(mData.mSchool));
+        esm.writeT(mData.mBaseCost);
+        esm.writeT(mData.mFlags);
+        esm.writeT(mData.mRed);
+        esm.writeT(mData.mGreen);
+        esm.writeT(mData.mBlue);
+        esm.writeT(mData.mUnknown1);
+        esm.writeT(mData.mSpeed);
+        esm.writeT(mData.mUnknown2);
+        esm.endRecord("MEDT");
+
+        esm.writeHNOCString("ITEX", mIcon);
+        esm.writeHNOCString("PTEX", mParticle);
+        esm.writeHNOCRefId("BSND", mBoltSound);
+        esm.writeHNOCRefId("CSND", mCastSound);
+        esm.writeHNOCRefId("HSND", mHitSound);
+        esm.writeHNOCRefId("ASND", mAreaSound);
+
+        esm.writeHNOCRefId("CVFX", mCasting);
+        esm.writeHNOCRefId("BVFX", mBolt);
+        esm.writeHNOCRefId("HVFX", mHit);
+        esm.writeHNOCRefId("AVFX", mArea);
+
+        esm.writeHNOString("DESC", mDescription);
+    }
+
+    namespace
+    {
+        std::map<short, short> makeEffectsMap()
+        {
+            std::map<short, short> effects;
+
+            effects[MagicEffect::Effects::DisintegrateArmor] = MagicEffect::Effects::Sanctuary;
+            effects[MagicEffect::Effects::DisintegrateWeapon] = MagicEffect::Effects::Sanctuary;
+
+            for (int i = MagicEffect::Effects::DrainAttribute; i <= MagicEffect::Effects::DamageSkill; ++i)
+                effects[i] = MagicEffect::Effects::ResistMagicka;
+            for (int i = MagicEffect::Effects::AbsorbAttribute; i <= MagicEffect::Effects::AbsorbSkill; ++i)
+                effects[i] = MagicEffect::Effects::ResistMagicka;
+            for (int i = MagicEffect::Effects::WeaknessToFire; i <= MagicEffect::Effects::WeaknessToNormalWeapons; ++i)
+                effects[i] = MagicEffect::Effects::ResistMagicka;
+
+            effects[MagicEffect::Effects::Burden] = MagicEffect::Effects::ResistMagicka;
+            effects[MagicEffect::Effects::Charm] = MagicEffect::Effects::ResistMagicka;
+            effects[MagicEffect::Effects::Silence] = MagicEffect::Effects::ResistMagicka;
+            effects[MagicEffect::Effects::Blind] = MagicEffect::Effects::ResistMagicka;
+            effects[MagicEffect::Effects::Sound] = MagicEffect::Effects::ResistMagicka;
+
+            for (int i = 0; i < 2; ++i)
+            {
+                effects[MagicEffect::Effects::CalmHumanoid + i] = MagicEffect::Effects::ResistMagicka;
+                effects[MagicEffect::Effects::FrenzyHumanoid + i] = MagicEffect::Effects::ResistMagicka;
+                effects[MagicEffect::Effects::DemoralizeHumanoid + i] = MagicEffect::Effects::ResistMagicka;
+                effects[MagicEffect::Effects::RallyHumanoid + i] = MagicEffect::Effects::ResistMagicka;
+            }
+
+            effects[MagicEffect::Effects::TurnUndead] = MagicEffect::Effects::ResistMagicka;
+
+            effects[MagicEffect::Effects::FireDamage] = MagicEffect::Effects::ResistFire;
+            effects[MagicEffect::Effects::FrostDamage] = MagicEffect::Effects::ResistFrost;
+            effects[MagicEffect::Effects::ShockDamage] = MagicEffect::Effects::ResistShock;
+            effects[MagicEffect::Effects::Vampirism] = MagicEffect::Effects::ResistCommonDisease;
+            effects[MagicEffect::Effects::Corprus] = MagicEffect::Effects::ResistCorprusDisease;
+            effects[MagicEffect::Effects::Poison] = MagicEffect::Effects::ResistPoison;
+            effects[MagicEffect::Effects::Paralyze] = MagicEffect::Effects::ResistParalysis;
+
+            return effects;
+        }
+    }
+
+    short MagicEffect::getResistanceEffect(short effect)
+    {
+        // Source https://wiki.openmw.org/index.php?title=Research:Magic#Effect_attribute
+
+        // <Effect, Effect providing resistance against first effect>
+        static const std::map<short, short> effects = makeEffectsMap();
+
+        if (const auto it = effects.find(effect); it != effects.end())
+            return it->second;
+
+        return -1;
+    }
+
+    short MagicEffect::getWeaknessEffect(short effect)
+    {
+        static std::map<short, short> effects;
+        if (effects.empty())
+        {
+            for (int i = DrainAttribute; i <= DamageSkill; ++i)
+                effects[i] = WeaknessToMagicka;
+            for (int i = AbsorbAttribute; i <= AbsorbSkill; ++i)
+                effects[i] = WeaknessToMagicka;
+            for (int i = WeaknessToFire; i <= WeaknessToNormalWeapons; ++i)
+                effects[i] = WeaknessToMagicka;
+
+            effects[Burden] = WeaknessToMagicka;
+            effects[Charm] = WeaknessToMagicka;
+            effects[Silence] = WeaknessToMagicka;
+            effects[Blind] = WeaknessToMagicka;
+            effects[Sound] = WeaknessToMagicka;
+
+            for (int i = 0; i < 2; ++i)
+            {
+                effects[CalmHumanoid + i] = WeaknessToMagicka;
+                effects[FrenzyHumanoid + i] = WeaknessToMagicka;
+                effects[DemoralizeHumanoid + i] = WeaknessToMagicka;
+                effects[RallyHumanoid + i] = WeaknessToMagicka;
+            }
+
+            effects[TurnUndead] = WeaknessToMagicka;
+
+            effects[FireDamage] = WeaknessToFire;
+            effects[FrostDamage] = WeaknessToFrost;
+            effects[ShockDamage] = WeaknessToShock;
+            effects[Vampirism] = WeaknessToCommonDisease;
+            effects[Corprus] = WeaknessToCorprusDisease;
+            effects[Poison] = WeaknessToPoison;
+
+            effects[Paralyze] = -1;
+        }
+
+        if (effects.find(effect) != effects.end())
+            return effects[effect];
+        else
+            return -1;
+    }
+
+    // Map effect ID to GMST name
+    const std::array<std::string, MagicEffect::Length> MagicEffect::sGmstEffectIds = {
+
+        "sEffectWaterBreathing",
+        "sEffectSwiftSwim",
+        "sEffectWaterWalking",
+        "sEffectShield",
+        "sEffectFireShield",
+        "sEffectLightningShield",
+        "sEffectFrostShield",
+        "sEffectBurden",
+        "sEffectFeather",
+        "sEffectJump",
+        "sEffectLevitate",
+        "sEffectSlowFall",
+        "sEffectLock",
+        "sEffectOpen",
+        "sEffectFireDamage",
+        "sEffectShockDamage",
+        "sEffectFrostDamage",
+        "sEffectDrainAttribute",
+        "sEffectDrainHealth",
+        "sEffectDrainSpellpoints",
+        "sEffectDrainFatigue",
+        "sEffectDrainSkill",
+        "sEffectDamageAttribute",
+        "sEffectDamageHealth",
+        "sEffectDamageMagicka",
+        "sEffectDamageFatigue",
+        "sEffectDamageSkill",
+        "sEffectPoison",
+        "sEffectWeaknesstoFire",
+        "sEffectWeaknesstoFrost",
+        "sEffectWeaknesstoShock",
+        "sEffectWeaknesstoMagicka",
+        "sEffectWeaknesstoCommonDisease",
+        "sEffectWeaknesstoBlightDisease",
+        "sEffectWeaknesstoCorprusDisease",
+        "sEffectWeaknesstoPoison",
+        "sEffectWeaknesstoNormalWeapons",
+        "sEffectDisintegrateWeapon",
+        "sEffectDisintegrateArmor",
+        "sEffectInvisibility",
+        "sEffectChameleon",
+        "sEffectLight",
+        "sEffectSanctuary",
+        "sEffectNightEye",
+        "sEffectCharm",
+        "sEffectParalyze",
+        "sEffectSilence",
+        "sEffectBlind",
+        "sEffectSound",
+        "sEffectCalmHumanoid",
+        "sEffectCalmCreature",
+        "sEffectFrenzyHumanoid",
+        "sEffectFrenzyCreature",
+        "sEffectDemoralizeHumanoid",
+        "sEffectDemoralizeCreature",
+        "sEffectRallyHumanoid",
+        "sEffectRallyCreature",
+        "sEffectDispel",
+        "sEffectSoultrap",
+        "sEffectTelekinesis",
+        "sEffectMark",
+        "sEffectRecall",
+        "sEffectDivineIntervention",
+        "sEffectAlmsiviIntervention",
+        "sEffectDetectAnimal",
+        "sEffectDetectEnchantment",
+        "sEffectDetectKey",
+        "sEffectSpellAbsorption",
+        "sEffectReflect",
+        "sEffectCureCommonDisease",
+        "sEffectCureBlightDisease",
+        "sEffectCureCorprusDisease",
+        "sEffectCurePoison",
+        "sEffectCureParalyzation",
+        "sEffectRestoreAttribute",
+        "sEffectRestoreHealth",
+        "sEffectRestoreSpellPoints",
+        "sEffectRestoreFatigue",
+        "sEffectRestoreSkill",
+        "sEffectFortifyAttribute",
+        "sEffectFortifyHealth",
+        "sEffectFortifySpellpoints",
+        "sEffectFortifyFatigue",
+        "sEffectFortifySkill",
+        "sEffectFortifyMagickaMultiplier",
+        "sEffectAbsorbAttribute",
+        "sEffectAbsorbHealth",
+        "sEffectAbsorbSpellPoints",
+        "sEffectAbsorbFatigue",
+        "sEffectAbsorbSkill",
+        "sEffectResistFire",
+        "sEffectResistFrost",
+        "sEffectResistShock",
+        "sEffectResistMagicka",
+        "sEffectResistCommonDisease",
+        "sEffectResistBlightDisease",
+        "sEffectResistCorprusDisease",
+        "sEffectResistPoison",
+        "sEffectResistNormalWeapons",
+        "sEffectResistParalysis",
+        "sEffectRemoveCurse",
+        "sEffectTurnUndead",
+        "sEffectSummonScamp",
+        "sEffectSummonClannfear",
+        "sEffectSummonDaedroth",
+        "sEffectSummonDremora",
+        "sEffectSummonAncestralGhost",
+        "sEffectSummonSkeletalMinion",
+        "sEffectSummonLeastBonewalker",
+        "sEffectSummonGreaterBonewalker",
+        "sEffectSummonBonelord",
+        "sEffectSummonWingedTwilight",
+        "sEffectSummonHunger",
+        "sEffectSummonGoldenSaint",
+        "sEffectSummonFlameAtronach",
+        "sEffectSummonFrostAtronach",
+        "sEffectSummonStormAtronach",
+        "sEffectFortifyAttackBonus",
+        "sEffectCommandCreatures",
+        "sEffectCommandHumanoids",
+        "sEffectBoundDagger",
+        "sEffectBoundLongsword",
+        "sEffectBoundMace",
+        "sEffectBoundBattleAxe",
+        "sEffectBoundSpear",
+        "sEffectBoundLongbow",
+        "sEffectExtraSpell",
+        "sEffectBoundCuirass",
+        "sEffectBoundHelm",
+        "sEffectBoundBoots",
+        "sEffectBoundShield",
+        "sEffectBoundGloves",
+        "sEffectCorpus", // NB this typo. (bethesda made it)
+        "sEffectVampirism",
+        "sEffectSummonCenturionSphere",
+        "sEffectSunDamage",
+        "sEffectStuntedMagicka",
+
+        // tribunal
+        "sEffectSummonFabricant",
+
+        // bloodmoon
+        "sEffectSummonCreature01",
+        "sEffectSummonCreature02",
+        "sEffectSummonCreature03",
+        "sEffectSummonCreature04",
+        "sEffectSummonCreature05",
+    };
+
+    // Map effect ID to identifying name
+    const std::array<std::string_view, MagicEffect::Length> MagicEffect::sIndexNames = {
         "WaterBreathing",
         "SwiftSwim",
         "WaterWalking",
@@ -150,476 +525,138 @@ namespace
         "SunDamage",
         "StuntedMagicka",
 
-        // Tribunal only
+        // tribunal
         "SummonFabricant",
 
-        // Bloodmoon only
+        // bloodmoon
         "SummonWolf",
         "SummonBear",
         "SummonBonewolf",
         "SummonCreature04",
-        "SummonCreature05"
+        "SummonCreature05",
     };
 
-    const int NumberOfHardcodedFlags = 143;
-    const int HardcodedFlags[NumberOfHardcodedFlags] = {
-        0x11c8, 0x11c0, 0x11c8, 0x11e0, 0x11e0, 0x11e0, 0x11e0, 0x11d0,
-        0x11c0, 0x11c0, 0x11e0, 0x11c0, 0x11184, 0x11184, 0x1f0, 0x1f0,
-        0x1f0, 0x11d2, 0x11f0, 0x11d0, 0x11d0, 0x11d1, 0x1d2, 0x1f0,
-        0x1d0, 0x1d0, 0x1d1, 0x1f0, 0x11d0, 0x11d0, 0x11d0, 0x11d0,
-        0x11d0, 0x11d0, 0x11d0, 0x11d0, 0x11d0, 0x1d0, 0x1d0, 0x11c8,
-        0x31c0, 0x11c0, 0x11c0, 0x11c0, 0x1180, 0x11d8, 0x11d8, 0x11d0,
-        0x11d0, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180, 0x11180,
-        0x11180, 0x11c4, 0x111b8, 0x1040, 0x104c, 0x104c, 0x104c, 0x104c,
-        0x1040, 0x1040, 0x1040, 0x11c0, 0x11c0, 0x1cc, 0x1cc, 0x1cc,
-        0x1cc, 0x1cc, 0x1c2, 0x1c0, 0x1c0, 0x1c0, 0x1c1, 0x11c2,
-        0x11c0, 0x11c0, 0x11c0, 0x11c1, 0x11c0, 0x21192, 0x20190, 0x20190,
-        0x20190, 0x21191, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x11c0,
-        0x11c0, 0x11c0, 0x11c0, 0x11c0, 0x1c0, 0x11190, 0x9048, 0x9048,
-        0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x9048,
-        0x9048, 0x9048, 0x9048, 0x9048, 0x9048, 0x11c0, 0x1180, 0x1180,
-        0x5048, 0x5048, 0x5048, 0x5048, 0x5048, 0x5048, 0x1188, 0x5048,
-        0x5048, 0x5048, 0x5048, 0x5048, 0x1048, 0x104c, 0x1048, 0x40,
-        0x11c8, 0x1048, 0x1048, 0x1048, 0x1048, 0x1048, 0x1048
+    template <typename Collection>
+    static std::map<std::string_view, int, Misc::StringUtils::CiComp> initStringToIntMap(const Collection& strings)
+    {
+        std::map<std::string_view, int, Misc::StringUtils::CiComp> map;
+        for (size_t i = 0; i < strings.size(); i++)
+            map[strings[i]] = i;
+
+        return map;
+    }
+
+    const std::map<std::string_view, int, Misc::StringUtils::CiComp> MagicEffect::sGmstEffectIdToIndexMap
+        = initStringToIntMap(MagicEffect::sGmstEffectIds);
+
+    const std::map<std::string_view, int, Misc::StringUtils::CiComp> MagicEffect::sIndexNameToIndexMap
+        = initStringToIntMap(MagicEffect::sIndexNames);
+
+    class FindSecond
+    {
+        std::string_view mName;
+
+    public:
+        FindSecond(std::string_view name)
+            : mName(name)
+        {
+        }
+
+        bool operator()(const std::pair<short, std::string>& item) const
+        {
+            if (Misc::StringUtils::ciEqual(item.second, mName))
+                return true;
+            return false;
+        }
     };
-}
-}
 
-namespace ESM
-{
-void MagicEffect::load(ESMReader &esm, bool &isDeleted)
-{
-    isDeleted = false; // MagicEffect record can't be deleted now (may be changed in the future)
-    mRecordFlags = esm.getRecordFlags();
-
-    esm.getHNT(mIndex, "INDX");
-
-    mId = indexToId (mIndex);
-
-    esm.getHNTSized<36>(mData, "MEDT");
-    if (esm.getFormat() == 0)
+    MagicEffect::MagnitudeDisplayType MagicEffect::getMagnitudeDisplayType() const
     {
-        // don't allow mods to change fixed flags in the legacy format
-        mData.mFlags &= (AllowSpellmaking | AllowEnchanting | NegativeLight);
-        if (mIndex>=0 && mIndex<NumberOfHardcodedFlags)
-        mData.mFlags |= HardcodedFlags[mIndex];
+        if (mData.mFlags & NoMagnitude)
+            return MDT_None;
+        if (mIndex == 84)
+            return MDT_TimesInt;
+        if (mIndex == 59 || (mIndex >= 64 && mIndex <= 66))
+            return MDT_Feet;
+        if (mIndex == 118 || mIndex == 119)
+            return MDT_Level;
+        if ((mIndex >= 28 && mIndex <= 36) || (mIndex >= 90 && mIndex <= 99) || mIndex == 40 || mIndex == 47
+            || mIndex == 57 || mIndex == 68)
+            return MDT_Percentage;
+
+        return MDT_Points;
     }
-
-    // vanilla MW accepts the _SND subrecords before or after DESC... I hope
-    // this isn't true for other records, or we have to do a mass-refactor
-    while (esm.hasMoreSubs())
-    {
-        esm.getSubName();
-        switch (esm.retSubName().toInt())
-        {
-            case fourCC("ITEX"):
-                mIcon = esm.getHString();
-                break;
-            case fourCC("PTEX"):
-                mParticle = esm.getHString();
-                break;
-            case fourCC("BSND"):
-                mBoltSound = esm.getHString();
-                break;
-            case fourCC("CSND"):
-                mCastSound = esm.getHString();
-                break;
-            case fourCC("HSND"):
-                mHitSound = esm.getHString();
-                break;
-            case fourCC("ASND"):
-                mAreaSound = esm.getHString();
-                break;
-            case fourCC("CVFX"):
-                mCasting = esm.getHString();
-                break;
-            case fourCC("BVFX"):
-                mBolt = esm.getHString();
-                break;
-            case fourCC("HVFX"):
-                mHit = esm.getHString();
-                break;
-            case fourCC("AVFX"):
-                mArea = esm.getHString();
-                break;
-            case fourCC("DESC"):
-                mDescription = esm.getHString();
-                break;
-            default:
-                esm.fail("Unknown subrecord");
-        }
-    }
-}
-void MagicEffect::save(ESMWriter &esm, bool /*isDeleted*/) const
-{
-    esm.writeHNT("INDX", mIndex);
-
-    esm.writeHNT("MEDT", mData, 36);
-
-    esm.writeHNOCString("ITEX", mIcon);
-    esm.writeHNOCString("PTEX", mParticle);
-    esm.writeHNOCString("BSND", mBoltSound);
-    esm.writeHNOCString("CSND", mCastSound);
-    esm.writeHNOCString("HSND", mHitSound);
-    esm.writeHNOCString("ASND", mAreaSound);
-
-    esm.writeHNOCString("CVFX", mCasting);
-    esm.writeHNOCString("BVFX", mBolt);
-    esm.writeHNOCString("HVFX", mHit);
-    esm.writeHNOCString("AVFX", mArea);
-
-    esm.writeHNOString("DESC", mDescription);
-}
-
-short MagicEffect::getResistanceEffect(short effect)
-{
-    // Source https://wiki.openmw.org/index.php?title=Research:Magic#Effect_attribute
-
-    // <Effect, Effect providing resistance against first effect>
-    static std::map<short, short> effects;
-    if (effects.empty())
-    {
-        effects[DisintegrateArmor] = Sanctuary;
-        effects[DisintegrateWeapon] = Sanctuary;
-
-        for (int i = DrainAttribute; i <= DamageSkill; ++i)
-            effects[i] = ResistMagicka;
-        for (int i = AbsorbAttribute; i <= AbsorbSkill; ++i)
-            effects[i] = ResistMagicka;
-        for (int i = WeaknessToFire; i <= WeaknessToNormalWeapons; ++i)
-            effects[i] = ResistMagicka;
-
-        effects[Burden] = ResistMagicka;
-        effects[Charm] = ResistMagicka;
-        effects[Silence] = ResistMagicka;
-        effects[Blind] = ResistMagicka;
-        effects[Sound] = ResistMagicka;
-
-        for (int i=0; i<2; ++i)
-        {
-            effects[CalmHumanoid+i] = ResistMagicka;
-            effects[FrenzyHumanoid+i] = ResistMagicka;
-            effects[DemoralizeHumanoid+i] = ResistMagicka;
-            effects[RallyHumanoid+i] = ResistMagicka;
-        }
-
-        effects[TurnUndead] = ResistMagicka;
-
-        effects[FireDamage] = ResistFire;
-        effects[FrostDamage] = ResistFrost;
-        effects[ShockDamage] = ResistShock;
-        effects[Vampirism] = ResistCommonDisease;
-        effects[Corprus] = ResistCorprusDisease;
-        effects[Poison] = ResistPoison;
-        effects[Paralyze] = ResistParalysis;
-    }
-
-    if (effects.find(effect) != effects.end())
-        return effects[effect];
-    else
-        return -1;
-}
-
-short MagicEffect::getWeaknessEffect(short effect)
-{
-    static std::map<short, short> effects;
-    if (effects.empty())
-    {
-        for (int i = DrainAttribute; i <= DamageSkill; ++i)
-            effects[i] = WeaknessToMagicka;
-        for (int i = AbsorbAttribute; i <= AbsorbSkill; ++i)
-            effects[i] = WeaknessToMagicka;
-        for (int i = WeaknessToFire; i <= WeaknessToNormalWeapons; ++i)
-            effects[i] = WeaknessToMagicka;
-
-        effects[Burden] = WeaknessToMagicka;
-        effects[Charm] = WeaknessToMagicka;
-        effects[Silence] = WeaknessToMagicka;
-        effects[Blind] = WeaknessToMagicka;
-        effects[Sound] = WeaknessToMagicka;
-
-        for (int i=0; i<2; ++i)
-        {
-            effects[CalmHumanoid+i] = WeaknessToMagicka;
-            effects[FrenzyHumanoid+i] = WeaknessToMagicka;
-            effects[DemoralizeHumanoid+i] = WeaknessToMagicka;
-            effects[RallyHumanoid+i] = WeaknessToMagicka;
-        }
-
-        effects[TurnUndead] = WeaknessToMagicka;
-
-        effects[FireDamage] = WeaknessToFire;
-        effects[FrostDamage] = WeaknessToFrost;
-        effects[ShockDamage] = WeaknessToShock;
-        effects[Vampirism] = WeaknessToCommonDisease;
-        effects[Corprus] = WeaknessToCorprusDisease;
-        effects[Poison] = WeaknessToPoison;
-
-        effects[Paralyze] = -1;
-    }
-
-    if (effects.find(effect) != effects.end())
-        return effects[effect];
-    else
-        return -1;
-}
-
-static std::map<short,std::string> genNameMap()
-{
-    // Map effect ID to GMST name
-    // http://www.uesp.net/morrow/hints/mweffects.shtml
-    std::map<short, std::string> names;
-    names[85] ="sEffectAbsorbAttribute";
-    names[88] ="sEffectAbsorbFatigue";
-    names[86] ="sEffectAbsorbHealth";
-    names[87] ="sEffectAbsorbSpellPoints";
-    names[89] ="sEffectAbsorbSkill";
-    names[63] ="sEffectAlmsiviIntervention";
-    names[47] ="sEffectBlind";
-    names[123] ="sEffectBoundBattleAxe";
-    names[129] ="sEffectBoundBoots";
-    names[127] ="sEffectBoundCuirass";
-    names[120] ="sEffectBoundDagger";
-    names[131] ="sEffectBoundGloves";
-    names[128] ="sEffectBoundHelm";
-    names[125] ="sEffectBoundLongbow";
-    names[126] ="sEffectExtraSpell";
-    names[121] ="sEffectBoundLongsword";
-    names[122] ="sEffectBoundMace";
-    names[130] ="sEffectBoundShield";
-    names[124] ="sEffectBoundSpear";
-    names[7] ="sEffectBurden";
-    names[50] ="sEffectCalmCreature";
-    names[49] ="sEffectCalmHumanoid";
-    names[40] ="sEffectChameleon";
-    names[44] ="sEffectCharm";
-    names[118] ="sEffectCommandCreatures";
-    names[119] ="sEffectCommandHumanoids";
-    names[132] ="sEffectCorpus"; // NB this typo. (bethesda made it)
-    names[70] ="sEffectCureBlightDisease";
-    names[69] ="sEffectCureCommonDisease";
-    names[71] ="sEffectCureCorprusDisease";
-    names[73] ="sEffectCureParalyzation";
-    names[72] ="sEffectCurePoison";
-    names[22] ="sEffectDamageAttribute";
-    names[25] ="sEffectDamageFatigue";
-    names[23] ="sEffectDamageHealth";
-    names[24] ="sEffectDamageMagicka";
-    names[26] ="sEffectDamageSkill";
-    names[54] ="sEffectDemoralizeCreature";
-    names[53] ="sEffectDemoralizeHumanoid";
-    names[64] ="sEffectDetectAnimal";
-    names[65] ="sEffectDetectEnchantment";
-    names[66] ="sEffectDetectKey";
-    names[38] ="sEffectDisintegrateArmor";
-    names[37] ="sEffectDisintegrateWeapon";
-    names[57] ="sEffectDispel";
-    names[62] ="sEffectDivineIntervention";
-    names[17] ="sEffectDrainAttribute";
-    names[20] ="sEffectDrainFatigue";
-    names[18] ="sEffectDrainHealth";
-    names[19] ="sEffectDrainSpellpoints";
-    names[21] ="sEffectDrainSkill";
-    names[8] ="sEffectFeather";
-    names[14] ="sEffectFireDamage";
-    names[4] ="sEffectFireShield";
-    names[117] ="sEffectFortifyAttackBonus";
-    names[79] ="sEffectFortifyAttribute";
-    names[82] ="sEffectFortifyFatigue";
-    names[80] ="sEffectFortifyHealth";
-    names[81] ="sEffectFortifySpellpoints";
-    names[84] ="sEffectFortifyMagickaMultiplier";
-    names[83] ="sEffectFortifySkill";
-    names[52] ="sEffectFrenzyCreature";
-    names[51] ="sEffectFrenzyHumanoid";
-    names[16] ="sEffectFrostDamage";
-    names[6] ="sEffectFrostShield";
-    names[39] ="sEffectInvisibility";
-    names[9] ="sEffectJump";
-    names[10] ="sEffectLevitate";
-    names[41] ="sEffectLight";
-    names[5] ="sEffectLightningShield";
-    names[12] ="sEffectLock";
-    names[60] ="sEffectMark";
-    names[43] ="sEffectNightEye";
-    names[13] ="sEffectOpen";
-    names[45] ="sEffectParalyze";
-    names[27] ="sEffectPoison";
-    names[56] ="sEffectRallyCreature";
-    names[55] ="sEffectRallyHumanoid";
-    names[61] ="sEffectRecall";
-    names[68] ="sEffectReflect";
-    names[100] ="sEffectRemoveCurse";
-    names[95] ="sEffectResistBlightDisease";
-    names[94] ="sEffectResistCommonDisease";
-    names[96] ="sEffectResistCorprusDisease";
-    names[90] ="sEffectResistFire";
-    names[91] ="sEffectResistFrost";
-    names[93] ="sEffectResistMagicka";
-    names[98] ="sEffectResistNormalWeapons";
-    names[99] ="sEffectResistParalysis";
-    names[97] ="sEffectResistPoison";
-    names[92] ="sEffectResistShock";
-    names[74] ="sEffectRestoreAttribute";
-    names[77] ="sEffectRestoreFatigue";
-    names[75] ="sEffectRestoreHealth";
-    names[76] ="sEffectRestoreSpellPoints";
-    names[78] ="sEffectRestoreSkill";
-    names[42] ="sEffectSanctuary";
-    names[3] ="sEffectShield";
-    names[15] ="sEffectShockDamage";
-    names[46] ="sEffectSilence";
-    names[11] ="sEffectSlowFall";
-    names[58] ="sEffectSoultrap";
-    names[48] ="sEffectSound";
-    names[67] ="sEffectSpellAbsorption";
-    names[136] ="sEffectStuntedMagicka";
-    names[106] ="sEffectSummonAncestralGhost";
-    names[110] ="sEffectSummonBonelord";
-    names[108] ="sEffectSummonLeastBonewalker";
-    names[134] ="sEffectSummonCenturionSphere";
-    names[103] ="sEffectSummonClannfear";
-    names[104] ="sEffectSummonDaedroth";
-    names[105] ="sEffectSummonDremora";
-    names[114] ="sEffectSummonFlameAtronach";
-    names[115] ="sEffectSummonFrostAtronach";
-    names[113] ="sEffectSummonGoldenSaint";
-    names[109] ="sEffectSummonGreaterBonewalker";
-    names[112] ="sEffectSummonHunger";
-    names[102] ="sEffectSummonScamp";
-    names[107] ="sEffectSummonSkeletalMinion";
-    names[116] ="sEffectSummonStormAtronach";
-    names[111] ="sEffectSummonWingedTwilight";
-    names[135] ="sEffectSunDamage";
-    names[1] ="sEffectSwiftSwim";
-    names[59] ="sEffectTelekinesis";
-    names[101] ="sEffectTurnUndead";
-    names[133] ="sEffectVampirism";
-    names[0] ="sEffectWaterBreathing";
-    names[2] ="sEffectWaterWalking";
-    names[33] ="sEffectWeaknesstoBlightDisease";
-    names[32] ="sEffectWeaknesstoCommonDisease";
-    names[34] ="sEffectWeaknesstoCorprusDisease";
-    names[28] ="sEffectWeaknesstoFire";
-    names[29] ="sEffectWeaknesstoFrost";
-    names[31] ="sEffectWeaknesstoMagicka";
-    names[36] ="sEffectWeaknesstoNormalWeapons";
-    names[35] ="sEffectWeaknesstoPoison";
-    names[30] ="sEffectWeaknesstoShock";
-
-    // bloodmoon
-    names[138] ="sEffectSummonCreature01";
-    names[139] ="sEffectSummonCreature02";
-    names[140] ="sEffectSummonCreature03";
-    names[141] ="sEffectSummonCreature04";
-    names[142] ="sEffectSummonCreature05";
-
-    // tribunal
-    names[137] ="sEffectSummonFabricant";
-
-    return names;
-}
-const std::map<short,std::string> MagicEffect::sNames = genNameMap();
-
-const std::string &MagicEffect::effectIdToString(short effectID)
-{
-    std::map<short,std::string>::const_iterator name = sNames.find(effectID);
-    if(name == sNames.end())
-        throw std::runtime_error(std::string("Unimplemented effect ID ")+std::to_string(effectID));
-
-    return name->second;
-}
-
-class FindSecond {
-    std::string_view mName;
-
-public:
-    FindSecond(std::string_view name) : mName(name) { }
-
-    bool operator()(const std::pair<short,std::string> &item) const
-    {
-        if(Misc::StringUtils::ciEqual(item.second, mName))
-            return true;
-        return false;
-    }
-};
-
-short MagicEffect::effectStringToId(std::string_view effect)
-{
-    std::map<short,std::string>::const_iterator name;
-
-    name = std::find_if(sNames.begin(), sNames.end(), FindSecond(effect));
-    if(name == sNames.end())
-        throw std::runtime_error("Unimplemented effect " + std::string(effect));
-
-    return name->first;
-}
-
-MagicEffect::MagnitudeDisplayType MagicEffect::getMagnitudeDisplayType() const {
-    if ( mData.mFlags & NoMagnitude )
-        return MDT_None;
-    if ( mIndex == 84 )
-        return MDT_TimesInt;
-    if ( mIndex == 59 ||
-        ( mIndex >= 64 && mIndex <= 66) )
-        return MDT_Feet;
-    if ( mIndex == 118 || mIndex == 119 )
-        return MDT_Level;
-    if (   ( mIndex >= 28 && mIndex <= 36 )
-        || ( mIndex >= 90 && mIndex <= 99 )
-        ||   mIndex == 40 || mIndex == 47
-        ||   mIndex == 57 || mIndex == 68 )
-        return MDT_Percentage;
-
-    return MDT_Points;
-}
 
     void MagicEffect::blank()
     {
         mRecordFlags = 0;
-        mData.mSchool = 0;
+        mData.mSchool = ESM::Skill::Alteration;
         mData.mBaseCost = 0;
         mData.mFlags = 0;
         mData.mRed = 0;
         mData.mGreen = 0;
         mData.mBlue = 0;
-        mData.mSpeed = 0;
+        mData.mSpeed = 1;
 
         mIcon.clear();
         mParticle.clear();
-        mCasting.clear();
-        mHit.clear();
-        mArea.clear();
-        mBolt.clear();
-        mCastSound.clear();
-        mBoltSound.clear();
-        mHitSound.clear();
-        mAreaSound.clear();
+        mCasting = ESM::RefId();
+        mHit = ESM::RefId();
+        mArea = ESM::RefId();
+        mBolt = ESM::RefId();
+        mCastSound = ESM::RefId();
+        mBoltSound = ESM::RefId();
+        mHitSound = ESM::RefId();
+        mAreaSound = ESM::RefId();
         mDescription.clear();
     }
 
-    std::string MagicEffect::indexToId (int index)
+    osg::Vec4f MagicEffect::getColor() const
     {
-        std::ostringstream stream;
+        osg::Vec4f color{ mData.mRed / 255.f, mData.mGreen / 255.f, mData.mBlue / 255.f, 1.f };
+        if (mData.mFlags & NegativeLight)
+            return osg::Vec4f(1.f, 1.f, 1.f, 2.f) - color;
+        return color;
+    }
 
-        if (index!=-1)
-        {
-            stream << "#";
+    const std::string& MagicEffect::indexToGmstString(int effectID)
+    {
+        if (effectID < 0 || static_cast<std::size_t>(effectID) >= sGmstEffectIds.size())
+            throw std::runtime_error(std::string("Unimplemented effect ID ") + std::to_string(effectID));
 
-            if (index<100)
-            {
-                stream << "0";
+        return sGmstEffectIds[effectID];
+    }
 
-                if (index<10)
-                    stream << "0";
-            }
+    std::string_view MagicEffect::indexToName(int effectID)
+    {
+        if (effectID < 0 || static_cast<std::size_t>(effectID) >= sIndexNames.size())
+            throw std::runtime_error(std::string("Unimplemented effect ID ") + std::to_string(effectID));
 
-            stream << index;
+        return sIndexNames[effectID];
+    }
 
-            if (index>=0 && index<Length)
-                stream << sIds[index];
-        }
+    int MagicEffect::indexNameToIndex(std::string_view effect)
+    {
+        auto name = sIndexNameToIndexMap.find(effect);
+        if (name == sIndexNameToIndexMap.end())
+            return -1;
 
-        return stream.str();
+        return name->second;
+    }
+
+    int MagicEffect::effectGmstIdToIndex(std::string_view gmstId)
+    {
+        auto name = sGmstEffectIdToIndexMap.find(gmstId);
+        if (name == sGmstEffectIdToIndexMap.end())
+            throw std::runtime_error("Unimplemented effect " + std::string(gmstId));
+
+        return name->second;
+    }
+
+    RefId MagicEffect::indexToRefId(int index)
+    {
+        if (index == -1)
+            return RefId();
+        return RefId::index(sRecordId, static_cast<std::uint32_t>(index));
     }
 }

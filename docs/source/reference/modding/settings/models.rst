@@ -27,9 +27,6 @@ If enabled, this setting allows the NIF loader to make use of that functionality
 	
 	**Do not enable** this if you're not so sure that you know what you're doing.
 
-To help debug possible issues OpenMW will log its progress in loading
-every file that uses an unsupported NIF version.
-
 xbaseanim
 ---------
 

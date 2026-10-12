@@ -6,12 +6,11 @@
 #include <osg/ref_ptr>
 #include <osgViewer/ViewerEventHandlers>
 
-#include <components/settings/settings.hpp>
 #include <components/sdlutil/events.hpp>
+#include <components/settings/settings.hpp>
+#include <filesystem>
 
 #include "../mwbase/inputmanager.hpp"
-
-#include "../mwgui/mode.hpp"
 
 #include "actions.hpp"
 
@@ -44,26 +43,22 @@ namespace MWInput
     class GyroManager;
 
     /**
-    * @brief Class that provides a high-level API for game input
-    */
+     * @brief Class that provides a high-level API for game input
+     */
     class InputManager final : public MWBase::InputManager
     {
     public:
-        InputManager(
-            SDL_Window* window,
-            osg::ref_ptr<osgViewer::Viewer> viewer,
-            osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler,
-            osgViewer::ScreenCaptureHandler::CaptureOperation *screenCaptureOperation,
-            const std::string& userFile, bool userFileExists,
-            const std::string& userControllerBindingsFile,
-            const std::string& controllerBindingsFile, bool grab);
+        InputManager(SDL_Window* window, osg::ref_ptr<osgViewer::Viewer> viewer,
+            osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler, const std::filesystem::path& userFile,
+            bool userFileExists, const std::filesystem::path& userControllerBindingsFile,
+            const std::filesystem::path& controllerBindingsFile, bool grab);
 
         ~InputManager() final;
 
         /// Clear all savegame-specific data
         void clear() override;
 
-        void update(float dt, bool disableControls, bool disableEvents=false) override;
+        void update(float dt, bool disableControls, bool disableEvents = false) override;
 
         void changeInputMode(bool guiMode) override;
 
@@ -71,14 +66,14 @@ namespace MWInput
 
         void setDragDrop(bool dragDrop) override;
         void setGamepadGuiCursorEnabled(bool enabled) override;
-        void setAttemptJump(bool jumping) override;
+        bool isGamepadGuiCursorEnabled() override;
 
         void toggleControlSwitch(std::string_view sw, bool value) override;
         bool getControlSwitch(std::string_view sw) override;
 
-        std::string getActionDescription (int action) const override;
-        std::string getActionKeyBindingName (int action) const override;
-        std::string getActionControllerBindingName (int action) const override;
+        std::string_view getActionDescription(int action) const override;
+        std::string getActionKeyBindingName(int action) const override;
+        std::string getActionControllerBindingName(int action) const override;
         bool actionIsActive(int action) const override;
 
         float getActionValue(int action) const override;
@@ -88,9 +83,9 @@ namespace MWInput
         int getMouseMoveY() const override;
 
         int getNumActions() override { return A_Last; }
-        std::vector<int> getActionKeySorting() override;
-        std::vector<int> getActionControllerSorting() override;
-        void enableDetectingBindingMode (int action, bool keyboard) override;
+        const std::initializer_list<int>& getActionKeySorting() override;
+        const std::initializer_list<int>& getActionControllerSorting() override;
+        void enableDetectingBindingMode(int action, bool keyboard) override;
         void resetToDefaultKeyBindings() override;
         void resetToDefaultControllerBindings() override;
 
@@ -109,16 +104,6 @@ namespace MWInput
         bool controlsDisabled() override { return mControlsDisabled; }
 
     private:
-        void convertMousePosForMyGUI(int& x, int& y);
-
-        void handleGuiArrowKey(int action);
-
-        void quickKey(int index);
-        void showQuickKeysMenu();
-
-        void loadKeyDefaults(bool force = false);
-        void loadControllerDefaults(bool force = false);
-
         bool mControlsDisabled;
 
         std::unique_ptr<SDLUtil::InputWrapper> mInputWrapper;

@@ -1,7 +1,11 @@
-local common = require('scripts.omw.settings.common')
-local render = require('scripts.omw.settings.render')
+local types = require('openmw.types')
+local self = require('openmw.self')
 
-require('scripts.omw.settings.renderers')(render.registerRenderer)
+local common = require('scripts.omw.settings.common')
+
+local function registerPage(options)
+    types.Player.sendMenuEvent(self, common.registerPageEvent, options)
+end
 
 ---
 -- @type PageOptions
@@ -20,9 +24,10 @@ require('scripts.omw.settings.renderers')(render.registerRenderer)
 -- @field #number order Groups within the same page are sorted by this number, or their key for equal values.
 --   Defaults to 0.
 -- @field #boolean permanentStorage Whether the group should be stored in permanent storage, or in the save file
--- @field #list<#SettingOptions> settings A [iterables#List](iterables.html#List) of #SettingOptions
+-- @field #list<#SettingOptions> settings A [iterables#List](iterables.html#List) table of #SettingOptions
 
 ---
+-- Table of setting options
 -- @type SettingOptions
 -- @field #string key A unique key
 -- @field #string name A key from the localization context
@@ -70,11 +75,11 @@ return {
     -- local globalSettings = storage.globalSection('SettingsGlobalMyMod')
     interface = {
         ---
-        -- @field [parent=#Settings] #string version
-        version = 0,
+        -- @field [parent=#Settings] #number version
+        version = 1,
         ---
         -- @function [parent=#Settings] registerPage Register a page to be displayed in the settings menu,
-        --   only available in player scripts
+        --   available in player and menu scripts
         -- @param #PageOptions options
         -- @usage
         -- I.Settings.registerPage({
@@ -83,10 +88,10 @@ return {
         --   name = 'MyModName',
         --   description = 'MyModDescription',
         -- })---
-        registerPage = render.registerPage,
+        registerPage = registerPage,
         ---
         -- @function [parent=#Settings] registerRenderer Register a renderer,
-        --   only avaialable in player scripts
+        --   only available in menu scripts (DEPRECATED in player scripts)
         -- @param #string key
         -- @param #function renderer A renderer function, receives setting's value,
         --   a function to change it and an argument from the setting options
@@ -106,10 +111,14 @@ return {
         --     },
         --   }
         -- end)
-        registerRenderer = render.registerRenderer,
+        registerRenderer = function(name)
+            print(([[Can't register setting renderer "%s". registerRenderer and moved to Menu context Settings interface]])
+                :format(name))
+        end,
         ---
         -- @function [parent=#Settings] registerGroup Register a group to be attached to a page,
-        --   available both in player and global scripts
+        --   available in player, menu and global scripts
+        --   Note: menu scripts only allow group with permanentStorage = true, but can render the page before a game is loaded!
         -- @param #GroupOptions options
         -- @usage
         -- I.Settings.registerGroup {
@@ -139,7 +148,7 @@ return {
         registerGroup = common.registerGroup,
         ---
         -- @function [parent=#Settings] updateRendererArgument Change the renderer argument of a setting
-        --   available both in player and global scripts
+        --   available both in player, menu and global scripts
         -- @param #string groupKey A settings group key
         -- @param #string settingKey A setting key
         -- @param argument A renderer argument

@@ -1,13 +1,13 @@
 #ifndef COMPONENTS_CRASH_WINDOWSCRASHDUMPPATHHELPERS_H
 #include "windows_crashshm.hpp"
 
-#include <string>
+#include <filesystem>
 
 namespace Crash
 {
-    std::string getCrashDumpPath(const CrashSHM& crashShm);
+    std::filesystem::path getCrashDumpPath(const CrashSHM& crashShm);
 
-    std::string getFreezeDumpPath(const CrashSHM& crashShm);
+    std::filesystem::path getFreezeDumpPath(const CrashSHM& crashShm);
 }
 
 #endif

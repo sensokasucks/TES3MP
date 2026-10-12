@@ -5,64 +5,62 @@
 
 #include <osgParticle/ParticleSystem>
 
-#include <components/debug/debuglog.hpp>
+#include <osgAnimation/Bone>
 
-#include <components/misc/stringops.hpp>
+#include <components/debug/debuglog.hpp>
+#include <components/misc/strings/algorithm.hpp>
 
 #include <cstring>
 #include <string_view>
 
 namespace SceneUtil
 {
-
-    bool FindByNameVisitor::checkGroup(osg::Group &group)
+    bool FindByNameVisitor::checkGroup(osg::Group& group)
     {
         if (Misc::StringUtils::ciEqual(group.getName(), mNameToFind))
         {
             mFoundNode = &group;
             return true;
         }
+
         return false;
     }
 
-    void FindByClassVisitor::apply(osg::Node &node)
+    void FindByClassVisitor::apply(osg::Node& node)
     {
-        if (Misc::StringUtils::ciEqual(std::string_view(node.className()), mNameToFind))
+        if (Misc::StringUtils::ciEqual(node.className(), mNameToFind))
             mFoundNodes.push_back(&node);
 
         traverse(node);
     }
 
-    void FindByNameVisitor::apply(osg::Group &group)
+    void FindByNameVisitor::apply(osg::Group& group)
     {
         if (!mFoundNode && !checkGroup(group))
             traverse(group);
     }
 
-    void FindByNameVisitor::apply(osg::MatrixTransform &node)
+    void FindByNameVisitor::apply(osg::MatrixTransform& node)
     {
         if (!mFoundNode && !checkGroup(node))
             traverse(node);
     }
 
-    void FindByNameVisitor::apply(osg::Geometry&)
+    void FindByNameVisitor::apply(osg::Geometry&) {}
+
+    void NodeMapVisitorBoneOnly::apply(osg::MatrixTransform& trans)
     {
+        // Choose first found bone in file
+        if (dynamic_cast<osgAnimation::Bone*>(&trans) != nullptr)
+            mMap.emplace(trans.getName(), &trans);
+
+        traverse(trans);
     }
 
     void NodeMapVisitor::apply(osg::MatrixTransform& trans)
     {
         // Choose first found node in file
-
-        if (trans.libraryName() == std::string("osgAnimation"))
-        {
-            std::string nodeName = trans.getName();
-            // Convert underscores to whitespaces as a workaround for Collada (OpenMW's animation system uses whitespace-separated names)
-            std::replace(nodeName.begin(), nodeName.end(), '_', ' ');
-            mMap.emplace(nodeName, &trans);
-        }
-        else
-            mMap.emplace(trans.getName(), &trans);
-
+        mMap.emplace(trans.getName(), &trans);
         traverse(trans);
     }
 
@@ -108,7 +106,7 @@ namespace SceneUtil
 
     void CleanObjectRootVisitor::applyDrawable(osg::Node& node)
     {
-        osg::NodePath::iterator parent = getNodePath().end()-2;
+        osg::NodePath::iterator parent = getNodePath().end() - 2;
         // We know that the parent is a Group because only Groups can have children.
         osg::Group* parentGroup = static_cast<osg::Group*>(*parent);
 
@@ -145,10 +143,9 @@ namespace SceneUtil
 
     void RemoveTriBipVisitor::applyImpl(osg::Node& node)
     {
-        const std::string toFind = "tri bip";
-        if (Misc::StringUtils::ciCompareLen(node.getName(), toFind, toFind.size()) == 0)
+        if (Misc::StringUtils::ciStartsWith(node.getName(), "tri bip"))
         {
-            osg::Group* parent = static_cast<osg::Group*>(*(getNodePath().end()-2));
+            osg::Group* parent = static_cast<osg::Group*>(*(getNodePath().end() - 2));
             // Not safe to remove in apply(), since the visitor is still iterating the child list
             mToRemove.emplace_back(&node, parent);
         }

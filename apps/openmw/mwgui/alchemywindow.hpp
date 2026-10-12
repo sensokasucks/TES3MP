@@ -4,18 +4,16 @@
 #include <memory>
 #include <vector>
 
-#include <MyGUI_ControllerItem.h>
 #include <MyGUI_ComboBox.h>
+#include <MyGUI_ControllerItem.h>
 
 #include <components/widgets/box.hpp>
 #include <components/widgets/numericeditbox.hpp>
 
+#include "itemselection.hpp"
 #include "windowbase.hpp"
 
-namespace MWMechanics
-{
-    class Alchemy;
-}
+#include "../mwmechanics/alchemy.hpp"
 
 namespace MWGui
 {
@@ -33,14 +31,21 @@ namespace MWGui
 
         void onResChange(int, int) override { center(); }
 
-    private:
+        std::string_view getWindowIdForLua() const override { return "Alchemy"; }
 
+    private:
         static const float sCountChangeInitialPause; // in seconds
         static const float sCountChangeInterval; // in seconds
 
         std::string mSuggestedPotionName;
-        enum class FilterType { ByName, ByEffect };
+        enum class FilterType
+        {
+            ByName,
+            ByEffect
+        };
         FilterType mCurrentFilter;
+
+        std::unique_ptr<ItemSelectionDialog> mItemSelectionDialog;
 
         ItemView* mItemView;
         InventoryItemModel* mModel;
@@ -61,6 +66,7 @@ namespace MWGui
         void onCancelButtonClicked(MyGUI::Widget* _sender);
         void onCreateButtonClicked(MyGUI::Widget* _sender);
         void onIngredientSelected(MyGUI::Widget* _sender);
+        void onApparatusSelected(MyGUI::Widget* _sender);
         void onAccept(MyGUI::EditBox*);
         void onIncreaseButtonPressed(MyGUI::Widget* _sender, int _left, int _top, MyGUI::MouseButton _id);
         void onDecreaseButtonPressed(MyGUI::Widget* _sender, int _left, int _top, MyGUI::MouseButton _id);
@@ -82,7 +88,8 @@ namespace MWGui
 
         void onSelectedItem(int index);
 
-        void removeIngredient(MyGUI::Widget* ingredient);
+        void onItemSelected(MWWorld::Ptr item);
+        void onItemCancel();
 
         void createPotions(int count);
 

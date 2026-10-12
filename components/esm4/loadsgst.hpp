@@ -28,7 +28,11 @@
 #define ESM4_SGST_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
+
+#include <components/esm/defs.hpp>
+#include <components/esm/formid.hpp>
 
 #include "effect.hpp"
 
@@ -41,12 +45,12 @@ namespace ESM4
     {
         struct Data
         {
-            std::uint8_t  uses;
+            std::uint8_t uses;
             std::uint32_t value; // gold
-            float         weight;
+            float weight;
         };
 
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
@@ -57,15 +61,16 @@ namespace ESM4
         float mBoundRadius;
 
         std::vector<std::string> mScriptEffect; // FIXME: prob. should be in a struct
-        FormId mScriptId;
+        ESM::FormId mScriptId;
         ScriptEffect mEffect;
 
         Data mData;
 
         void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        // void save(ESM4::Writer& writer) const;
 
-        //void blank();
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::RecNameInts::REC_SGST4;
     };
 }
 

@@ -45,7 +45,7 @@ namespace SceneUtil
 
         enum ActiveType
         {
-            Inactive=0,
+            Inactive = 0,
             SemiActive, /// Like Active, but don't bother with Update (including new bounding box) if we're off-screen
             Active
         };
@@ -68,7 +68,7 @@ namespace SceneUtil
         // As far as the scene graph goes we support multiple root bones.
         std::unique_ptr<Bone> mRootBone;
 
-        typedef std::unordered_map<std::string, std::vector<osg::MatrixTransform*> > BoneCache;
+        typedef std::unordered_map<std::string, std::vector<osg::MatrixTransform*>> BoneCache;
         BoneCache mBoneCache;
         bool mBoneCacheInit;
 

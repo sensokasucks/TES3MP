@@ -9,20 +9,14 @@ namespace ESM
 
     struct CreatureLevListState final : public ObjectState
     {
-        int mSpawnActorId;
+        int32_t mSpawnActorId;
         bool mSpawn;
 
-        void load (ESMReader &esm) override;
-        void save (ESMWriter &esm, bool inInventory = false) const override;
+        void load(ESMReader& esm) override;
+        void save(ESMWriter& esm, bool inInventory = false) const override;
 
-        CreatureLevListState& asCreatureLevListState() override
-        {
-            return *this;
-        }
-        const CreatureLevListState& asCreatureLevListState() const override
-        {
-            return *this;
-        }
+        CreatureLevListState& asCreatureLevListState() override { return *this; }
+        const CreatureLevListState& asCreatureLevListState() const override { return *this; }
     };
 }
 

@@ -2,6 +2,7 @@
 #define MWGUI_BIRTH_H
 
 #include "windowbase.hpp"
+#include <components/esm/refid.hpp>
 
 namespace MWGui
 {
@@ -16,8 +17,8 @@ namespace MWGui
             GM_Female
         };
 
-        const std::string &getBirthId() const { return mCurrentBirthId; }
-        void setBirthId(const std::string &raceId);
+        const ESM::RefId& getBirthId() const { return mCurrentBirthId; }
+        void setBirthId(const ESM::RefId& raceId);
 
         void setNextButtonShow(bool shown);
         void onOpen() override;
@@ -25,7 +26,7 @@ namespace MWGui
         bool exit() override { return false; }
 
         // Events
-        typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;
+        typedef MyGUI::delegates::MultiDelegate<> EventHandle_Void;
 
         /** Event : Back button clicked.\n
             signature : void method()\n
@@ -53,7 +54,7 @@ namespace MWGui
         MyGUI::ImageBox* mBirthImage;
         std::vector<MyGUI::Widget*> mSpellItems;
 
-        std::string mCurrentBirthId;
+        ESM::RefId mCurrentBirthId;
     };
 }
 #endif

@@ -1,9 +1,10 @@
 #ifndef OPENMW_ESM_DIALOGUESTATE_H
 #define OPENMW_ESM_DIALOGUESTATE_H
 
+#include <components/esm/refid.hpp>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace ESM
 {
@@ -15,13 +16,13 @@ namespace ESM
     struct DialogueState
     {
         // must be lower case topic IDs
-        std::vector<std::string> mKnownTopics;
+        std::vector<ESM::RefId> mKnownTopics;
 
         // must be lower case faction IDs
-        std::map<std::string, std::map<std::string, int> > mChangedFactionReaction;
+        std::map<ESM::RefId, std::map<ESM::RefId, int>> mChangedFactionReaction;
 
-        void load (ESMReader &esm);
-        void save (ESMWriter &esm) const;
+        void load(ESMReader& esm);
+        void save(ESMWriter& esm) const;
     };
 }
 

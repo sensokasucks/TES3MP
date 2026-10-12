@@ -2,69 +2,78 @@
 #define CSM_WOLRD_REFCOLLECTION_H
 
 #include <map>
+#include <memory>
+#include <string>
 #include <string_view>
+#include <vector>
 
-#include "../doc/stage.hpp"
+#include <apps/opencs/model/world/universalid.hpp>
 
 #include "collection.hpp"
-#include "ref.hpp"
 #include "record.hpp"
+#include "ref.hpp"
+
+namespace ESM
+{
+    class ESMReader;
+}
+
+namespace CSMDoc
+{
+    class Messages;
+}
 
 namespace CSMWorld
 {
     struct Cell;
-    class UniversalId;
 
-    template<>
-    void Collection<CellRef, IdAccessor<CellRef> >::removeRows (int index, int count);
+    template <>
+    void Collection<CellRef>::removeRows(int index, int count);
 
-    template<>
-    void Collection<CellRef, IdAccessor<CellRef> >::insertRecord (std::unique_ptr<RecordBase> record, int index,
-        UniversalId::Type type);
+    template <>
+    void Collection<CellRef>::insertRecord(std::unique_ptr<RecordBase> record, int index, UniversalId::Type type);
 
     /// \brief References in cells
-    class RefCollection : public Collection<CellRef>
+    class RefCollection final : public Collection<CellRef>
     {
-            Collection<Cell>& mCells;
-            std::map<unsigned int, int> mRefIndex; // CellRef index keyed by CSMWorld::CellRef::mIdNum
+        Collection<Cell>& mCells;
+        std::map<unsigned int, int> mRefIndex; // CellRef index keyed by CSMWorld::CellRef::mIdNum
 
-            int mNextId;
+        int mNextId;
 
-            unsigned int extractIdNum(std::string_view id) const;
+        unsigned int extractIdNum(std::string_view id) const;
 
-            int getIntIndex (unsigned int id) const;
+        int getIntIndex(unsigned int id) const;
 
-            int searchId (unsigned int id) const;
+        int searchId(unsigned int id) const;
 
-        public:
-            // MSVC needs the constructor for a class inheriting a template to be defined in header
-            RefCollection (Collection<Cell>& cells)
-              : mCells (cells), mNextId (0)
-            {}
+    public:
+        // MSVC needs the constructor for a class inheriting a template to be defined in header
+        RefCollection(Collection<Cell>& cells)
+            : mCells(cells)
+            , mNextId(0)
+        {
+        }
 
-            void load (ESM::ESMReader& reader, int cellIndex, bool base,
-                std::map<unsigned int, unsigned int>& cache, CSMDoc::Messages& messages);
-            ///< Load a sequence of references.
+        void load(ESM::ESMReader& reader, int cellIndex, bool base, std::map<ESM::RefNum, unsigned int>& cache,
+            CSMDoc::Messages& messages);
+        ///< Load a sequence of references.
 
-            std::string getNewId();
+        std::string getNewId();
 
-            virtual void removeRows (int index, int count);
+        void removeRows(int index, int count) override;
 
-            virtual void appendBlankRecord (const std::string& id,
-                                            UniversalId::Type type = UniversalId::Type_None);
+        void appendBlankRecord(const ESM::RefId& id, UniversalId::Type type = UniversalId::Type_None) override;
 
-            virtual void cloneRecord (const std::string& origin,
-                                      const std::string& destination,
-                                      const UniversalId::Type type);
+        void cloneRecord(
+            const ESM::RefId& origin, const ESM::RefId& destination, const UniversalId::Type type) override;
 
-            virtual int searchId(std::string_view id) const;
+        int searchId(const ESM::RefId& id) const override;
 
-            virtual void appendRecord (std::unique_ptr<RecordBase> record,
-                                       UniversalId::Type type = UniversalId::Type_None);
+        void appendRecord(std::unique_ptr<RecordBase> record, UniversalId::Type type = UniversalId::Type_None) override;
 
-            virtual void insertRecord (std::unique_ptr<RecordBase> record,
-                                       int index,
-                                       UniversalId::Type type = UniversalId::Type_None);
+        void insertRecord(
+            std::unique_ptr<RecordBase> record, int index, UniversalId::Type type = UniversalId::Type_None) override;
     };
 }
 

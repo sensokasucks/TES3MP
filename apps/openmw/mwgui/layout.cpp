@@ -1,9 +1,10 @@
 #include "layout.hpp"
 
-#include <MyGUI_LayoutManager.h>
-#include <MyGUI_Widget.h>
 #include <MyGUI_Gui.h>
+#include <MyGUI_LayoutManager.h>
 #include <MyGUI_TextBox.h>
+#include <MyGUI_UString.h>
+#include <MyGUI_Widget.h>
 #include <MyGUI_Window.h>
 
 namespace MWGui
@@ -25,7 +26,8 @@ namespace MWGui
             // Force the alignment to update immediately
             widget->_setAlign(widget->getSize(), widget->getParentSize());
         }
-        MYGUI_ASSERT(mMainWidget, "root widget name '" << MAIN_WINDOW << "' in layout '" << mLayoutName << "' not found.");
+        MYGUI_ASSERT(
+            mMainWidget, "root widget name '" << MAIN_WINDOW << "' in layout '" << mLayoutName << "' not found.");
     }
 
     void Layout::shutdown()
@@ -37,7 +39,7 @@ namespace MWGui
 
     void Layout::setCoord(int x, int y, int w, int h)
     {
-        mMainWidget->setCoord(x,y,w,h);
+        mMainWidget->setCoord(x, y, w, h);
     }
 
     void Layout::setVisible(bool b)
@@ -45,19 +47,19 @@ namespace MWGui
         mMainWidget->setVisible(b);
     }
 
-    void Layout::setText(std::string_view name, const std::string &caption)
+    void Layout::setText(std::string_view name, std::string_view caption)
     {
         MyGUI::Widget* pt;
         getWidget(pt, name);
-        static_cast<MyGUI::TextBox*>(pt)->setCaption(caption);
+        static_cast<MyGUI::TextBox*>(pt)->setCaption(MyGUI::UString(caption));
     }
 
-    void Layout::setTitle(const std::string& title)
+    void Layout::setTitle(std::string_view title)
     {
         MyGUI::Window* window = static_cast<MyGUI::Window*>(mMainWidget);
 
         if (window->getCaption() != title)
-            window->setCaptionWithReplacing(title);
+            window->setCaptionWithReplacing(MyGUI::UString(title));
     }
 
     MyGUI::Widget* Layout::getWidget(std::string_view _name)

@@ -2,10 +2,10 @@
 #define OPENMW_COMPONENTS_PLATFORM_FILE_HPP
 
 #include <cstdlib>
-#include <string_view>
-#include <cstdint>
+#include <filesystem>
 
-namespace Platform::File {
+namespace Platform::File
+{
 
     enum class Handle : intptr_t
     {
@@ -19,7 +19,7 @@ namespace Platform::File {
         End
     };
 
-    Handle open(const char* filename);
+    Handle open(const std::filesystem::path& filename);
 
     void close(Handle handle);
 
@@ -33,15 +33,18 @@ namespace Platform::File {
     class ScopedHandle
     {
         Handle mHandle{ Handle::Invalid };
-        
+
     public:
         ScopedHandle() noexcept = default;
         ScopedHandle(ScopedHandle& other) = delete;
-        ScopedHandle(Handle handle) noexcept : mHandle(handle) {}
-        ScopedHandle(ScopedHandle&& other) noexcept 
-            : mHandle(other.mHandle) 
-        { 
-            other.mHandle = Handle::Invalid; 
+        ScopedHandle(Handle handle) noexcept
+            : mHandle(handle)
+        {
+        }
+        ScopedHandle(ScopedHandle&& other) noexcept
+            : mHandle(other.mHandle)
+        {
+            other.mHandle = Handle::Invalid;
         }
         ScopedHandle& operator=(const ScopedHandle& other) = delete;
         ScopedHandle& operator=(ScopedHandle&& other) noexcept
@@ -52,10 +55,10 @@ namespace Platform::File {
             other.mHandle = Handle::Invalid;
             return *this;
         }
-        ~ScopedHandle() 
-        { 
-            if(mHandle != Handle::Invalid) 
-                close(mHandle); 
+        ~ScopedHandle()
+        {
+            if (mHandle != Handle::Invalid)
+                close(mHandle);
         }
 
         operator Handle() const { return mHandle; }

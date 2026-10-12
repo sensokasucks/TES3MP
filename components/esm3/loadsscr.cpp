@@ -5,7 +5,7 @@
 
 namespace ESM
 {
-    void StartScript::load(ESMReader &esm, bool &isDeleted)
+    void StartScript::load(ESMReader& esm, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,7 +18,7 @@ namespace ESM
             switch (esm.retSubName().toInt())
             {
                 case SREC_NAME:
-                    mId = esm.getHString();
+                    mId = esm.getRefId();
                     hasName = true;
                     break;
                 case fourCC("DATA"):
@@ -40,9 +40,9 @@ namespace ESM
         if (!hasData && !isDeleted)
             esm.fail("Missing DATA");
     }
-    void StartScript::save(ESMWriter &esm, bool isDeleted) const
+    void StartScript::save(ESMWriter& esm, bool isDeleted) const
     {
-        esm.writeHNCString("NAME", mId);
+        esm.writeHNCRefId("NAME", mId);
         if (isDeleted)
         {
             esm.writeHNString("DELE", "", 3);

@@ -27,58 +27,78 @@
 #include "loadsndr.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME: for debugging only
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::SoundReference::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId);  break;
-            case ESM4::SUB_CTDA:
-            {
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("CTDA"):
                 reader.get(&mTargetCondition, 20);
                 reader.get(mTargetCondition.runOn);
                 reader.get(mTargetCondition.reference);
                 if (mTargetCondition.reference)
                     reader.adjustFormId(mTargetCondition.reference);
                 reader.skipSubRecordData(4); // unknown
-
+                break;
+            case ESM::fourCC("GNAM"):
+                reader.getFormId(mSoundCategory);
+                break;
+            case ESM::fourCC("SNAM"):
+                reader.getFormId(mSoundId);
+                break;
+            case ESM::fourCC("ONAM"):
+                reader.getFormId(mOutputModel);
+                break;
+            case ESM::fourCC("ANAM"):
+                reader.getZString(mSoundFile);
+                break;
+            case ESM::fourCC("LNAM"):
+                reader.get(mLoopInfo);
+                break;
+            case ESM::fourCC("BNAM"):
+            {
+                if (subHdr.dataSize == 6)
+                    reader.get(mData);
+                else if (subHdr.dataSize == 4)
+                    reader.getFormId(mBaseDescriptor);
+                else
+                    reader.skipSubRecordData();
                 break;
             }
-            case ESM4::SUB_GNAM: reader.getFormId(mSoundCategory); break;
-            case ESM4::SUB_SNAM: reader.getFormId(mSoundId); break;
-            case ESM4::SUB_ONAM: reader.getFormId(mOutputModel); break;
-            case ESM4::SUB_ANAM: reader.getZString(mSoundFile);  break;
-            case ESM4::SUB_LNAM: reader.get(mLoopInfo); break;
-            case ESM4::SUB_BNAM: reader.get(mData); break;
-            case ESM4::SUB_CNAM: // CRC32 hash
-            case ESM4::SUB_FNAM: // unknown
-            {
-                //std::cout << "SNDR " << ESM::printName(subHdr.typeId) << " skipping..."
-                          //<< subHdr.dataSize << std::endl;
+            case ESM::fourCC("CIS1"):
+            case ESM::fourCC("CIS2"):
+            case ESM::fourCC("CNAM"): // CRC32 hash
+            case ESM::fourCC("DNAM"): // FO4
+            case ESM::fourCC("FNAM"): // unknown
+            case ESM::fourCC("INTV"): // FO4
+            case ESM::fourCC("ITMC"): // FO4
+            case ESM::fourCC("ITME"): // FO4
+            case ESM::fourCC("ITMS"): // FO4
+            case ESM::fourCC("NNAM"): // FO4
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::SNDR::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
     }
 }
 
-//void ESM4::SoundReference::save(ESM4::Writer& writer) const
+// void ESM4::SoundReference::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::SoundReference::blank()
+// void ESM4::SoundReference::blank()
 //{
-//}
+// }

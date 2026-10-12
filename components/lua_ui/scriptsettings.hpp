@@ -1,9 +1,8 @@
 #ifndef OPENMW_LUAUI_SCRIPTSETTINGS
 #define OPENMW_LUAUI_SCRIPTSETTINGS
 
-#include <string>
-#include <string_view>
 #include <memory>
+#include <string>
 
 namespace LuaUi
 {

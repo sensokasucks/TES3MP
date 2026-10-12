@@ -15,7 +15,7 @@ global map cell size
 --------------------
 
 :Type:		integer
-:Range:		>= 1
+:Range:		1 to 50
 :Default:	18
 
 This setting adjusts the scale of the world map in the GUI mode map window.
@@ -29,30 +29,10 @@ Values from 12 to 36 are recommended. For reference, Vvardenfell is approximatel
 
 .. Warning::
 	Changing this setting affects saved games. The currently explored area is stored as an image
-	in the save file that's overlayed on the default world map in game.
+	in the save file that's overlaid on the default world map in game.
 	When you increase the resolution of the map, the overlay of earlier saved games will be scaled up on load,
 	and appear blurry. When you visit the cell again, the overlay for that cell is regenerated at the new resolution,
 	so the blurry areas can be corrected by revisiting all the cells you've already visited.
-
-This setting can not be configured except by editing the settings configuration file.
-
-local map hud widget size
--------------------------
-
-:Type:		integer
-:Range:		>= 1
-:Default:	256
-
-This setting controls the zoom level for the HUD map widget (the map in the lower right corner of the window).
-A value of 64 results in the HUD map widget displaying one entire exterior cell.
-Since the GUI mode map displays 3x3 cells, a value of approximately 21 displays the same area as the GUI mode map.
-Larger values increase the level of zoom,
-while smaller values are wasteful since there's no map data to display beyond the 3x3 cell grid.
-
-Note that the actual size of the widget is always the same on the screen
-unless the scaling factor setting in the "GUI" section is changed.
-Increasing both the scaling factor of the GUI and this setting does result in a higher resolution HUD map,
-unfortunately with a scaled direction pointer on top of it.
 
 This setting can not be configured except by editing the settings configuration file.
 
@@ -113,7 +93,7 @@ allow zooming
 
 If this setting is true the user can zoom in/out on local and global map with the mouse wheel.
 
-This setting can be controlled in Advanced tab of the launcher.
+This setting can be controlled in the Settings tab of the launcher.
 
 max local viewing distance
 ---------------------------

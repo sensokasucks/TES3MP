@@ -27,30 +27,38 @@
 #include "loadlvlc.hpp"
 
 #include <stdexcept>
-//#include <iostream> // FIXME
 
 #include "reader.hpp"
 //#include "writer.hpp"
 
 void ESM4::LevelledCreature::load(ESM4::Reader& reader)
 {
-    mFormId = reader.hdr().record.id;
-    reader.adjustFormId(mFormId);
-    mFlags  = reader.hdr().record.flags;
+    mId = reader.getFormIdFromHeader();
+    mFlags = reader.hdr().record.flags;
 
     while (reader.getSubRecordHeader())
     {
         const ESM4::SubRecordHeader& subHdr = reader.subRecordHeader();
         switch (subHdr.typeId)
         {
-            case ESM4::SUB_EDID: reader.getZString(mEditorId); break;
-            case ESM4::SUB_SCRI: reader.getFormId(mScriptId);    break;
-            case ESM4::SUB_TNAM: reader.getFormId(mTemplate);  break;
-            case ESM4::SUB_LVLD: reader.get(mChanceNone);      break;
-            case ESM4::SUB_LVLF: reader.get(mLvlCreaFlags);    break;
-            case ESM4::SUB_LVLO:
+            case ESM::fourCC("EDID"):
+                reader.getZString(mEditorId);
+                break;
+            case ESM::fourCC("SCRI"):
+                reader.getFormId(mScriptId);
+                break;
+            case ESM::fourCC("TNAM"):
+                reader.getFormId(mTemplate);
+                break;
+            case ESM::fourCC("LVLD"):
+                reader.get(mChanceNone);
+                break;
+            case ESM::fourCC("LVLF"):
+                reader.get(mLvlCreaFlags);
+                break;
+            case ESM::fourCC("LVLO"):
             {
-                static LVLO lvlo;
+                LVLO lvlo;
                 if (subHdr.dataSize != 12)
                 {
                     if (subHdr.dataSize == 8)
@@ -58,8 +66,8 @@ void ESM4::LevelledCreature::load(ESM4::Reader& reader)
                         reader.get(lvlo.level);
                         reader.get(lvlo.item);
                         reader.get(lvlo.count);
-                        //std::cout << "LVLC " << mEditorId << " LVLO lev " << lvlo.level << ", item " << lvlo.item
-                                  //<< ", count " << lvlo.count << std::endl;
+                        // std::cout << "LVLC " << mEditorId << " LVLO lev " << lvlo.level << ", item " << lvlo.item
+                        // << /g", count " << lvlo.count << std::endl;
                         // FIXME: seems to happen only once, don't add to mLvlObject
                         // LVLC TesKvatchCreature LVLO lev 1, item 1393819648, count 2
                         // 0x0001, 0x5314 0000, 0x0002
@@ -75,12 +83,9 @@ void ESM4::LevelledCreature::load(ESM4::Reader& reader)
                 mLvlObject.push_back(lvlo);
                 break;
             }
-            case ESM4::SUB_OBND: // FO3
-            {
-                //std::cout << "LVLC " << ESM::printName(subHdr.typeId) << " skipping..." << std::endl;
+            case ESM::fourCC("OBND"): // FO3
                 reader.skipSubRecordData();
                 break;
-            }
             default:
                 throw std::runtime_error("ESM4::LVLC::load - Unknown subrecord " + ESM::printName(subHdr.typeId));
         }
@@ -111,10 +116,10 @@ std::int8_t ESM4::LevelledCreature::chanceNone() const
         return (mChanceNone & 0x7f); // FIXME: 0x80 is just a guess
 }
 
-//void ESM4::LevelledCreature::save(ESM4::Writer& writer) const
+// void ESM4::LevelledCreature::save(ESM4::Writer& writer) const
 //{
-//}
+// }
 
-//void ESM4::LevelledCreature::blank()
+// void ESM4::LevelledCreature::blank()
 //{
-//}
+// }

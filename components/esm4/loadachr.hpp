@@ -29,7 +29,11 @@
 
 #include <cstdint>
 
-#include "reference.hpp" // FormId, Placement, EnableParent
+#include <components/esm/defs.hpp>
+#include <components/esm/position.hpp>
+#include <components/esm/refid.hpp>
+
+#include "reference.hpp" // Placement, EnableParent
 
 namespace ESM4
 {
@@ -38,29 +42,34 @@ namespace ESM4
 
     struct ActorCharacter
     {
-        FormId mParent;       // cell formId, from the loading sequence
-                              // NOTE: for exterior cells it will be the dummy cell FormId
-
-        FormId mFormId;       // from the header
+        ESM::FormId mId; // from the header
+        ESM::RefId mParent; // cell FormId , from the loading sequence
+                            // NOTE: for exterior cells it will be the dummy cell FormId
         std::uint32_t mFlags; // from the header, see enum type RecordFlag for details
 
         std::string mEditorId;
         std::string mFullName;
-        FormId      mBaseObj;
+        ESM::FormId mBaseObj;
 
-        Placement mPlacement;
-        float    mScale = 1.0f;
-        FormId   mOwner;
-        FormId   mGlobal;
-
-        bool mInitiallyDisabled; // TODO may need to check mFlags & 0x800 (initially disabled)
+        ESM::Position mPos;
+        float mScale = 1.0f;
+        ESM::FormId mOwner;
+        ESM::FormId mGlobal;
 
         EnableParent mEsp;
 
-        void load(ESM4::Reader& reader);
-        //void save(ESM4::Writer& writer) const;
+        std::int32_t mCount = 1;
 
-        //void blank();
+        void load(ESM4::Reader& reader);
+        // void save(ESM4::Writer& writer) const;
+
+        // void blank();
+        static constexpr ESM::RecNameInts sRecordId = ESM::REC_ACHR4;
+    };
+
+    struct ActorCreature : public ActorCharacter
+    {
+        static constexpr ESM::RecNameInts sRecordId = ESM::REC_ACRE4;
     };
 }
 

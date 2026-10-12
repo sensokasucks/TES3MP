@@ -3,8 +3,8 @@
 #include <components/debug/debuglog.hpp>
 #include <components/esm3/loadspel.hpp>
 #include <components/esm3/spellstate.hpp>
-#include <components/misc/rng.hpp>
-#include <components/misc/stringops.hpp>
+
+#include <components/esm3/loadmgef.hpp>
 
 /*
     Start of tes3mp addition
@@ -25,24 +25,27 @@
 
 #include "actorutil.hpp"
 #include "creaturestats.hpp"
-#include "magiceffects.hpp"
 #include "stat.hpp"
 
 namespace MWMechanics
 {
-    Spells::Spells()
-    {
-    }
+    Spells::Spells() {}
 
-    Spells::Spells(const Spells& spells) : mSpellList(spells.mSpellList), mSpells(spells.mSpells),
-        mSelectedSpell(spells.mSelectedSpell), mUsedPowers(spells.mUsedPowers)
+    Spells::Spells(const Spells& spells)
+        : mSpellList(spells.mSpellList)
+        , mSpells(spells.mSpells)
+        , mSelectedSpell(spells.mSelectedSpell)
+        , mUsedPowers(spells.mUsedPowers)
     {
-        if(mSpellList)
+        if (mSpellList)
             mSpellList->addListener(this);
     }
 
-    Spells::Spells(Spells&& spells) : mSpellList(std::move(spells.mSpellList)), mSpells(std::move(spells.mSpells)),
-        mSelectedSpell(std::move(spells.mSelectedSpell)), mUsedPowers(std::move(spells.mUsedPowers))
+    Spells::Spells(Spells&& spells)
+        : mSpellList(std::move(spells.mSpellList))
+        , mSpells(std::move(spells.mSpells))
+        , mSelectedSpell(std::move(spells.mSelectedSpell))
+        , mUsedPowers(std::move(spells.mUsedPowers))
     {
         if (mSpellList)
             mSpellList->updateListener(&spells, this);
@@ -58,24 +61,27 @@ namespace MWMechanics
         return mSpells.end();
     }
 
-    bool Spells::hasSpell(const std::string &spell) const
+    bool Spells::hasSpell(const ESM::RefId& spell) const
     {
         return hasSpell(SpellList::getSpell(spell));
     }
 
-    bool Spells::hasSpell(const ESM::Spell *spell) const
+    bool Spells::hasSpell(const ESM::Spell* spell) const
     {
         return std::find(mSpells.begin(), mSpells.end(), spell) != mSpells.end();
     }
 
-    void Spells::add (const ESM::Spell* spell)
+    void Spells::add(const ESM::Spell* spell, bool modifyBase)
     {
-        mSpellList->add(spell);
+        if (modifyBase)
+            mSpellList->add(spell);
+        else
+            addSpell(spell);
     }
 
-    void Spells::add (const std::string& spellId)
+    void Spells::add(const ESM::RefId& spellId, bool modifyBase)
     {
-        add(SpellList::getSpell(spellId));
+        add(SpellList::getSpell(spellId), modifyBase);
     }
 
     void Spells::addSpell(const ESM::Spell* spell)
@@ -84,20 +90,24 @@ namespace MWMechanics
             mSpells.emplace_back(spell);
     }
 
-    void Spells::remove (const std::string& spellId)
+    void Spells::remove(const ESM::RefId& spellId, bool modifyBase)
     {
-        const auto spell = SpellList::getSpell(spellId);
-        removeSpell(spell);
-        mSpellList->remove(spell);
+        remove(SpellList::getSpell(spellId), modifyBase);
+    }
 
-        if (spellId==mSelectedSpell)
-            mSelectedSpell.clear();
+    void Spells::remove(const ESM::Spell* spell, bool modifyBase)
+    {
+        removeSpell(spell);
+        if (modifyBase)
+            mSpellList->remove(spell);
+        if (spell->mId == mSelectedSpell)
+            mSelectedSpell = ESM::RefId();
     }
 
     void Spells::removeSpell(const ESM::Spell* spell)
     {
         const auto it = std::find(mSpells.begin(), mSpells.end(), spell);
-        if(it != mSpells.end())
+        if (it != mSpells.end())
             mSpells.erase(it);
     }
 
@@ -109,26 +119,24 @@ namespace MWMechanics
     void Spells::clear(bool modifyBase)
     {
         removeAllSpells();
-        if(modifyBase)
+        if (modifyBase)
             mSpellList->clear();
     }
 
-    void Spells::setSelectedSpell (const std::string& spellId)
+    void Spells::setSelectedSpell(const ESM::RefId& spellId)
     {
         mSelectedSpell = spellId;
     }
 
-    const std::string Spells::getSelectedSpell() const
+    const ESM::RefId& Spells::getSelectedSpell() const
     {
         return mSelectedSpell;
     }
 
     bool Spells::hasSpellType(const ESM::Spell::SpellType type) const
     {
-        auto it = std::find_if(std::begin(mSpells), std::end(mSpells), [=](const ESM::Spell* spell)
-            {
-                return spell->mData.mType == type;
-            });
+        auto it = std::find_if(std::begin(mSpells), std::end(mSpells),
+            [=](const ESM::Spell* spell) { return spell->mData.mType == type; });
         return it != std::end(mSpells);
     }
 
@@ -144,10 +152,10 @@ namespace MWMechanics
 
     void Spells::purge(const SpellFilter& filter)
     {
-        std::vector<std::string> purged;
-        for (auto iter = mSpells.begin(); iter!=mSpells.end();)
+        std::vector<ESM::RefId> purged;
+        for (auto iter = mSpells.begin(); iter != mSpells.end();)
         {
-            const ESM::Spell *spell = *iter;
+            const ESM::Spell* spell = *iter;
             if (filter(spell))
             {
                 /*
@@ -166,7 +174,7 @@ namespace MWMechanics
             else
                 ++iter;
         }
-        if(!purged.empty())
+        if (!purged.empty())
             mSpellList->removeAll(purged);
     }
 
@@ -190,11 +198,11 @@ namespace MWMechanics
         purge([](auto spell) { return spell->mData.mType == ESM::Spell::ST_Curse; });
     }
 
-    bool Spells::hasCorprusEffect(const ESM::Spell *spell)
+    bool Spells::hasCorprusEffect(const ESM::Spell* spell)
     {
         for (const auto& effectIt : spell->mEffects.mList)
         {
-            if (effectIt.mEffectID == ESM::MagicEffect::Corprus)
+            if (effectIt.mData.mEffectID == ESM::MagicEffect::Corprus)
             {
                 return true;
             }
@@ -204,14 +212,16 @@ namespace MWMechanics
 
     bool Spells::canUsePower(const ESM::Spell* spell) const
     {
-        const auto it = std::find_if(std::begin(mUsedPowers), std::end(mUsedPowers), [&](auto& pair) { return pair.first == spell; });
+        const auto it = std::find_if(
+            std::begin(mUsedPowers), std::end(mUsedPowers), [&](auto& pair) { return pair.first == spell; });
         return it == mUsedPowers.end() || it->second + 24 <= MWBase::Environment::get().getWorld()->getTimeStamp();
     }
 
     void Spells::usePower(const ESM::Spell* spell)
     {
         // Updates or inserts a new entry with the current timestamp.
-        const auto it = std::find_if(std::begin(mUsedPowers), std::end(mUsedPowers), [&](auto& pair) { return pair.first == spell; });
+        const auto it = std::find_if(
+            std::begin(mUsedPowers), std::end(mUsedPowers), [&](auto& pair) { return pair.first == spell; });
         const auto timestamp = MWBase::Environment::get().getWorld()->getTimeStamp();
         if (it == mUsedPowers.end())
             mUsedPowers.emplace_back(spell, timestamp);
@@ -250,14 +260,14 @@ namespace MWMechanics
         End of tes3mp addition
     */
 
-    void Spells::readState(const ESM::SpellState &state, CreatureStats* creatureStats)
+    void Spells::readState(const ESM::SpellState& state, CreatureStats* creatureStats)
     {
         const auto& baseSpells = mSpellList->getSpells();
 
-        for (const std::string& id : state.mSpells)
+        for (const ESM::RefId& id : state.mSpells)
         {
             // Discard spells that are no longer available due to changed content files
-            const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(id);
+            const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(id);
             if (spell)
             {
                 addSpell(spell);
@@ -267,26 +277,26 @@ namespace MWMechanics
             }
         }
         // Add spells from the base record
-        for(const std::string& id : baseSpells)
+        for (const ESM::RefId& id : baseSpells)
         {
-            const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(id);
-            if(spell)
+            const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(id);
+            if (spell)
                 addSpell(spell);
         }
 
-        for (std::map<std::string, ESM::TimeStamp>::const_iterator it = state.mUsedPowers.begin(); it != state.mUsedPowers.end(); ++it)
+        for (auto it = state.mUsedPowers.begin(); it != state.mUsedPowers.end(); ++it)
         {
-            const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(it->first);
+            const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(it->first);
             if (!spell)
                 continue;
             mUsedPowers.emplace_back(spell, MWWorld::TimeStamp(it->second));
         }
 
-        // Permanent effects are used only to keep the custom magnitude of corprus spells effects (after cure too), and only in old saves. Convert data to the new approach.
-        for (std::map<std::string, std::vector<ESM::SpellState::PermanentSpellEffectInfo> >::const_iterator it =
-            state.mPermanentSpellEffects.begin(); it != state.mPermanentSpellEffects.end(); ++it)
+        // Permanent effects are used only to keep the custom magnitude of corprus spells effects (after cure too), and
+        // only in old saves. Convert data to the new approach.
+        for (auto it = state.mPermanentSpellEffects.begin(); it != state.mPermanentSpellEffects.end(); ++it)
         {
-            const ESM::Spell * spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(it->first);
+            const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(it->first);
             if (!spell)
                 continue;
 
@@ -295,36 +305,38 @@ namespace MWMechanics
             if (creatureStats->getActorId() != player.getClass().getCreatureStats(player).getActorId())
                 return;
 
-            // Note: if target actor has the Restore attirbute effects, stats will be restored.
-            for (std::vector<ESM::SpellState::PermanentSpellEffectInfo>::const_iterator effectIt = it->second.begin(); effectIt != it->second.end(); ++effectIt)
+            // Note: if target actor has the Restore attribute effects, stats will be restored.
+            for (const ESM::SpellState::PermanentSpellEffectInfo& info : it->second)
             {
                 // Applied corprus effects are already in loaded stats modifiers
-                if (effectIt->mId == ESM::MagicEffect::FortifyAttribute)
+                if (info.mId == ESM::MagicEffect::FortifyAttribute)
                 {
-                    AttributeValue attr = creatureStats->getAttribute(effectIt->mArg);
-                    attr.setModifier(attr.getModifier() - effectIt->mMagnitude);
-                    attr.damage(-effectIt->mMagnitude);
-                    creatureStats->setAttribute(effectIt->mArg, attr);
+                    auto id = ESM::Attribute::indexToRefId(info.mArg);
+                    AttributeValue attr = creatureStats->getAttribute(id);
+                    attr.setModifier(attr.getModifier() - info.mMagnitude);
+                    attr.damage(-info.mMagnitude);
+                    creatureStats->setAttribute(id, attr);
                 }
-                else if (effectIt->mId == ESM::MagicEffect::DrainAttribute)
+                else if (info.mId == ESM::MagicEffect::DrainAttribute)
                 {
-                    AttributeValue attr = creatureStats->getAttribute(effectIt->mArg);
-                    attr.setModifier(attr.getModifier() + effectIt->mMagnitude);
-                    attr.damage(effectIt->mMagnitude);
-                    creatureStats->setAttribute(effectIt->mArg, attr);
+                    auto id = ESM::Attribute::indexToRefId(info.mArg);
+                    AttributeValue attr = creatureStats->getAttribute(id);
+                    attr.setModifier(attr.getModifier() + info.mMagnitude);
+                    attr.damage(info.mMagnitude);
+                    creatureStats->setAttribute(id, attr);
                 }
             }
         }
     }
 
-    void Spells::writeState(ESM::SpellState &state) const
+    void Spells::writeState(ESM::SpellState& state) const
     {
         const auto& baseSpells = mSpellList->getSpells();
         for (const auto spell : mSpells)
         {
             // Don't save spells and powers stored in the base record
-            if((spell->mData.mType != ESM::Spell::ST_Spell && spell->mData.mType != ESM::Spell::ST_Power) ||
-                std::find(baseSpells.begin(), baseSpells.end(), spell->mId) == baseSpells.end())
+            if ((spell->mData.mType != ESM::Spell::ST_Spell && spell->mData.mType != ESM::Spell::ST_Power)
+                || std::find(baseSpells.begin(), baseSpells.end(), spell->mId) == baseSpells.end())
             {
                 state.mSpells.emplace_back(spell->mId);
             }
@@ -336,30 +348,30 @@ namespace MWMechanics
             state.mUsedPowers[it.first->mId] = it.second.toEsm();
     }
 
-    bool Spells::setSpells(const std::string& actorId)
+    bool Spells::setSpells(const ESM::RefId& actorId)
     {
         bool result;
-        std::tie(mSpellList, result) = MWBase::Environment::get().getWorld()->getStore().getSpellList(actorId);
+        std::tie(mSpellList, result) = MWBase::Environment::get().getESMStore()->getSpellList(actorId);
         mSpellList->addListener(this);
         addAllToInstance(mSpellList->getSpells());
         return result;
     }
 
-    void Spells::addAllToInstance(const std::vector<std::string>& spells)
+    void Spells::addAllToInstance(const std::vector<ESM::RefId>& spells)
     {
-        for(const std::string& id : spells)
+        for (const ESM::RefId& id : spells)
         {
-            const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(id);
-            if(spell)
+            const ESM::Spell* spell = MWBase::Environment::get().getESMStore()->get<ESM::Spell>().search(id);
+            if (spell)
                 addSpell(spell);
             else
-                Log(Debug::Warning) << "Warning: ignoring nonexistent spell '" << id << "'";
+                Log(Debug::Warning) << "Warning: ignoring nonexistent spell " << id;
         }
     }
 
     Spells::~Spells()
     {
-        if(mSpellList)
+        if (mSpellList)
             mSpellList->removeListener(this);
     }
 }

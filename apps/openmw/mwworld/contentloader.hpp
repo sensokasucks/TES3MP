@@ -1,7 +1,7 @@
 #ifndef CONTENTLOADER_HPP
 #define CONTENTLOADER_HPP
 
-#include <boost/filesystem/path.hpp>
+#include <filesystem>
 
 namespace Loading
 {
@@ -11,12 +11,12 @@ namespace Loading
 namespace MWWorld
 {
 
-struct ContentLoader
-{
-    virtual ~ContentLoader() = default;
+    struct ContentLoader
+    {
+        virtual ~ContentLoader() = default;
 
-    virtual void load(const boost::filesystem::path& filepath, int& index, Loading::Listener* listener) = 0;
-};
+        virtual void load(const std::filesystem::path& filepath, int& index, Loading::Listener* listener) = 0;
+    };
 
 } /* namespace MWWorld */
 
