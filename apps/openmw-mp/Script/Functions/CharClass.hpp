@@ -4,24 +4,24 @@
 #include "../Types.hpp"
 
 #define CHARCLASSAPI \
-    {"GetDefaultClass",        CharClassFunctions::GetDefaultClass},\
-    {"GetClassName",           CharClassFunctions::GetClassName},\
-    {"GetClassDesc",           CharClassFunctions::GetClassDesc},\
-    {"GetClassMajorAttribute", CharClassFunctions::GetClassMajorAttribute},\
-    {"GetClassSpecialization", CharClassFunctions::GetClassSpecialization},\
-    {"GetClassMajorSkill",     CharClassFunctions::GetClassMajorSkill},\
-    {"GetClassMinorSkill",     CharClassFunctions::GetClassMinorSkill},\
-    {"IsClassDefault",         CharClassFunctions::IsClassDefault},\
+    {"GetDefaultClass",        SCRIPT_FUNCTION(CharClassFunctions::GetDefaultClass)},\
+    {"GetClassName",           SCRIPT_FUNCTION(CharClassFunctions::GetClassName)},\
+    {"GetClassDesc",           SCRIPT_FUNCTION(CharClassFunctions::GetClassDesc)},\
+    {"GetClassMajorAttribute", SCRIPT_FUNCTION(CharClassFunctions::GetClassMajorAttribute)},\
+    {"GetClassSpecialization", SCRIPT_FUNCTION(CharClassFunctions::GetClassSpecialization)},\
+    {"GetClassMajorSkill",     SCRIPT_FUNCTION(CharClassFunctions::GetClassMajorSkill)},\
+    {"GetClassMinorSkill",     SCRIPT_FUNCTION(CharClassFunctions::GetClassMinorSkill)},\
+    {"IsClassDefault",         SCRIPT_FUNCTION(CharClassFunctions::IsClassDefault)},\
     \
-    {"SetDefaultClass",        CharClassFunctions::SetDefaultClass},\
-    {"SetClassName",           CharClassFunctions::SetClassName},\
-    {"SetClassDesc",           CharClassFunctions::SetClassDesc},\
-    {"SetClassMajorAttribute", CharClassFunctions::SetClassMajorAttribute},\
-    {"SetClassSpecialization", CharClassFunctions::SetClassSpecialization},\
-    {"SetClassMajorSkill",     CharClassFunctions::SetClassMajorSkill},\
-    {"SetClassMinorSkill",     CharClassFunctions::SetClassMinorSkill},\
+    {"SetDefaultClass",        SCRIPT_FUNCTION(CharClassFunctions::SetDefaultClass)},\
+    {"SetClassName",           SCRIPT_FUNCTION(CharClassFunctions::SetClassName)},\
+    {"SetClassDesc",           SCRIPT_FUNCTION(CharClassFunctions::SetClassDesc)},\
+    {"SetClassMajorAttribute", SCRIPT_FUNCTION(CharClassFunctions::SetClassMajorAttribute)},\
+    {"SetClassSpecialization", SCRIPT_FUNCTION(CharClassFunctions::SetClassSpecialization)},\
+    {"SetClassMajorSkill",     SCRIPT_FUNCTION(CharClassFunctions::SetClassMajorSkill)},\
+    {"SetClassMinorSkill",     SCRIPT_FUNCTION(CharClassFunctions::SetClassMinorSkill)},\
     \
-    {"SendClass",              CharClassFunctions::SendClass}
+    {"SendClass",              SCRIPT_FUNCTION(CharClassFunctions::SendClass)}
 
 
 class CharClassFunctions

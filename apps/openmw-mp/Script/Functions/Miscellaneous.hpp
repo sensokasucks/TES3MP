@@ -4,14 +4,14 @@
 #include "../Types.hpp"
 
 #define MISCELLANEOUSAPI \
-    {"GenerateRandomString",        MiscellaneousFunctions::GenerateRandomString},\
+    {"GenerateRandomString",        SCRIPT_FUNCTION(MiscellaneousFunctions::GenerateRandomString)},\
     \
-    {"GetSHA256Hash",               MiscellaneousFunctions::GetSHA256Hash},\
+    {"GetSHA256Hash",               SCRIPT_FUNCTION(MiscellaneousFunctions::GetSHA256Hash)},\
     \
-    {"GetLastPlayerId",             MiscellaneousFunctions::GetLastPlayerId},\
+    {"GetLastPlayerId",             SCRIPT_FUNCTION(MiscellaneousFunctions::GetLastPlayerId)},\
     \
-    {"GetCurrentMpNum",             MiscellaneousFunctions::GetCurrentMpNum},\
-    {"SetCurrentMpNum",             MiscellaneousFunctions::SetCurrentMpNum}
+    {"GetCurrentMpNum",             SCRIPT_FUNCTION(MiscellaneousFunctions::GetCurrentMpNum)},\
+    {"SetCurrentMpNum",             SCRIPT_FUNCTION(MiscellaneousFunctions::SetCurrentMpNum)}
 
 class MiscellaneousFunctions
 {

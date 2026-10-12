@@ -4,9 +4,9 @@
 #include "../Types.hpp"
 
 #define CHATAPI \
-    {"SendMessage",       ChatFunctions::SendMessage},\
-    {"CleanChatForPid",   ChatFunctions::CleanChatForPid},\
-    {"CleanChat",         ChatFunctions::CleanChat}
+    {"SendMessage",       SCRIPT_FUNCTION(ChatFunctions::SendMessage)},\
+    {"CleanChatForPid",   SCRIPT_FUNCTION(ChatFunctions::CleanChatForPid)},\
+    {"CleanChat",         SCRIPT_FUNCTION(ChatFunctions::CleanChat)}
 
 class ChatFunctions
 {

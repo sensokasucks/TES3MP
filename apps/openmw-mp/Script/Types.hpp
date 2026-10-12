@@ -96,17 +96,27 @@ struct CallbackIdentity
 };
 
 
+/*
+    Casting a function pointer to void* is not allowed in a constant expression (GCC 13+ enforces this),
+    so the address is fetched at runtime through a per-function trampoline that is itself constexpr-friendly
+*/
+template<auto F>
+struct FunctionAddress
+{
+    static void* get() noexcept { return reinterpret_cast<void*>(F); }
+};
+
 struct ScriptFunctionPointer : public ScriptIdentity
 {
-    void *addr;
-#if (!defined(__clang__) && defined(__GNUC__))
+    void* (*addrGetter)();
+
     template<typename R, typename... Types>
-    constexpr ScriptFunctionPointer(Function<R, Types...> addr) : ScriptIdentity(addr), addr((void*)(addr)) {}
-#else
-    template<typename R, typename... Types>
-    constexpr ScriptFunctionPointer(Function<R, Types...> addr) : ScriptIdentity(addr), addr(addr) {}
-#endif
+    constexpr ScriptFunctionPointer(Function<R, Types...> fn, void* (*getter)()) : ScriptIdentity(fn), addrGetter(getter) {}
+
+    void* addr() const noexcept { return addrGetter(); }
 };
+
+#define SCRIPT_FUNCTION(f) ScriptFunctionPointer(f, &FunctionAddress<f>::get)
 
 struct ScriptFunctionData
 {

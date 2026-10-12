@@ -4,23 +4,23 @@
 #include "../Types.hpp"
 
 #define POSITIONAPI \
-    {"GetPosX",             PositionFunctions::GetPosX},\
-    {"GetPosY",             PositionFunctions::GetPosY},\
-    {"GetPosZ",             PositionFunctions::GetPosZ},\
+    {"GetPosX",             SCRIPT_FUNCTION(PositionFunctions::GetPosX)},\
+    {"GetPosY",             SCRIPT_FUNCTION(PositionFunctions::GetPosY)},\
+    {"GetPosZ",             SCRIPT_FUNCTION(PositionFunctions::GetPosZ)},\
     \
-    {"GetPreviousCellPosX", PositionFunctions::GetPreviousCellPosX},\
-    {"GetPreviousCellPosY", PositionFunctions::GetPreviousCellPosY},\
-    {"GetPreviousCellPosZ", PositionFunctions::GetPreviousCellPosZ},\
+    {"GetPreviousCellPosX", SCRIPT_FUNCTION(PositionFunctions::GetPreviousCellPosX)},\
+    {"GetPreviousCellPosY", SCRIPT_FUNCTION(PositionFunctions::GetPreviousCellPosY)},\
+    {"GetPreviousCellPosZ", SCRIPT_FUNCTION(PositionFunctions::GetPreviousCellPosZ)},\
     \
-    {"GetRotX",             PositionFunctions::GetRotX},\
-    {"GetRotZ",             PositionFunctions::GetRotZ},\
+    {"GetRotX",             SCRIPT_FUNCTION(PositionFunctions::GetRotX)},\
+    {"GetRotZ",             SCRIPT_FUNCTION(PositionFunctions::GetRotZ)},\
     \
-    {"SetPos",              PositionFunctions::SetPos},\
-    {"SetRot",              PositionFunctions::SetRot},\
-    {"SetMomentum",         PositionFunctions::SetMomentum},\
+    {"SetPos",              SCRIPT_FUNCTION(PositionFunctions::SetPos)},\
+    {"SetRot",              SCRIPT_FUNCTION(PositionFunctions::SetRot)},\
+    {"SetMomentum",         SCRIPT_FUNCTION(PositionFunctions::SetMomentum)},\
     \
-    {"SendPos",             PositionFunctions::SendPos},\
-    {"SendMomentum",        PositionFunctions::SendMomentum}
+    {"SendPos",             SCRIPT_FUNCTION(PositionFunctions::SendPos)},\
+    {"SendMomentum",        SCRIPT_FUNCTION(PositionFunctions::SendMomentum)}
 
 
 class PositionFunctions

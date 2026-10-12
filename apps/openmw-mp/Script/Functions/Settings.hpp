@@ -4,22 +4,22 @@
 #include "../Types.hpp"
 
 #define SETTINGSAPI \
-    {"SetDifficulty",               SettingFunctions::SetDifficulty},\
-    {"SetEnforcedLogLevel",         SettingFunctions::SetEnforcedLogLevel},\
-    {"SetPhysicsFramerate",         SettingFunctions::SetPhysicsFramerate},\
+    {"SetDifficulty",               SCRIPT_FUNCTION(SettingFunctions::SetDifficulty)},\
+    {"SetEnforcedLogLevel",         SCRIPT_FUNCTION(SettingFunctions::SetEnforcedLogLevel)},\
+    {"SetPhysicsFramerate",         SCRIPT_FUNCTION(SettingFunctions::SetPhysicsFramerate)},\
     \
-    {"SetConsoleAllowed",           SettingFunctions::SetConsoleAllowed},\
-    {"SetBedRestAllowed",           SettingFunctions::SetBedRestAllowed},\
-    {"SetWildernessRestAllowed",    SettingFunctions::SetWildernessRestAllowed},\
-    {"SetWaitAllowed",              SettingFunctions::SetWaitAllowed},\
+    {"SetConsoleAllowed",           SCRIPT_FUNCTION(SettingFunctions::SetConsoleAllowed)},\
+    {"SetBedRestAllowed",           SCRIPT_FUNCTION(SettingFunctions::SetBedRestAllowed)},\
+    {"SetWildernessRestAllowed",    SCRIPT_FUNCTION(SettingFunctions::SetWildernessRestAllowed)},\
+    {"SetWaitAllowed",              SCRIPT_FUNCTION(SettingFunctions::SetWaitAllowed)},\
     \
-    {"SetGameSettingValue",         SettingFunctions::SetGameSettingValue},\
-    {"ClearGameSettingValues",      SettingFunctions::ClearGameSettingValues},\
+    {"SetGameSettingValue",         SCRIPT_FUNCTION(SettingFunctions::SetGameSettingValue)},\
+    {"ClearGameSettingValues",      SCRIPT_FUNCTION(SettingFunctions::ClearGameSettingValues)},\
     \
-    {"SetVRSettingValue",           SettingFunctions::SetVRSettingValue},\
-    {"ClearVRSettingValues",        SettingFunctions::ClearVRSettingValues},\
+    {"SetVRSettingValue",           SCRIPT_FUNCTION(SettingFunctions::SetVRSettingValue)},\
+    {"ClearVRSettingValues",        SCRIPT_FUNCTION(SettingFunctions::ClearVRSettingValues)},\
     \
-    {"SendSettings",                SettingFunctions::SendSettings}
+    {"SendSettings",                SCRIPT_FUNCTION(SettingFunctions::SendSettings)}
 
 class SettingFunctions
 {

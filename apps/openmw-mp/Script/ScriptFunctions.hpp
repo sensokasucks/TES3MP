@@ -118,16 +118,16 @@ public:
 
 
     static constexpr ScriptFunctionData functions[]{
-            {"CreateTimer",         ScriptFunctions::CreateTimer},
-            {"CreateTimerEx",       ScriptFunctions::CreateTimerEx},
-            {"MakePublic",          ScriptFunctions::MakePublic},
-            {"CallPublic",          ScriptFunctions::CallPublic},
+            {"CreateTimer",         SCRIPT_FUNCTION(ScriptFunctions::CreateTimer)},
+            {"CreateTimerEx",       SCRIPT_FUNCTION(ScriptFunctions::CreateTimerEx)},
+            {"MakePublic",          SCRIPT_FUNCTION(ScriptFunctions::MakePublic)},
+            {"CallPublic",          SCRIPT_FUNCTION(ScriptFunctions::CallPublic)},
 
-            {"StartTimer",          ScriptFunctions::StartTimer},
-            {"StopTimer",           ScriptFunctions::StopTimer},
-            {"RestartTimer",        ScriptFunctions::RestartTimer},
-            {"FreeTimer",           ScriptFunctions::FreeTimer},
-            {"IsTimerElapsed",      ScriptFunctions::IsTimerElapsed},
+            {"StartTimer",          SCRIPT_FUNCTION(ScriptFunctions::StartTimer)},
+            {"StopTimer",           SCRIPT_FUNCTION(ScriptFunctions::StopTimer)},
+            {"RestartTimer",        SCRIPT_FUNCTION(ScriptFunctions::RestartTimer)},
+            {"FreeTimer",           SCRIPT_FUNCTION(ScriptFunctions::FreeTimer)},
+            {"IsTimerElapsed",      SCRIPT_FUNCTION(ScriptFunctions::IsTimerElapsed)},
 
             ACTORAPI,
             BOOKAPI,

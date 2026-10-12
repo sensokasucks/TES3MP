@@ -2,27 +2,27 @@
 #define OPENMW_FACTIONAPI_HPP
 
 #define FACTIONAPI \
-    {"ClearFactionChanges",      FactionFunctions::ClearFactionChanges},\
+    {"ClearFactionChanges",      SCRIPT_FUNCTION(FactionFunctions::ClearFactionChanges)},\
     \
-    {"GetFactionChangesSize",    FactionFunctions::GetFactionChangesSize},\
-    {"GetFactionChangesAction",  FactionFunctions::GetFactionChangesAction},\
+    {"GetFactionChangesSize",    SCRIPT_FUNCTION(FactionFunctions::GetFactionChangesSize)},\
+    {"GetFactionChangesAction",  SCRIPT_FUNCTION(FactionFunctions::GetFactionChangesAction)},\
     \
-    {"GetFactionId",             FactionFunctions::GetFactionId},\
-    {"GetFactionRank",           FactionFunctions::GetFactionRank},\
-    {"GetFactionExpulsionState", FactionFunctions::GetFactionExpulsionState},\
-    {"GetFactionReputation",     FactionFunctions::GetFactionReputation},\
+    {"GetFactionId",             SCRIPT_FUNCTION(FactionFunctions::GetFactionId)},\
+    {"GetFactionRank",           SCRIPT_FUNCTION(FactionFunctions::GetFactionRank)},\
+    {"GetFactionExpulsionState", SCRIPT_FUNCTION(FactionFunctions::GetFactionExpulsionState)},\
+    {"GetFactionReputation",     SCRIPT_FUNCTION(FactionFunctions::GetFactionReputation)},\
     \
-    {"SetFactionChangesAction",  FactionFunctions::SetFactionChangesAction},\
-    {"SetFactionId",             FactionFunctions::SetFactionId},\
-    {"SetFactionRank",           FactionFunctions::SetFactionRank},\
-    {"SetFactionExpulsionState", FactionFunctions::SetFactionExpulsionState},\
-    {"SetFactionReputation",     FactionFunctions::SetFactionReputation},\
+    {"SetFactionChangesAction",  SCRIPT_FUNCTION(FactionFunctions::SetFactionChangesAction)},\
+    {"SetFactionId",             SCRIPT_FUNCTION(FactionFunctions::SetFactionId)},\
+    {"SetFactionRank",           SCRIPT_FUNCTION(FactionFunctions::SetFactionRank)},\
+    {"SetFactionExpulsionState", SCRIPT_FUNCTION(FactionFunctions::SetFactionExpulsionState)},\
+    {"SetFactionReputation",     SCRIPT_FUNCTION(FactionFunctions::SetFactionReputation)},\
     \
-    {"AddFaction",               FactionFunctions::AddFaction},\
+    {"AddFaction",               SCRIPT_FUNCTION(FactionFunctions::AddFaction)},\
     \
-    {"SendFactionChanges",       FactionFunctions::SendFactionChanges},\
+    {"SendFactionChanges",       SCRIPT_FUNCTION(FactionFunctions::SendFactionChanges)},\
     \
-    {"InitializeFactionChanges", FactionFunctions::InitializeFactionChanges}
+    {"InitializeFactionChanges", SCRIPT_FUNCTION(FactionFunctions::InitializeFactionChanges)}
 
 class FactionFunctions
 {

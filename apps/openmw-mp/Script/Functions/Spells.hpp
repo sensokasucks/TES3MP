@@ -2,50 +2,50 @@
 #define OPENMW_SPELLAPI_HPP
 
 #define SPELLAPI \
-    {"ClearSpellbookChanges",            SpellFunctions::ClearSpellbookChanges},\
-    {"ClearSpellsActiveChanges",         SpellFunctions::ClearSpellsActiveChanges},\
-    {"ClearCooldownChanges",             SpellFunctions::ClearCooldownChanges},\
+    {"ClearSpellbookChanges",            SCRIPT_FUNCTION(SpellFunctions::ClearSpellbookChanges)},\
+    {"ClearSpellsActiveChanges",         SCRIPT_FUNCTION(SpellFunctions::ClearSpellsActiveChanges)},\
+    {"ClearCooldownChanges",             SCRIPT_FUNCTION(SpellFunctions::ClearCooldownChanges)},\
     \
-    {"GetSpellbookChangesSize",          SpellFunctions::GetSpellbookChangesSize},\
-    {"GetSpellbookChangesAction",        SpellFunctions::GetSpellbookChangesAction},\
-    {"GetSpellsActiveChangesSize",       SpellFunctions::GetSpellsActiveChangesSize},\
-    {"GetSpellsActiveChangesAction",     SpellFunctions::GetSpellsActiveChangesAction},\
-    {"GetCooldownChangesSize",           SpellFunctions::GetCooldownChangesSize},\
+    {"GetSpellbookChangesSize",          SCRIPT_FUNCTION(SpellFunctions::GetSpellbookChangesSize)},\
+    {"GetSpellbookChangesAction",        SCRIPT_FUNCTION(SpellFunctions::GetSpellbookChangesAction)},\
+    {"GetSpellsActiveChangesSize",       SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveChangesSize)},\
+    {"GetSpellsActiveChangesAction",     SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveChangesAction)},\
+    {"GetCooldownChangesSize",           SCRIPT_FUNCTION(SpellFunctions::GetCooldownChangesSize)},\
     \
-    {"SetSpellbookChangesAction",        SpellFunctions::SetSpellbookChangesAction},\
-    {"SetSpellsActiveChangesAction",     SpellFunctions::SetSpellsActiveChangesAction},\
+    {"SetSpellbookChangesAction",        SCRIPT_FUNCTION(SpellFunctions::SetSpellbookChangesAction)},\
+    {"SetSpellsActiveChangesAction",     SCRIPT_FUNCTION(SpellFunctions::SetSpellsActiveChangesAction)},\
     \
-    {"AddSpell",                         SpellFunctions::AddSpell},\
-    {"AddSpellActive",                   SpellFunctions::AddSpellActive},\
-    {"AddSpellActiveEffect",             SpellFunctions::AddSpellActiveEffect},\
-    {"AddCooldownSpell",                 SpellFunctions::AddCooldownSpell},\
+    {"AddSpell",                         SCRIPT_FUNCTION(SpellFunctions::AddSpell)},\
+    {"AddSpellActive",                   SCRIPT_FUNCTION(SpellFunctions::AddSpellActive)},\
+    {"AddSpellActiveEffect",             SCRIPT_FUNCTION(SpellFunctions::AddSpellActiveEffect)},\
+    {"AddCooldownSpell",                 SCRIPT_FUNCTION(SpellFunctions::AddCooldownSpell)},\
     \
-    {"GetSpellId",                       SpellFunctions::GetSpellId},\
-    {"GetSpellsActiveId",                SpellFunctions::GetSpellsActiveId},\
-    {"GetSpellsActiveDisplayName",       SpellFunctions::GetSpellsActiveDisplayName},\
-    {"GetSpellsActiveStackingState",     SpellFunctions::GetSpellsActiveStackingState},\
-    {"GetSpellsActiveEffectCount",       SpellFunctions::GetSpellsActiveEffectCount},\
-    {"GetSpellsActiveEffectId",          SpellFunctions::GetSpellsActiveEffectId},\
-    {"GetSpellsActiveEffectArg",         SpellFunctions::GetSpellsActiveEffectArg},\
-    {"GetSpellsActiveEffectMagnitude",   SpellFunctions::GetSpellsActiveEffectMagnitude},\
-    {"GetSpellsActiveEffectDuration",    SpellFunctions::GetSpellsActiveEffectDuration},\
-    {"GetSpellsActiveEffectTimeLeft",    SpellFunctions::GetSpellsActiveEffectTimeLeft},\
+    {"GetSpellId",                       SCRIPT_FUNCTION(SpellFunctions::GetSpellId)},\
+    {"GetSpellsActiveId",                SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveId)},\
+    {"GetSpellsActiveDisplayName",       SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveDisplayName)},\
+    {"GetSpellsActiveStackingState",     SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveStackingState)},\
+    {"GetSpellsActiveEffectCount",       SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectCount)},\
+    {"GetSpellsActiveEffectId",          SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectId)},\
+    {"GetSpellsActiveEffectArg",         SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectArg)},\
+    {"GetSpellsActiveEffectMagnitude",   SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectMagnitude)},\
+    {"GetSpellsActiveEffectDuration",    SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectDuration)},\
+    {"GetSpellsActiveEffectTimeLeft",    SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveEffectTimeLeft)},\
     \
-    {"DoesSpellsActiveHavePlayerCaster", SpellFunctions::DoesSpellsActiveHavePlayerCaster},\
-    {"GetSpellsActiveCasterPid",         SpellFunctions::GetSpellsActiveCasterPid},\
-    {"GetSpellsActiveCasterRefId",       SpellFunctions::GetSpellsActiveCasterRefId},\
-    {"GetSpellsActiveCasterRefNum",      SpellFunctions::GetSpellsActiveCasterRefNum},\
-    {"GetSpellsActiveCasterMpNum",       SpellFunctions::GetSpellsActiveCasterMpNum},\
+    {"DoesSpellsActiveHavePlayerCaster", SCRIPT_FUNCTION(SpellFunctions::DoesSpellsActiveHavePlayerCaster)},\
+    {"GetSpellsActiveCasterPid",         SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveCasterPid)},\
+    {"GetSpellsActiveCasterRefId",       SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveCasterRefId)},\
+    {"GetSpellsActiveCasterRefNum",      SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveCasterRefNum)},\
+    {"GetSpellsActiveCasterMpNum",       SCRIPT_FUNCTION(SpellFunctions::GetSpellsActiveCasterMpNum)},\
     \
-    {"GetCooldownSpellId",               SpellFunctions::GetCooldownSpellId},\
-    {"GetCooldownStartDay",              SpellFunctions::GetCooldownStartDay},\
-    {"GetCooldownStartHour",             SpellFunctions::GetCooldownStartHour},\
+    {"GetCooldownSpellId",               SCRIPT_FUNCTION(SpellFunctions::GetCooldownSpellId)},\
+    {"GetCooldownStartDay",              SCRIPT_FUNCTION(SpellFunctions::GetCooldownStartDay)},\
+    {"GetCooldownStartHour",             SCRIPT_FUNCTION(SpellFunctions::GetCooldownStartHour)},\
     \
-    {"SendSpellbookChanges",             SpellFunctions::SendSpellbookChanges},\
-    {"SendSpellsActiveChanges",          SpellFunctions::SendSpellsActiveChanges},\
-    {"SendCooldownChanges",              SpellFunctions::SendCooldownChanges},\
+    {"SendSpellbookChanges",             SCRIPT_FUNCTION(SpellFunctions::SendSpellbookChanges)},\
+    {"SendSpellsActiveChanges",          SCRIPT_FUNCTION(SpellFunctions::SendSpellsActiveChanges)},\
+    {"SendCooldownChanges",              SCRIPT_FUNCTION(SpellFunctions::SendCooldownChanges)},\
     \
-    {"InitializeSpellbookChanges",     SpellFunctions::InitializeSpellbookChanges}
+    {"InitializeSpellbookChanges",     SCRIPT_FUNCTION(SpellFunctions::InitializeSpellbookChanges)}
 
 class SpellFunctions
 {

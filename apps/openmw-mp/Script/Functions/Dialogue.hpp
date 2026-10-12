@@ -2,20 +2,20 @@
 #define OPENMW_DIALOGUEAPI_HPP
 
 #define DIALOGUEAPI \
-    {"ClearTopicChanges",       DialogueFunctions::ClearTopicChanges},\
+    {"ClearTopicChanges",       SCRIPT_FUNCTION(DialogueFunctions::ClearTopicChanges)},\
     \
-    {"GetTopicChangesSize",     DialogueFunctions::GetTopicChangesSize},\
+    {"GetTopicChangesSize",     SCRIPT_FUNCTION(DialogueFunctions::GetTopicChangesSize)},\
     \
-    {"AddTopic",                DialogueFunctions::AddTopic},\
+    {"AddTopic",                SCRIPT_FUNCTION(DialogueFunctions::AddTopic)},\
     \
-    {"GetTopicId",              DialogueFunctions::GetTopicId},\
+    {"GetTopicId",              SCRIPT_FUNCTION(DialogueFunctions::GetTopicId)},\
     \
-    {"SendTopicChanges",        DialogueFunctions::SendTopicChanges},\
+    {"SendTopicChanges",        SCRIPT_FUNCTION(DialogueFunctions::SendTopicChanges)},\
     \
-    {"PlayAnimation",           DialogueFunctions::PlayAnimation},\
-    {"PlaySpeech",              DialogueFunctions::PlaySpeech},\
+    {"PlayAnimation",           SCRIPT_FUNCTION(DialogueFunctions::PlayAnimation)},\
+    {"PlaySpeech",              SCRIPT_FUNCTION(DialogueFunctions::PlaySpeech)},\
     \
-    {"InitializeTopicChanges",  DialogueFunctions::InitializeTopicChanges}
+    {"InitializeTopicChanges",  SCRIPT_FUNCTION(DialogueFunctions::InitializeTopicChanges)}
 
 class DialogueFunctions
 {

@@ -4,46 +4,46 @@
 #include "../Types.hpp"
 
 #define SERVERAPI \
-    {"LogMessage",                      ServerFunctions::LogMessage},\
-    {"LogAppend",                       ServerFunctions::LogAppend},\
+    {"LogMessage",                      SCRIPT_FUNCTION(ServerFunctions::LogMessage)},\
+    {"LogAppend",                       SCRIPT_FUNCTION(ServerFunctions::LogAppend)},\
     \
-    {"StopServer",                      ServerFunctions::StopServer},\
+    {"StopServer",                      SCRIPT_FUNCTION(ServerFunctions::StopServer)},\
     \
-    {"Kick",                            ServerFunctions::Kick},\
-    {"BanAddress",                      ServerFunctions::BanAddress},\
-    {"UnbanAddress",                    ServerFunctions::UnbanAddress},\
+    {"Kick",                            SCRIPT_FUNCTION(ServerFunctions::Kick)},\
+    {"BanAddress",                      SCRIPT_FUNCTION(ServerFunctions::BanAddress)},\
+    {"UnbanAddress",                    SCRIPT_FUNCTION(ServerFunctions::UnbanAddress)},\
     \
-    {"DoesFilePathExist",               ServerFunctions::DoesFilePathExist},\
-    {"GetCaseInsensitiveFilename",      ServerFunctions::GetCaseInsensitiveFilename},\
-    {"GetDataPath",                     ServerFunctions::GetDataPath},\
-    {"GetMillisecondsSinceServerStart", ServerFunctions::GetMillisecondsSinceServerStart},\
-    {"GetOperatingSystemType",          ServerFunctions::GetOperatingSystemType},\
-    {"GetArchitectureType",             ServerFunctions::GetArchitectureType},\
-    {"GetServerVersion",                ServerFunctions::GetServerVersion},\
-    {"GetProtocolVersion",              ServerFunctions::GetProtocolVersion},\
-    {"GetAvgPing",                      ServerFunctions::GetAvgPing},\
-    {"GetIP",                           ServerFunctions::GetIP},\
-    {"GetMaxPlayers",                   ServerFunctions::GetMaxPlayers},\
-    {"GetPort",                         ServerFunctions::GetPort},\
-    {"HasPassword",                     ServerFunctions::HasPassword},\
-    {"GetDataFileEnforcementState",     ServerFunctions::GetDataFileEnforcementState},\
-    {"GetScriptErrorIgnoringState",     ServerFunctions::GetScriptErrorIgnoringState},\
+    {"DoesFilePathExist",               SCRIPT_FUNCTION(ServerFunctions::DoesFilePathExist)},\
+    {"GetCaseInsensitiveFilename",      SCRIPT_FUNCTION(ServerFunctions::GetCaseInsensitiveFilename)},\
+    {"GetDataPath",                     SCRIPT_FUNCTION(ServerFunctions::GetDataPath)},\
+    {"GetMillisecondsSinceServerStart", SCRIPT_FUNCTION(ServerFunctions::GetMillisecondsSinceServerStart)},\
+    {"GetOperatingSystemType",          SCRIPT_FUNCTION(ServerFunctions::GetOperatingSystemType)},\
+    {"GetArchitectureType",             SCRIPT_FUNCTION(ServerFunctions::GetArchitectureType)},\
+    {"GetServerVersion",                SCRIPT_FUNCTION(ServerFunctions::GetServerVersion)},\
+    {"GetProtocolVersion",              SCRIPT_FUNCTION(ServerFunctions::GetProtocolVersion)},\
+    {"GetAvgPing",                      SCRIPT_FUNCTION(ServerFunctions::GetAvgPing)},\
+    {"GetIP",                           SCRIPT_FUNCTION(ServerFunctions::GetIP)},\
+    {"GetMaxPlayers",                   SCRIPT_FUNCTION(ServerFunctions::GetMaxPlayers)},\
+    {"GetPort",                         SCRIPT_FUNCTION(ServerFunctions::GetPort)},\
+    {"HasPassword",                     SCRIPT_FUNCTION(ServerFunctions::HasPassword)},\
+    {"GetDataFileEnforcementState",     SCRIPT_FUNCTION(ServerFunctions::GetDataFileEnforcementState)},\
+    {"GetScriptErrorIgnoringState",     SCRIPT_FUNCTION(ServerFunctions::GetScriptErrorIgnoringState)},\
     \
-    {"SetGameMode",                     ServerFunctions::SetGameMode},\
-    {"SetHostname",                     ServerFunctions::SetHostname},\
-    {"SetServerPassword",               ServerFunctions::SetServerPassword},\
-    {"SetDataFileEnforcementState",     ServerFunctions::SetDataFileEnforcementState},\
-    {"SetScriptErrorIgnoringState",     ServerFunctions::SetScriptErrorIgnoringState},\
-    {"SetRuleString",                   ServerFunctions::SetRuleString},\
-    {"SetRuleValue",                    ServerFunctions::SetRuleValue},\
+    {"SetGameMode",                     SCRIPT_FUNCTION(ServerFunctions::SetGameMode)},\
+    {"SetHostname",                     SCRIPT_FUNCTION(ServerFunctions::SetHostname)},\
+    {"SetServerPassword",               SCRIPT_FUNCTION(ServerFunctions::SetServerPassword)},\
+    {"SetDataFileEnforcementState",     SCRIPT_FUNCTION(ServerFunctions::SetDataFileEnforcementState)},\
+    {"SetScriptErrorIgnoringState",     SCRIPT_FUNCTION(ServerFunctions::SetScriptErrorIgnoringState)},\
+    {"SetRuleString",                   SCRIPT_FUNCTION(ServerFunctions::SetRuleString)},\
+    {"SetRuleValue",                    SCRIPT_FUNCTION(ServerFunctions::SetRuleValue)},\
     \
-    {"AddDataFileRequirement",          ServerFunctions::AddDataFileRequirement},\
+    {"AddDataFileRequirement",          SCRIPT_FUNCTION(ServerFunctions::AddDataFileRequirement)},\
     \
-    {"DoesFileExist",                   ServerFunctions::DoesFileExist},\
-    {"GetModDir",                       ServerFunctions::GetModDir},\
-    {"GetPluginEnforcementState",       ServerFunctions::GetPluginEnforcementState},\
-    {"SetPluginEnforcementState",       ServerFunctions::SetPluginEnforcementState},\
-    {"AddPluginHash",                   ServerFunctions::AddPluginHash}
+    {"DoesFileExist",                   SCRIPT_FUNCTION(ServerFunctions::DoesFileExist)},\
+    {"GetModDir",                       SCRIPT_FUNCTION(ServerFunctions::GetModDir)},\
+    {"GetPluginEnforcementState",       SCRIPT_FUNCTION(ServerFunctions::GetPluginEnforcementState)},\
+    {"SetPluginEnforcementState",       SCRIPT_FUNCTION(ServerFunctions::SetPluginEnforcementState)},\
+    {"AddPluginHash",                   SCRIPT_FUNCTION(ServerFunctions::AddPluginHash)}
 
 class ServerFunctions
 {

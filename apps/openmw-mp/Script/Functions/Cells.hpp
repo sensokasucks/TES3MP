@@ -4,23 +4,23 @@
 #include "../Types.hpp"
 
 #define CELLAPI \
-    {"GetCellStateChangesSize", CellFunctions::GetCellStateChangesSize},\
+    {"GetCellStateChangesSize", SCRIPT_FUNCTION(CellFunctions::GetCellStateChangesSize)},\
     \
-    {"GetCellStateType",        CellFunctions::GetCellStateType},\
-    {"GetCellStateDescription", CellFunctions::GetCellStateDescription},\
+    {"GetCellStateType",        SCRIPT_FUNCTION(CellFunctions::GetCellStateType)},\
+    {"GetCellStateDescription", SCRIPT_FUNCTION(CellFunctions::GetCellStateDescription)},\
     \
-    {"GetCell",                 CellFunctions::GetCell},\
-    {"GetExteriorX",            CellFunctions::GetExteriorX},\
-    {"GetExteriorY",            CellFunctions::GetExteriorY},\
-    {"IsInExterior",            CellFunctions::IsInExterior},\
+    {"GetCell",                 SCRIPT_FUNCTION(CellFunctions::GetCell)},\
+    {"GetExteriorX",            SCRIPT_FUNCTION(CellFunctions::GetExteriorX)},\
+    {"GetExteriorY",            SCRIPT_FUNCTION(CellFunctions::GetExteriorY)},\
+    {"IsInExterior",            SCRIPT_FUNCTION(CellFunctions::IsInExterior)},\
     \
-    {"GetRegion",               CellFunctions::GetRegion},\
-    {"IsChangingRegion",        CellFunctions::IsChangingRegion},\
+    {"GetRegion",               SCRIPT_FUNCTION(CellFunctions::GetRegion)},\
+    {"IsChangingRegion",        SCRIPT_FUNCTION(CellFunctions::IsChangingRegion)},\
     \
-    {"SetCell",                 CellFunctions::SetCell},\
-    {"SetExteriorCell",         CellFunctions::SetExteriorCell},\
+    {"SetCell",                 SCRIPT_FUNCTION(CellFunctions::SetCell)},\
+    {"SetExteriorCell",         SCRIPT_FUNCTION(CellFunctions::SetExteriorCell)},\
     \
-    {"SendCell",                CellFunctions::SendCell}
+    {"SendCell",                SCRIPT_FUNCTION(CellFunctions::SendCell)}
 
 
 class CellFunctions

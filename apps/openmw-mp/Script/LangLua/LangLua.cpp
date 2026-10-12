@@ -78,7 +78,7 @@ struct LuaFunctionDispatcher<0, FunctionIndex> {
         // Retrieve function data
         constexpr ScriptFunctionData const& functionData = ScriptFunctions::functions[FunctionIndex];
         // Call the C++ function using reinterpret_cast
-        return reinterpret_cast<FunctionEllipsis<ReturnType>>(functionData.func.addr)(std::forward<Args>(args)...);
+        return reinterpret_cast<FunctionEllipsis<ReturnType>>(functionData.func.addr())(std::forward<Args>(args)...);
     }
 };
 

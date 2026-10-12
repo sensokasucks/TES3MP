@@ -2,27 +2,27 @@
 #define OPENMW_QUESTAPI_HPP
 
 #define QUESTAPI \
-    {"ClearJournalChanges",               QuestFunctions::ClearJournalChanges},\
+    {"ClearJournalChanges",               SCRIPT_FUNCTION(QuestFunctions::ClearJournalChanges)},\
     \
-    {"GetJournalChangesSize",             QuestFunctions::GetJournalChangesSize},\
+    {"GetJournalChangesSize",             SCRIPT_FUNCTION(QuestFunctions::GetJournalChangesSize)},\
     \
-    {"AddJournalEntry",                   QuestFunctions::AddJournalEntry},\
-    {"AddJournalEntryWithTimestamp",      QuestFunctions::AddJournalEntryWithTimestamp},\
-    {"AddJournalIndex",                   QuestFunctions::AddJournalIndex},\
+    {"AddJournalEntry",                   SCRIPT_FUNCTION(QuestFunctions::AddJournalEntry)},\
+    {"AddJournalEntryWithTimestamp",      SCRIPT_FUNCTION(QuestFunctions::AddJournalEntryWithTimestamp)},\
+    {"AddJournalIndex",                   SCRIPT_FUNCTION(QuestFunctions::AddJournalIndex)},\
     \
-    {"SetReputation",                     QuestFunctions::SetReputation},\
+    {"SetReputation",                     SCRIPT_FUNCTION(QuestFunctions::SetReputation)},\
     \
-    {"GetJournalItemQuest",               QuestFunctions::GetJournalItemQuest},\
-    {"GetJournalItemIndex",               QuestFunctions::GetJournalItemIndex},\
-    {"GetJournalItemType",                QuestFunctions::GetJournalItemType},\
-    {"GetJournalItemActorRefId",          QuestFunctions::GetJournalItemActorRefId},\
+    {"GetJournalItemQuest",               SCRIPT_FUNCTION(QuestFunctions::GetJournalItemQuest)},\
+    {"GetJournalItemIndex",               SCRIPT_FUNCTION(QuestFunctions::GetJournalItemIndex)},\
+    {"GetJournalItemType",                SCRIPT_FUNCTION(QuestFunctions::GetJournalItemType)},\
+    {"GetJournalItemActorRefId",          SCRIPT_FUNCTION(QuestFunctions::GetJournalItemActorRefId)},\
     \
-    {"GetReputation",                     QuestFunctions::GetReputation},\
+    {"GetReputation",                     SCRIPT_FUNCTION(QuestFunctions::GetReputation)},\
     \
-    {"SendJournalChanges",                QuestFunctions::SendJournalChanges},\
-    {"SendReputation",                    QuestFunctions::SendReputation},\
+    {"SendJournalChanges",                SCRIPT_FUNCTION(QuestFunctions::SendJournalChanges)},\
+    {"SendReputation",                    SCRIPT_FUNCTION(QuestFunctions::SendReputation)},\
     \
-    {"InitializeJournalChanges",          QuestFunctions::InitializeJournalChanges}
+    {"InitializeJournalChanges",          SCRIPT_FUNCTION(QuestFunctions::InitializeJournalChanges)}
 
 class QuestFunctions
 {
