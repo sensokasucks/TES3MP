@@ -5,38 +5,29 @@
 
 #include "../mwworld/ptr.hpp"
 
-#include <components/esm/magiceffects.hpp>
+#include <components/esm3/magiceffects.hpp>
 
 #include "magiceffects.hpp"
 
 namespace MWMechanics
 {
-    class CreatureStats;
-
     bool isSummoningEffect(int effectId);
 
     std::string getSummonedCreature(int effectId);
 
-    void purgeSummonEffect(const MWWorld::Ptr& summoner, const std::pair<const ESM::SummonKey, int>& summon);
+    void purgeSummonEffect(const MWWorld::Ptr& summoner, const std::pair<int, int>& summon);
 
-    struct UpdateSummonedCreatures : public EffectSourceVisitor
-    {
-        UpdateSummonedCreatures(const MWWorld::Ptr& actor);
-        virtual ~UpdateSummonedCreatures() = default;
+    /*
+        Start of tes3mp change (major)
 
-        void visit (MWMechanics::EffectKey key, int effectIndex,
-                            const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                            float magnitude, float remainingTime = -1, float totalTime = -1) override;
+        Take the sourceId and duration of the summoning effect so they can be sent to the server
+    */
+    int summonCreature(int effectId, const MWWorld::Ptr& summoner, const std::string& sourceId, float duration);
+    /*
+        End of tes3mp change (major)
+    */
 
-        /// To call after all effect sources have been visited
-        void process(bool cleanup);
-
-    private:
-        MWWorld::Ptr mActor;
-
-        std::set<ESM::SummonKey> mActiveEffects;
-    };
-
+    void updateSummons(const MWWorld::Ptr& summoner, bool cleanup);
 }
 
 #endif

@@ -12,7 +12,9 @@
     End of tes3mp addition
 */
 
-#include <components/esm/loadrepa.hpp>
+#include <MyGUI_TextIterator.h>
+
+#include <components/esm3/loadrepa.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -27,8 +29,14 @@
 #include "../mwrender/objects.hpp"
 #include "../mwrender/renderinginterface.hpp"
 
+#include "classmodel.hpp"
+
 namespace MWClass
 {
+    Repair::Repair()
+        : MWWorld::RegisteredClass<Repair>(ESM::Repair::sRecordId)
+    {
+    }
 
     void Repair::insertObjectRendering (const MWWorld::Ptr& ptr, const std::string& model, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -37,15 +45,25 @@ namespace MWClass
         }
     }
 
-    void Repair::insertObject(const MWWorld::Ptr& ptr, const std::string& model, MWPhysics::PhysicsSystem& physics) const
+    /*
+        Start of tes3mp addition
+
+        Make it possible to enable collision for this object class from a packet
+
+        tes3mp port note: OpenMW 0.48 dropped the empty insertObject() override from item classes and
+                          split physics insertion into insertObject() and insertObjectPhysics() (the latter
+                          is also used by Scene::addPostponedPhysicsObjects()), so the hook is re-added here
+                          using the new signatures that take the object's rotation
+    */
+    void Repair::insertObject(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
+    {
+        insertObjectPhysics(ptr, model, rotation, physics);
+    }
+
+    void Repair::insertObjectPhysics(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {
         // TODO: add option somewhere to enable collision for placeable objects
 
-        /*
-            Start of tes3mp addition
-
-            Make it possible to enable collision for this object class from a packet
-        */
         if (!model.empty())
         {
             mwmp::BaseWorldstate *worldstate = mwmp::Main::get().getNetworking()->getWorldstate();
@@ -53,25 +71,19 @@ namespace MWClass
             if (worldstate->hasPlacedObjectCollision || Utils::vectorContains(worldstate->enforcedCollisionRefIds, ptr.getCellRef().getRefId()))
             {
                 if (worldstate->useActorCollisionForPlacedObjects)
-                    physics.addObject(ptr, model, MWPhysics::CollisionType_Actor);
+                    physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Actor);
                 else
-                    physics.addObject(ptr, model, MWPhysics::CollisionType_World);
+                    physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_World);
             }
         }
-        /*
-            End of tes3mp addition
-        */
     }
+    /*
+        End of tes3mp addition
+    */
 
     std::string Repair::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Repair> *ref = ptr.get<ESM::Repair>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Repair>(ptr);
     }
 
     std::string Repair::getName (const MWWorld::ConstPtr& ptr) const
@@ -82,7 +94,7 @@ namespace MWClass
         return !name.empty() ? name : ref->mBase->mId;
     }
 
-    std::shared_ptr<MWWorld::Action> Repair::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Repair::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         return defaultItemActivate(ptr, actor);
@@ -101,13 +113,6 @@ namespace MWClass
         const MWWorld::LiveCellRef<ESM::Repair> *ref = ptr.get<ESM::Repair>();
 
         return ref->mBase->mData.mValue;
-    }
-
-    void Repair::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Repair);
-
-        registerClass (typeid (ESM::Repair).name(), instance);
     }
 
     std::string Repair::getUpSoundId (const MWWorld::ConstPtr& ptr) const
@@ -173,9 +178,9 @@ namespace MWClass
         return MWWorld::Ptr(cell.insert(ref), &cell);
     }
 
-    std::shared_ptr<MWWorld::Action> Repair::use (const MWWorld::Ptr& ptr, bool force) const
+    std::unique_ptr<MWWorld::Action> Repair::use (const MWWorld::Ptr& ptr, bool force) const
     {
-        return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionRepair(ptr, force));
+        return std::make_unique<MWWorld::ActionRepair>(ptr, force);
     }
 
     bool Repair::canSell (const MWWorld::ConstPtr& item, int npcServices) const
