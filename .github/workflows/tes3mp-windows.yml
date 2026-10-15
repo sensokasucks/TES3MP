@@ -116,7 +116,7 @@ jobs:
           -D RakNet_LIBRARY_DEBUG="$WS/deps/CrabNet/lib/RakNetLibStaticd.lib" \
           -D BUILD_OPENMW=ON \
           -D BUILD_OPENMW_MP=ON \
-          -D BUILD_BROWSER=ON \
+          -D BUILD_BROWSER=OFF \
           -D BUILD_LAUNCHER=ON \
           -D BUILD_WIZARD=ON \
           -D BUILD_MWINIIMPORTER=ON \
