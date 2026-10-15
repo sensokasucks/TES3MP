@@ -200,6 +200,13 @@ if (BUILD_WITH_CODE_COVERAGE)
 endif()
 
 if (MSVC)
+    # Start of tes3mp addition
+    #
+    # The components target exports a precompiled header with sol on MSVC; its compat-5.3 macros
+    # clash with LuaBridge's own Lua 5.1 helpers, so don't inherit it
+    set_target_properties(tes3mp-server PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+    # End of tes3mp addition
+
     # Debug version needs increased number of sections beyond 2^16
     if (CMAKE_CL_64)
         set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")

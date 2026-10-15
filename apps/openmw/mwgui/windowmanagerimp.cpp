@@ -29,6 +29,12 @@
 #include <components/openmw-mp/TimedLog.hpp>
 #include "../mwmp/Main.hpp"
 #include "../mwmp/GUIController.hpp"
+
+// RakNet pulls in <windows.h>, whose `near` and `far` macros break OpenMW headers included below
+#ifdef _WIN32
+#undef near
+#undef far
+#endif
 /*
     End of tes3mp addition
 */

@@ -437,15 +437,6 @@ if (WIN32)
         _UNICODE
         UNICODE
     )
-
-    # Start of tes3mp addition
-    #
-    # RakNet includes windows.h, which defines `near` and `far` as macros and breaks OpenMW
-    # headers that use those names; force-include a header that strips them (see the file)
-    if (MSVC)
-        add_compile_options("/FI${CMAKE_SOURCE_DIR}/components/openmw-mp/WindowsUndef.hpp")
-    endif()
-    # End of tes3mp addition
 endif()
 # Start of tes3mp addition
 #
