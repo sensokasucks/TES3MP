@@ -771,7 +771,7 @@ target_link_libraries(components
     ${LUA_LIBRARIES}
     LZ4::LZ4
     Base64
-    SQLite::SQLite3
+    SQLite3::SQLite3
     smhasher
     ${ICU_LIBRARIES}
     ZLIB::ZLIB
