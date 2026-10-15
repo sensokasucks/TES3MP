@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <stdexcept>
 #include <iostream>
 #include <string>
@@ -358,7 +359,7 @@ void Networking::preInit(std::vector<std::string> &content, Files::Collections &
     std::vector<std::string>::const_iterator it(content.begin());
     for (int idx = 0; it != content.end(); ++it, ++idx)
     {
-        boost::filesystem::path filename(*it);
+        std::filesystem::path filename(*it);
         const Files::MultiDirCollection& col = collections.getCollection(filename.extension().string());
         if (col.doesExist(*it))
         {

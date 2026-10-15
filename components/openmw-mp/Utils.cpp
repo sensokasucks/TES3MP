@@ -8,7 +8,7 @@
 #include <iostream>
 #include <sstream>
 #include <boost/crc.hpp>
-#include <boost/filesystem/fstream.hpp>
+#include <fstream>
 #include <iomanip>
 
 #ifdef _WIN32
@@ -159,7 +159,7 @@ long int Utils::getFileLength(const char* file)
 unsigned int ::Utils::crc32Checksum(const std::string &file)
 {
     boost::crc_32_type  crc32;
-    boost::filesystem::ifstream  ifs(file, std::ios_base::binary);
+    std::ifstream ifs(file, std::ios_base::binary);
     if (ifs)
     {
         do
