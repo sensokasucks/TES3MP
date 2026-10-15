@@ -7,6 +7,7 @@
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/timestamp.hpp"
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 namespace mwmp
 {

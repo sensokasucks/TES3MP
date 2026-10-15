@@ -82,23 +82,22 @@ struct LuaFunctionDispatcher<0, FunctionIndex> {
     }
 };
 
-// Lua function wrapper for functions returning 'void'
+// Lua function wrapper; a single template (rather than two enable_if overloads) so that MSVC
+// can take its address when building LuaFunctionData
 template <unsigned int FunctionIndex>
-static typename std::enable_if<ScriptFunctions::functions[FunctionIndex].func.ret == 'v', int>::type LuaFunctionWrapper(lua_State* lua) noexcept {
-    // Dispatch the Lua function
-    LuaFunctionDispatcher<ScriptFunctions::functions[FunctionIndex].func.numargs, FunctionIndex>::template Dispatch<void>(std::forward<lua_State*>(lua));
-    return 0;
-}
-
-// Lua function wrapper for functions with non-void return types
-template <unsigned int FunctionIndex>
-static typename std::enable_if<ScriptFunctions::functions[FunctionIndex].func.ret != 'v', int>::type LuaFunctionWrapper(lua_State* lua) noexcept {
-    // Dispatch the Lua function
-    auto result = LuaFunctionDispatcher<ScriptFunctions::functions[FunctionIndex].func.numargs, FunctionIndex>::template Dispatch<
-        typename CharType<ScriptFunctions::functions[FunctionIndex].func.ret>::type>(std::forward<lua_State*>(lua));
-    // Push the result onto the Lua stack
-    luabridge::Stack<typename CharType<ScriptFunctions::functions[FunctionIndex].func.ret>::type>::push(lua, result);
-    return 1;
+static int LuaFunctionWrapper(lua_State* lua) noexcept {
+    if constexpr (ScriptFunctions::functions[FunctionIndex].func.ret == 'v') {
+        // Dispatch the Lua function
+        LuaFunctionDispatcher<ScriptFunctions::functions[FunctionIndex].func.numargs, FunctionIndex>::template Dispatch<void>(std::forward<lua_State*>(lua));
+        return 0;
+    } else {
+        // Dispatch the Lua function
+        auto result = LuaFunctionDispatcher<ScriptFunctions::functions[FunctionIndex].func.numargs, FunctionIndex>::template Dispatch<
+            typename CharType<ScriptFunctions::functions[FunctionIndex].func.ret>::type>(std::forward<lua_State*>(lua));
+        // Push the result onto the Lua stack
+        luabridge::Stack<typename CharType<ScriptFunctions::functions[FunctionIndex].func.ret>::type>::push(lua, result);
+        return 1;
+    }
 }
 
 // Struct for defining Lua functions with names and wrappers

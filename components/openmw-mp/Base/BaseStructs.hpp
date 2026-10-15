@@ -8,6 +8,7 @@
 #include <components/esm3/statstate.hpp>
 
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 namespace mwmp
 {

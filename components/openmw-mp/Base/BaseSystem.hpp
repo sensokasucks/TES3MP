@@ -4,6 +4,7 @@
 #include <string>
 
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 namespace mwmp
 {

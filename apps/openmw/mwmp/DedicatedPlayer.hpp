@@ -14,6 +14,7 @@
 
 #include <map>
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 namespace MWMechanics
 {

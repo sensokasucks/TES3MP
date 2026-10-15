@@ -4,6 +4,7 @@
 #include <components/esm3/loadcell.hpp>
 #include <components/openmw-mp/Base/BaseStructs.hpp>
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 namespace mwmp
 {

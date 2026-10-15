@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono>
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 #include <components/esm3/npcstats.hpp>
 #include <components/esm3/cellid.hpp>

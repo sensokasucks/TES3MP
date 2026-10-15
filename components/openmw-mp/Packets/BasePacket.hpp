@@ -11,6 +11,7 @@
 #include <RakNetTypes.h>
 #include <BitStream.h>
 #include <PacketPriority.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 
 namespace mwmp

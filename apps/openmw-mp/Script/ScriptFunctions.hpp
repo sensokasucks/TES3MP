@@ -23,6 +23,7 @@
 #include <Script/Functions/Stats.hpp>
 #include <Script/Functions/Worldstate.hpp>
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 #include <tuple>
 #include <apps/openmw-mp/Player.hpp>
 #include "ScriptFunction.hpp"

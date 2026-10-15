@@ -3,6 +3,7 @@
 
 
 #include <RakPeerInterface.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 #include "../Packets/Player/PlayerPacket.hpp"
 #include <unordered_map>
 #include <memory>

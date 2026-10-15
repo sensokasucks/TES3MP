@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <RakNetTypes.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 #include "Utils.hpp"
 
 #ifdef _WIN32

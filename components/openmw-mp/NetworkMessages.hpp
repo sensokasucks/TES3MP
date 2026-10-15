@@ -2,6 +2,7 @@
 #define OPENMW_NETWORKMESSAGES_HPP
 
 #include <MessageIdentifiers.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 enum GameMessages
 {

@@ -7,6 +7,7 @@
 #include <map>
 #include <list>
 #include <MessageIdentifiers.h>
+#include <components/openmw-mp/WindowsUndef.hpp>
 
 enum MASTER_PACKETS
 {
