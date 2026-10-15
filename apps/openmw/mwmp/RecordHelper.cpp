@@ -1585,14 +1585,24 @@ void RecordHelper::createPlaceholderInteriorCell()
 {
     MWBase::World* world = MWBase::Environment::get().getWorld();
 
+    // The engine starts a second new game after Main::postInit(), and every new game clears the store's
+    // dynamic cells, so this cell can disappear after being created; only add it when it's missing
+    if (world->getStore().get<ESM::Cell>().search(std::string_view(placeholderInteriorCellName)) != nullptr)
+        return;
+
     ESM::Cell placeholderInterior;
     placeholderInterior.mData.mFlags |= ESM::Cell::Flags::Interior;
     placeholderInterior.mName = placeholderInteriorCellName;
+    // 0.51 stores cells by RefId, which has to be set from the name before insertion
+    placeholderInterior.updateId();
 
     world->getModifiableStore().insert(placeholderInterior);
 }
 
 const std::string RecordHelper::getPlaceholderInteriorCellName()
 {
+    // Every user of the name is about to look the cell up, so make sure it exists
+    createPlaceholderInteriorCell();
+
     return placeholderInteriorCellName;
 }

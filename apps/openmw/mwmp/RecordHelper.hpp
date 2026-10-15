@@ -46,7 +46,19 @@ namespace RecordHelper
     {
         MWBase::World *world = MWBase::Environment::get().getWorld();
 
-        return world->getModifiableStore().insert(record);
+        // ESMStore::insert() gives new records a generated RefId in 0.51, and calling getRefIdString()
+        // on one of those throws, which tes3mp code does all over (e.g. when placing a DedicatedPlayer),
+        // so give them a unique string id instead, like 0.47's "$dynamic" ids
+        static unsigned int dynamicCount = 0;
+        RecordType finalRecord = record;
+
+        do
+        {
+            finalRecord.mId = ESM::RefId::stringRefId("$tes3mp_dynamic" + std::to_string(dynamicCount++));
+        }
+        while (world->getStore().get<RecordType>().search(finalRecord.mId) != nullptr);
+
+        return world->getModifiableStore().overrideRecord(finalRecord);
     }
 
     template<class RecordType>
