@@ -589,11 +589,6 @@ namespace MWClass
 
                 if (hasHealthDamage && agilityTerm <= healthDamage && knockdownTerm <= Misc::Rng::roll0to99(prng))
                     stats.setKnockedDown(true);
-                else
-                {
-                    if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99(prng))
-                        stats.setKnockedDown(true);
-                }
 
                 if (!stats.getKnockedDown())
                     stats.setHitRecovery(true); // Is this supposed to always occur?
@@ -618,7 +613,7 @@ namespace MWClass
         if (localAttack)
         {
             localAttack->pressed = false;
-            localAttack->damage = damage;
+            localAttack->damage = healthDamage;
             localAttack->knockdown = getCreatureStats(ptr).getKnockedDown();
 
             MechanicsHelper::assignAttackTarget(localAttack, ptr);

@@ -1498,7 +1498,6 @@ namespace MWMechanics
             /*
                 End of tes3mp addition
             */
-        }
             effect.mMagnitude = magnitude;
             magnitudes.add(EffectKey(effect.mEffectId, effect.getSkillOrAttribute()),
                 EffectParam(effect.mMagnitude - oldMagnitude));

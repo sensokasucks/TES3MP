@@ -790,18 +790,6 @@ namespace MWMechanics
             mSpells.emplace_back(ActiveSpellParams{ spell });
             // Generate ID for older saves that didn't have any.
             if (mSpells.back().getActiveSpellId().empty())
-
-        /*
-            Start of tes3mp addition
-
-            Whenever a local player or local actor gains an active spell as a result of gameplay, send a packet
-            to the server about it
-        */
-        if (!spell.mReceivedFromServer)
-            sendAddition(ptr, spell);
-        /*
-            End of tes3mp addition
-        */
                 mSpells.back().setActiveSpellId(MWBase::Environment::get().getESMStore()->generateId());
         }
         for (const ESM::ActiveSpells::ActiveSpellParams& spell : state.mQueue)
@@ -869,9 +857,9 @@ namespace MWMechanics
         Add a spell received from the server, keeping the timestamp it had on the client that sent it and
         not sending a packet back to the server about it
     */
-    void ActiveSpells::addSpell(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp)
+    void ActiveSpells::addSpell(const ESM::ActiveSpells::ActiveSpellParams& params, const ESM::RefNum& caster, MWWorld::TimeStamp timestamp)
     {
-        mQueue.emplace_back(ActiveSpellParams{params, casterActorId, timestamp});
+        mQueue.emplace_back(ActiveSpellParams{params, caster, timestamp});
     }
 
     /*
@@ -919,7 +907,7 @@ namespace MWMechanics
     /*
         Allow the purging of an effect for a specific arg (attribute or skill)
     */
-    void ActiveSpells::purgeEffectByArg(const MWWorld::Ptr& ptr, short effectId, int effectArg)
+    void ActiveSpells::purgeEffectByArg(const MWWorld::Ptr& ptr, const ESM::RefId& effectId, int effectArg)
     {
         purge([=] (const ActiveSpellParams&, const ESM::ActiveEffect& effect)
         {
@@ -932,7 +920,7 @@ namespace MWMechanics
     /*
         Make it easy to get an effect's duration
     */
-    float ActiveSpells::getEffectDuration(short effectId, const std::string& sourceId) const
+    float ActiveSpells::getEffectDuration(const ESM::RefId& effectId, const std::string& sourceId) const
     {
         for (const auto& spell : mSpells)
         {
@@ -948,18 +936,6 @@ namespace MWMechanics
         return 0.f;
     }
 
-    /*
-        Make it possible to set and get the actorId for these ActiveSpells
-    */
-    int ActiveSpells::getActorId() const
-    {
-        return mActorId;
-    }
-
-    void ActiveSpells::setActorId(int actorId)
-    {
-        mActorId = actorId;
-    }
     /*
         End of tes3mp addition
     */

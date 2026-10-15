@@ -2020,8 +2020,18 @@ namespace MWMechanics
             Do a cleanup here and send an ID_OBJECT_DELETE packet every time a summoned creature
             despawns for the local player or for a local actor
         */
+        bool summonedByPlayer = false;
+        for (const auto& summon : getPlayer().getClass().getCreatureStats(getPlayer()).getSummonedCreatureMap())
+        {
+            if (summon.second == creature)
+            {
+                summonedByPlayer = true;
+                break;
+            }
+        }
+
         if (!ptr.isEmpty() &&
-            (casterStats.getActorId() == getPlayer().getClass().getCreatureStats(getPlayer()).getActorId() || mwmp::Main::get().getCellController()->hasLocalAuthority(ptr.getCell()->getCell()->getEsm3())))
+            (summonedByPlayer || mwmp::Main::get().getCellController()->hasLocalAuthority(ptr.getCell()->getCell()->getEsm3())))
         {
             mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
             objectList->reset();

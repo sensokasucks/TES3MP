@@ -511,7 +511,9 @@ void MechanicsHelper::processAttack(Attack attack, const MWWorld::Ptr& attacker)
             if (!isRanged)
                 MWMechanics::blockMeleeAttack(attacker, victim, weaponPtr, attack.damage, 1);
 
-            victim.getClass().onHit(victim, attack.damage, isHealthDamage, weaponPtr, attacker, attack.hitPosition.asVec3(),
+            std::map<std::string, float> damages;
+            damages[isHealthDamage ? "health" : "fatigue"] = attack.damage;
+            victim.getClass().onHit(victim, damages, weaponPtr.isEmpty() ? ESM::RefId() : weaponPtr.getCellRef().getRefId(), attacker,
                 attack.success, isRanged ? MWMechanics::DamageSourceType::Ranged : MWMechanics::DamageSourceType::Melee);
         }
 
@@ -612,7 +614,7 @@ void MechanicsHelper::createSpellGfx(const MWWorld::Ptr& targetPtr, const std::v
         MWRender::Animation* anim = MWBase::Environment::get().getWorld()->getAnimation(targetPtr);
         if (anim && !castStatic->mModel.empty())
         {
-            anim->addEffect(Misc::ResourceHelpers::correctMeshPath(VFS::Path::Normalized(castStatic->mModel)).value(), ESM::MagicEffect::indexToName(magicEffect->mIndex), loop, "", magicEffect->mParticle);
+            anim->addEffect(Misc::ResourceHelpers::correctMeshPath(VFS::Path::Normalized(castStatic->mModel)).value(), magicEffect->mId.getRefIdString(), loop, "", magicEffect->mParticle);
         }
     }
 }
@@ -622,15 +624,15 @@ bool MechanicsHelper::isStackingSpell(const std::string& id)
     return !MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(ESM::RefId::stringRefId(id));
 }
 
-bool MechanicsHelper::doesEffectListContainEffect(const ESM::EffectList& effectList, short effectId, short attributeId, short skillId)
+bool MechanicsHelper::doesEffectListContainEffect(const ESM::EffectList& effectList, const ESM::RefId& effectId, short attributeId, short skillId)
 {
     for (const auto &effect : effectList.mList)
     {
         if (effect.mData.mEffectID == effectId)
         {
-            if (attributeId == -1 || effect.mData.mAttribute == attributeId)
+            if (attributeId == -1 || effect.mData.mAttribute == ESM::Attribute::indexToRefId(attributeId))
             {
-                if (skillId == -1 || effect.mData.mSkill == skillId)
+                if (skillId == -1 || effect.mData.mSkill == ESM::Skill::indexToRefId(skillId))
                 {
                     return true;
                 }
@@ -641,7 +643,7 @@ bool MechanicsHelper::doesEffectListContainEffect(const ESM::EffectList& effectL
     return false;
 }
 
-void MechanicsHelper::unequipItemsByEffect(const MWWorld::Ptr& ptr, short enchantmentType, short effectId, short attributeId, short skillId)
+void MechanicsHelper::unequipItemsByEffect(const MWWorld::Ptr& ptr, short enchantmentType, const ESM::RefId& effectId, short attributeId, short skillId)
 {
     MWBase::World *world = MWBase::Environment::get().getWorld();
     MWWorld::InventoryStore &ptrInventory = ptr.getClass().getInventoryStore(ptr);

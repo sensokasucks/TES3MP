@@ -169,17 +169,21 @@ namespace MWGui
 
             Prevent resting and waiting if they have been disabled by the server for the local player
         */
-        else if (canRest == MWBase::World::Rest_Allowed && !mwmp::Main::get().getLocalPlayer()->wildernessRestAllowed &&
-            !mwmp::Main::get().getLocalPlayer()->isUsingBed)
+        else
         {
-            MWBase::Environment::get().getWindowManager()->messageBox("You are not allowed to rest without a bed.");
-            MWBase::Environment::get().getWindowManager()->popGuiMode();
-        }
-        else if (canRest == MWBase::World::Rest_OnlyWaiting && !mwmp::Main::get().getLocalPlayer()->waitAllowed &&
-            !mwmp::Main::get().getLocalPlayer()->isUsingBed)
-        {
-            MWBase::Environment::get().getWindowManager()->messageBox("You are not allowed to wait.");
-            MWBase::Environment::get().getWindowManager()->popGuiMode();
+            const bool restCanSleep = (MWBase::Environment::get().getWorld()->canRest() & MWBase::World::Rest_CanSleep) != 0;
+            const bool usingBed = mwmp::Main::get().getLocalPlayer()->isUsingBed;
+
+            if (restCanSleep && !mwmp::Main::get().getLocalPlayer()->wildernessRestAllowed && !usingBed)
+            {
+                MWBase::Environment::get().getWindowManager()->messageBox("You are not allowed to rest without a bed.");
+                MWBase::Environment::get().getWindowManager()->popGuiMode();
+            }
+            else if (!restCanSleep && !mwmp::Main::get().getLocalPlayer()->waitAllowed && !usingBed)
+            {
+                MWBase::Environment::get().getWindowManager()->messageBox("You are not allowed to wait.");
+                MWBase::Environment::get().getWindowManager()->popGuiMode();
+            }
         }
         /*
             End of tes3mp addition

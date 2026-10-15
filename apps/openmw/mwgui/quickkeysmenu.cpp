@@ -515,18 +515,6 @@ namespace MWGui
                 */
             }
 
-    /*
-        Start of tes3mp addition
-
-        Make it possible to add quickKeys from elsewhere in the code
-    */
-    void QuickKeysMenu::setSelectedIndex(int index)
-    {
-        mSelected = &mKey[index];
-    }
-    /*
-        End of tes3mp addition
-    */
             else if (key->type == ESM::QuickKeys::Type::MagicItem)
             {
                 // equip, if it can be equipped and isn't yet equipped
@@ -598,6 +586,19 @@ namespace MWGui
         // Updates the state of equipped/not equipped (skin) in spellwindow
         MWBase::Environment::get().getWindowManager()->updateSpellWindow();
     }
+
+    /*
+        Start of tes3mp addition
+
+        Make it possible to add quickKeys from elsewhere in the code
+    */
+    void QuickKeysMenu::setSelectedIndex(int index)
+    {
+        mSelected = &mKey[index];
+    }
+    /*
+        End of tes3mp addition
+    */
 
     bool QuickKeysMenu::onControllerButtonEvent(const SDL_ControllerButtonEvent& arg)
     {

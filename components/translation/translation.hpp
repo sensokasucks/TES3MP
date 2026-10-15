@@ -33,6 +33,7 @@ namespace Translation
         */
         std::string getLocalizedTopicId(const std::string& englishTopicId) const;
         std::string_view topicID(std::string_view phrase) const;
+        bool hasTranslation() const { return !mKeywords.empty(); }
         /*
             End of tes3mp addition
         */

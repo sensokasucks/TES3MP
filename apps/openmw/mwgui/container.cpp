@@ -359,7 +359,7 @@ namespace MWGui
             const ItemStack& item = mModel->getItem(i);
 
             // Trigger crimes related to the attempted taking of these items, if applicable
-            if (!onTakeItem(item, item.mCount))
+            if (!mModel->onTakeItem(item.mBase, static_cast<int>(item.mCount)))
                 break;
 
             objectList->addContainerItem(baseObject, item, item.mCount, item.mCount);

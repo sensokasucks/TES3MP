@@ -132,7 +132,7 @@ void PlayerList::enableMarkers(const ESM::Cell& cell)
 */
 void PlayerList::clearHitAttemptActor(const ESM::RefNum& refNum)
 {
-    for (auto &p : players)
+    for (auto &p : playerList)
     {
         if (p.second == nullptr || p.second->getPtr().isEmpty()) continue;
 

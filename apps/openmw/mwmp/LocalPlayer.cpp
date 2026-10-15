@@ -905,7 +905,7 @@ void LocalPlayer::resurrect()
 
     // Ensure we unequip any items with constant effects that can put us into an infinite
     // death loop
-    static const int damageEffects[5] = { ESM::MagicEffect::DrainHealth, ESM::MagicEffect::FireDamage,
+    static const ESM::RefId damageEffects[5] = { ESM::MagicEffect::DrainHealth, ESM::MagicEffect::FireDamage,
         ESM::MagicEffect::FrostDamage, ESM::MagicEffect::ShockDamage, ESM::MagicEffect::SunDamage };
 
     for (const auto &damageEffect : damageEffects)

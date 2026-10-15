@@ -86,8 +86,8 @@ namespace MWDialogue
     bool Journal::hasEntry(const ESM::RefId& id, int index)
     {
         const ESM::RefId& infoId = JournalEntry::idFromIndex(id, index);
-        for (TEntryIter i = mJournal.begin(); i != mJournal.end(); ++i)
-            if (i->mTopic == id && i->mInfoId == infoId)
+        for (const auto& entry : mJournal)
+            if (entry.mTopic == id && entry.mInfoId == infoId)
                 return true;
 
         return false;

@@ -1003,7 +1003,7 @@ namespace MWClass
         if (localAttack)
         {
             localAttack->pressed = false;
-            localAttack->damage = damage;
+            localAttack->damage = healthDamage;
             localAttack->knockdown = getCreatureStats(ptr).getKnockedDown();
 
             MechanicsHelper::assignAttackTarget(localAttack, ptr);

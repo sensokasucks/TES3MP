@@ -124,15 +124,6 @@ namespace MWMechanics
 
     ActiveSpells& CreatureStats::getActiveSpells()
     {
-        /*
-            Start of tes3mp addition
-
-            Set the actorId associated with these ActiveSpells so it can be used inside them
-        */
-        mActiveSpells.setActorId(getActorId());
-        /*
-            End of tes3mp addition
-        */
         return mActiveSpells;
     }
 

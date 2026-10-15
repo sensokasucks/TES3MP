@@ -157,16 +157,6 @@ namespace MWMechanics
             /*
                 Start of tes3mp addition
 
-                Track the actorId corresponding to these ActiveSpells
-            */
-            int mActorId;
-            /*
-                End of tes3mp addition
-            */
-
-            /*
-                Start of tes3mp addition
-
                 Allow the temporary suppression of packets, for removals requested by the server, and
                 declare helper methods for sending packets about additions and removals of active spells
             */
@@ -254,7 +244,7 @@ namespace MWMechanics
 
                 Allow the purging of an effect for a specific arg (attribute or skill)
             */
-            void purgeEffectByArg(const MWWorld::Ptr& ptr, short effectId, int effectArg);
+            void purgeEffectByArg(const MWWorld::Ptr& ptr, const ESM::RefId& effectId, int effectArg);
             /*
                 End of tes3mp addition
             */
@@ -264,7 +254,7 @@ namespace MWMechanics
 
                 Make it easy to get an effect's duration
             */
-            float getEffectDuration(short effectId, const std::string& sourceId) const;
+            float getEffectDuration(const ESM::RefId& effectId, const std::string& sourceId) const;
             /*
                 End of tes3mp addition
             */
@@ -281,16 +271,6 @@ namespace MWMechanics
         bool isEnchantmentActive(const ESM::RefId& id) const;
 
         void skipWorsenings(double hours);
-            /*
-                Start of tes3mp addition
-
-                Make it possible to set and get the actorId for these ActiveSpells
-            */
-            int getActorId() const;
-            void setActorId(int actorId);
-            /*
-                End of tes3mp addition
-            */
 
 
         void unloadActor(const MWWorld::Ptr& ptr);
