@@ -21,6 +21,7 @@
 
 #include <components/compiler/opcodes.hpp>
 
+#include <components/interpreter/context.hpp>
 #include <components/interpreter/interpreter.hpp>
 #include <components/interpreter/opcodes.hpp>
 #include <components/interpreter/runtime.hpp>
@@ -77,7 +78,7 @@ namespace MWScript
                         Send an ID_OBJECT_ANIM_PLAY every time an animation is played for an object
                         through an approved script
                     */
-                    if (mwmp::Main::isValidPacketScript(ptr.getClass().getScript(ptr)))
+                    if (mwmp::Main::isValidPacketScript(ptr.getClass().getScript(ptr).getRefIdString()))
                     {
                         mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
                         objectList->reset();

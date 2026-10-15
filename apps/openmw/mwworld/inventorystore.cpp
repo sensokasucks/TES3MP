@@ -19,6 +19,8 @@
 */
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
+#include "cellstore.hpp"
 
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/npcstats.hpp"
@@ -160,7 +162,7 @@ MWWorld::ContainerStoreIterator MWWorld::InventoryStore::add(
 
         Only fire inventory events for actors in loaded cells to avoid crashes
     */
-    if (mListener && MWBase::Environment::get().getWorld()->isCellActive(*actorPtr.getCell()->getCell()))
+    if (mListener && actor.getCell() && MWBase::Environment::get().getWorld()->isCellActive(actor.getCell()->getCell()->getEsm3()))
         mListener->itemAdded(*retVal, count);
     /*
         End of tes3mp change (major)
@@ -541,7 +543,7 @@ void MWWorld::InventoryStore::autoEquip()
         We need DedicatedPlayers and DedicatedActors to wear exactly what they're wearing on their
         authority client, so don't auto-equip for them
     */
-    if (mwmp::PlayerList::isDedicatedPlayer(actor) || mwmp::Main::get().getCellController()->isDedicatedActor(actor))
+    if (mwmp::PlayerList::isDedicatedPlayer(getPtr()) || mwmp::Main::get().getCellController()->isDedicatedActor(getPtr()))
         return;
     /*
         End of tes3mp addition
@@ -773,7 +775,8 @@ void MWWorld::InventoryStore::fireEquipmentChangedEvent()
     */
     if (mInventoryListener)
     {
-        if (actor == MWMechanics::getPlayer() || MWBase::Environment::get().getWorld()->isCellActive(*actor.getCell()->getCell()))
+        const Ptr& actor = getPtr();
+        if (actor == MWMechanics::getPlayer() || (actor.getCell() && MWBase::Environment::get().getWorld()->isCellActive(actor.getCell()->getCell()->getEsm3())))
         {
         mInventoryListener->equipmentChanged();
         }

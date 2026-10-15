@@ -10,6 +10,8 @@
 #include "../mwworld/worldimp.hpp"
 
 #include "CellController.hpp"
+#include "../mwworld/worldmodel.hpp"
+#include "../mwworld/cellstore.hpp"
 #include "Main.hpp"
 #include "LocalActor.hpp"
 #include "LocalPlayer.hpp"
@@ -39,7 +41,7 @@ void CellController::updateLocal(bool forceUpdate)
     {
         mwmp::Cell *mpCell = it->second;
 
-        if (mpCell->getCellStore() == nullptr || mpCell->getCellStore()->getCell() == nullptr || !world->isCellActive(*mpCell->getCellStore()->getCell()))
+        if (mpCell->getCellStore() == nullptr || mpCell->getCellStore()->getCell() == nullptr || !world->isCellActive(mpCell->getCellStore()->getCell()->getEsm3()))
         {
             mpCell->uninitializeLocalActors();
             mpCell->uninitializeDedicatedActors();
@@ -73,7 +75,8 @@ void CellController::updateLocal(bool forceUpdate)
     // Otherwise, disable the DetourNavigator for advanced pathfinding for the time being
     else
     {
-        world->getNavigator()->setUpdatesEnabled(false);
+        // OpenMW 0.49 no longer lets callers pause navigator updates, so nothing to do here
+        (void) world;
     }
 }
 
@@ -430,12 +433,12 @@ MWWorld::CellStore *CellController::getCellStore(const ESM::Cell& cell)
     MWWorld::CellStore *cellStore;
 
     if (cell.isExterior())
-        cellStore = MWBase::Environment::get().getWorld()->getExterior(cell.mData.mX, cell.mData.mY);
+        cellStore = &MWBase::Environment::get().getWorldModel()->getExterior(ESM::ExteriorCellLocation(cell.mData.mX, cell.mData.mY, ESM::Cell::sDefaultWorldspaceId));
     else
     {
         try
         {
-            cellStore = MWBase::Environment::get().getWorld()->getInterior(cell.mName);
+            cellStore = &MWBase::Environment::get().getWorldModel()->getInterior(cell.mName);
         }
         catch (std::exception&)
         {

@@ -127,7 +127,7 @@ namespace MWWorld
     */
     void CellRef::setRefNum(unsigned int index)
     {
-        mCellRef.mRefNum.mIndex = index;
+        std::visit(ESM::VisitOverload{ [&](ESM4::Reference&) {}, [&](ESM4::ActorCharacter&) {}, [&](ESM::CellRef& ref) { ref.mRefNum.mIndex = index; } }, mCellRef.mVariant);
     }
     /*
         End of tes3mp addition
@@ -140,7 +140,10 @@ namespace MWWorld
     */
     unsigned int CellRef::getMpNum() const
     {
-        return mCellRef.mMpNum;
+        return std::visit(ESM::VisitOverload{ [&](const ESM4::Reference&) -> unsigned int { return 0; },
+                              [&](const ESM4::ActorCharacter&) -> unsigned int { return 0; },
+                              [&](const ESM::CellRef& ref) -> unsigned int { return ref.mMpNum; } },
+            mCellRef.mVariant);
     }
     /*
         End of tes3mp addition
@@ -153,7 +156,7 @@ namespace MWWorld
     */
     void CellRef::setMpNum(unsigned int index)
     {
-        mCellRef.mMpNum = index;
+        std::visit(ESM::VisitOverload{ [&](ESM4::Reference&) {}, [&](ESM4::ActorCharacter&) {}, [&](ESM::CellRef& ref) { ref.mMpNum = index; } }, mCellRef.mVariant);
     }
     /*
         End of tes3mp addition
@@ -166,7 +169,7 @@ namespace MWWorld
     */
     void CellRef::setTeleport(bool teleportState)
     {
-        mCellRef.mTeleport = teleportState;
+        std::visit(ESM::VisitOverload{ [&](ESM4::Reference&) {}, [&](ESM4::ActorCharacter&) {}, [&](ESM::CellRef& ref) { ref.mTeleport = teleportState; } }, mCellRef.mVariant);
     }
     /*
         End of tes3mp addition
@@ -179,7 +182,7 @@ namespace MWWorld
     */
     void CellRef::setDoorDest(const ESM::Position& position)
     {
-        mCellRef.mDoorDest = position;
+        std::visit(ESM::VisitOverload{ [&](ESM4::Reference&) {}, [&](ESM4::ActorCharacter&) {}, [&](ESM::CellRef& ref) { ref.mDoorDest = position; } }, mCellRef.mVariant);
     }
     /*
         End of tes3mp addition
@@ -192,7 +195,7 @@ namespace MWWorld
     */
     void CellRef::setDestCell(const std::string& cellDescription)
     {
-        mCellRef.mDestCell = cellDescription;
+        std::visit(ESM::VisitOverload{ [&](ESM4::Reference&) {}, [&](ESM4::ActorCharacter&) {}, [&](ESM::CellRef& ref) { ref.mDestCell = cellDescription; } }, mCellRef.mVariant);
     }
     /*
         End of tes3mp addition

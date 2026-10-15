@@ -818,19 +818,15 @@ namespace MWWorld
                 }
             }
 
-            for (auto it = mInt.begin(); it != mInt.end(); ++it)
+            auto found = mCells.find(cell.mId);
+            if (found != mCells.end())
             {
-                if (Misc::StringUtils::ciEqual((*it).second.mName, cell.mName))
-                {
-                    (*it).second = cell;
-                    return &(*it).second;
-                }
+                found->second = cell;
+                return &found->second;
             }
         }
-        else
-        {
-            return insert(cell);
-        }
+
+        return insert(cell);
     }
     /*
         End of tes3mp addition
@@ -915,25 +911,12 @@ namespace MWWorld
     */
     ESM::Pathgrid* Store<ESM::Pathgrid>::override(const ESM::Pathgrid& pathgrid)
     {
-        bool interior = mCells->search(pathgrid.mCell) != nullptr;
-
-        // Try to overwrite existing record
-        if (interior)
-        {
-            std::pair<Interior::iterator, bool> ret = mInt.insert(std::make_pair(pathgrid.mCell, pathgrid));
-            if (!ret.second)
-                ret.first->second = pathgrid;
-
-            return &ret.first->second;
-        }
-        else
-        {
-            std::pair<Exterior::iterator, bool> ret = mExt.insert(std::make_pair(std::make_pair(pathgrid.mData.mX, pathgrid.mData.mY), pathgrid));
-            if (!ret.second)
-                ret.first->second = pathgrid;
-
-            return &ret.first->second;
-        }
+        // Pathgrids are keyed by cell id in 0.49, so just overwrite or insert the record
+        ESM::RefId cellId = pathgrid.mCell;
+        if (cellId.empty())
+            cellId = ESM::RefId::esm3ExteriorCell(pathgrid.mData.mX, pathgrid.mData.mY);
+        auto ret = mStatic.insert_or_assign(cellId, pathgrid);
+        return &ret.first->second;
     }
     /*
         End of tes3mp addition

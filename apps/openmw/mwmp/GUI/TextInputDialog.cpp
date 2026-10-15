@@ -77,7 +77,7 @@ namespace mwmp
             eventDone(this);
     }
 
-    void TextInputDialog::onTextAccepted(MyGUI::Edit *_sender)
+    void TextInputDialog::onTextAccepted(MyGUI::EditBox *_sender)
     {
         onOkClicked(_sender);
     }

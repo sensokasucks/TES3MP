@@ -730,7 +730,7 @@ namespace MWMechanics
     {
         for (std::map<int, int>::iterator it = mSummonedCreatures.begin(); it != mSummonedCreatures.end(); )
         {
-            if (Misc::StringUtils::ciEqual(getSummonedCreature(it->first), refId) && it->second == -1)
+            if (getSummonedCreature(it->first) == std::string_view(refId) && it->second == -1)
             {
                 it->second = actorId;
                 break;

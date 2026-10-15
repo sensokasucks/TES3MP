@@ -701,7 +701,8 @@ namespace MWWorld
     void WeatherManager::setRegionWeather(const std::string& region, const int currentWeather, const int nextWeather,
         const int queuedWeather, const float transitionFactor, bool force)
     {
-        bool isSameRegion = Misc::StringUtils::ciEqual(region, mCurrentRegion);
+        const ESM::RefId regionId = ESM::RefId::stringRefId(region);
+        bool isSameRegion = mCurrentRegion == std::string_view(region);
 
         // Only ever force weather if we are in the correct region for it
         if (isSameRegion)
@@ -723,18 +724,18 @@ namespace MWWorld
                 // Start moving towards the next weather immediately if it's different from the one we have
                 else if (mNextWeather != nextWeather && nextWeather != -1)
                 {
-                    changeWeather(region, nextWeather);
+                    changeWeather(regionId, nextWeather);
                 }
                 // Otherwise, if the current weather is different from the one we should have, move towards it
                 else if (mCurrentWeather != currentWeather)
                 {
-                    changeWeather(region, currentWeather);
+                    changeWeather(regionId, currentWeather);
                 }
             }
         }
         else
         {
-            changeWeather(region, currentWeather);
+            changeWeather(regionId, currentWeather);
         }
     }
     /*
@@ -1096,7 +1097,7 @@ namespace MWWorld
     void WeatherManager::sendWeather()
     {
         mwmp::Worldstate *worldstate = mwmp::Main::get().getNetworking()->getWorldstate();
-        worldstate->sendWeather(mCurrentRegion, mCurrentWeather, mNextWeather, mQueuedWeather, mTransitionFactor);
+        worldstate->sendWeather(mCurrentRegion.getRefIdString(), mCurrentWeather, mNextWeather, mQueuedWeather, mTransitionFactor);
     }
     /*
         End of tes3mp addition

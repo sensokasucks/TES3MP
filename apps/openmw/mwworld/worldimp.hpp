@@ -339,7 +339,7 @@ namespace MWWorld
 
                 Make it possible to update all Ptrs in active cells that have a certain refId
             */
-            void updatePtrsWithRefId(std::string refId) override;
+            void updatePtrsWithRefId(const ESM::RefId& refId) override;
             /*
                 End of tes3mp addition
             */

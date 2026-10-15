@@ -1,3 +1,4 @@
+#include <components/esm/generatedrefid.hpp>
 #include <components/openmw-mp/TimedLog.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -219,7 +220,7 @@ void LocalActor::updateEquipment(bool forceUpdate, bool sendImmediately)
     // If we've never sent any data, autoEquip the actor just in case its inventory
     // slots have been cleared by a previous Container packet
     if (!hasSentData)
-        invStore.autoEquip(ptr);
+        invStore.autoEquip();
 
     if (forceUpdate)
         equipmentChanged = true;
@@ -232,14 +233,14 @@ void LocalActor::updateEquipment(bool forceUpdate, bool sendImmediately)
         if (it != invStore.end())
         {
             auto &cellRef = it->getCellRef();
-            if (!::Misc::StringUtils::ciEqual(cellRef.getRefId(), item.refId))
+            if (!(cellRef.getRefId() == std::string_view(item.refId)))
             {
                 equipmentChanged = true;
 
-                item.refId = cellRef.getRefId();
+                item.refId = cellRef.getRefId().getRefIdString();
                 item.charge = cellRef.getCharge();
                 item.enchantmentCharge = it->getCellRef().getEnchantmentCharge();
-                item.count = it->getRefData().getCount();
+                item.count = it->getCellRef().getCount();
             }
         }
         else if (!item.refId.empty())
@@ -290,7 +291,7 @@ void LocalActor::sendEquipment()
 void LocalActor::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (params.getId().find("$dynamic") != std::string::npos)
+    if (params.getSourceSpellId().is<ESM::GeneratedRefId>())
         return;
 
     spellsActiveChanges.activeSpells.clear();
@@ -313,7 +314,7 @@ void LocalActor::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::Activ
 void LocalActor::sendSpellsActiveRemoval(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (params.getId().find("$dynamic") != std::string::npos)
+    if (params.getSourceSpellId().is<ESM::GeneratedRefId>())
         return;
 
     spellsActiveChanges.activeSpells.clear();
@@ -358,7 +359,7 @@ void LocalActor::setPtr(const MWWorld::Ptr& newPtr)
 {
     ptr = newPtr;
 
-    refId = ptr.getCellRef().getRefId();
+    refId = ptr.getCellRef().getRefId().getRefIdString();
     refNum = ptr.getCellRef().getRefNum().mIndex;
     mpNum = ptr.getCellRef().getMpNum();
 

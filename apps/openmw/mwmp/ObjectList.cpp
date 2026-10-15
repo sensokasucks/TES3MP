@@ -1,4 +1,7 @@
+#include <components/esm/generatedrefid.hpp>
 #include "ObjectList.hpp"
+#include <components/misc/resourcehelpers.hpp>
+#include <components/vfs/pathutil.hpp>
 #include "Main.hpp"
 #include "Networking.hpp"
 #include "MechanicsHelper.hpp"
@@ -532,14 +535,14 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                         baseObject.summonSpellId.c_str(), baseObject.summonEffectId, baseObject.summonDuration);
 
                     MWMechanics::ActiveSpells& activeSpells = masterCreatureStats.getActiveSpells();
-                    if (!activeSpells.isSpellActive(baseObject.summonSpellId))
+                    if (!activeSpells.isSpellActive(ESM::RefId::deserializeText(baseObject.summonSpellId)))
                     {
                         ESM::ActiveSpells::ActiveSpellParams esmParams;
-                        esmParams.mId = baseObject.summonSpellId;
+                        esmParams.mSourceSpellId = ESM::RefId::deserializeText(baseObject.summonSpellId);
                         esmParams.mEffects = activeEffects;
                         esmParams.mDisplayName = "";
                         esmParams.mCasterActorId = masterCreatureStats.getActorId();
-                        esmParams.mType = ESM::ActiveSpells::Type_Temporary;
+                        esmParams.mFlags = ESM::ActiveSpells::Flag_Temporary;
                         esmParams.mWorsenings = -1;
                         activeSpells.addSpell(esmParams, masterCreatureStats.getActorId(), MWBase::Environment::get().getWorld()->getTimeStamp());
                     }
@@ -676,8 +679,8 @@ void ObjectList::triggerTrapObjects(MWWorld::CellStore* cellStore)
                 cast.cast(ptrFound.getCellRef().getTrap());
             }
 
-            ptrFound.getCellRef().setTrap("");
-            MWBase::Environment::get().getSoundManager()->playSound3D(ptrFound, "Disarm Trap", 1.0f, 1.0f);
+            ptrFound.getCellRef().setTrap(ESM::RefId());
+            MWBase::Environment::get().getSoundManager()->playSound3D(ptrFound, ESM::RefId::stringRefId("Disarm Trap"), 1.0f, 1.0f);
         }
     }
 }
@@ -857,11 +860,11 @@ void ObjectList::playObjectSounds(MWWorld::CellStore* cellStore)
 
             if (playAtPosition) {
                 MWBase::Environment::get().getSoundManager()->playSound3D(ptrFound.getRefData().getPosition().asVec3(),
-                    baseObject.soundId, baseObject.volume, baseObject.pitch, MWSound::Type::Sfx, MWSound::PlayMode::Normal, 0);
+                    ESM::RefId::stringRefId(baseObject.soundId), baseObject.volume, baseObject.pitch, MWSound::Type::Sfx, MWSound::PlayMode::Normal, 0);
             }
             else {
                 MWBase::Environment::get().getSoundManager()->playSound3D(ptrFound,
-                    baseObject.soundId, baseObject.volume, baseObject.pitch, MWSound::Type::Sfx, MWSound::PlayMode::Normal, 0);
+                    ESM::RefId::stringRefId(baseObject.soundId), baseObject.volume, baseObject.pitch, MWSound::Type::Sfx, MWSound::PlayMode::Normal, 0);
             }
         }
     }
@@ -1154,7 +1157,8 @@ void ObjectList::playMusic()
     {
         LOG_APPEND(TimedLog::LOG_VERBOSE, "- filename: %s", baseObject.musicFilename.c_str());
 
-        MWBase::Environment::get().getSoundManager()->streamMusic(baseObject.musicFilename);
+        MWBase::Environment::get().getSoundManager()->streamMusic(
+            Misc::ResourceHelpers::correctMusicPath(VFS::Path::Normalized(baseObject.musicFilename)), MWSound::MusicType::MWScript);
     }
 }
 

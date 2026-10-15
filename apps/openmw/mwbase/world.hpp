@@ -244,7 +244,7 @@ namespace MWBase
 
                 Make it possible to update all Ptrs in active cells that have a certain refId
             */
-            virtual void updatePtrsWithRefId(std::string refId) = 0;
+            virtual void updatePtrsWithRefId(const ESM::RefId& refId) = 0;
             /*
                 End of tes3mp addition
             */

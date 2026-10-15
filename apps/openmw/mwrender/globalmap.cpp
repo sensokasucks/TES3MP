@@ -36,6 +36,9 @@
 #include "../mwbase/environment.hpp"
 
 #include "../mwworld/esmstore.hpp"
+#include "../mwworld/worldmodel.hpp"
+#include "../mwworld/cellstore.hpp"
+#include <components/esm3/loadcell.hpp>
 
 #include "vismask.hpp"
 
@@ -672,7 +675,7 @@ namespace MWRender
                     // Keep this tile marked as explored so we don't send any more packets for it
                     worldstate->markExploredMapTile(cellX, cellY);
 
-                    if (MWBase::Environment::get().getWorld()->getExterior(cellX, cellY)->getCell()->mContextList.empty() == false)
+                    if (MWBase::Environment::get().getWorldModel()->getExterior(ESM::ExteriorCellLocation(cellX, cellY, ESM::Cell::sDefaultWorldspaceId)).getCell()->getEsm3().mContextList.empty() == false)
                     {
                         LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "New global map tile corresponds to cell %i, %i", originToCellX.at(imageDest.mX), originToCellY.at(imageDest.mY));
 
@@ -763,8 +766,9 @@ namespace MWRender
         
         osg::ref_ptr<osg::Image> image = result.getImage();
 
-        int posX = (cellX - mMinX) * mCellSize;
-        int posY = (cellY - mMinY + 1) * mCellSize;
+        const int cellSize = Settings::map().mGlobalMapCellSize;
+        int posX = (cellX - mMinX) * cellSize;
+        int posY = (cellY - mMinY + 1) * cellSize;
 
         if (cellX > mMaxX || cellX < mMinX || cellY > mMaxY || cellY < mMinY)
             return;

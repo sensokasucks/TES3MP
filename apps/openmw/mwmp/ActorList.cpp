@@ -102,7 +102,7 @@ void ActorList::addAiActor(const MWWorld::Ptr& actorPtr, const MWWorld::Ptr& tar
     if (baseActor.aiTarget.isPlayer)
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "- Has player target %s",
-            targetPtr.getClass().getName(targetPtr).c_str());
+            std::string(targetPtr.getClass().getName(targetPtr)).c_str());
     }
     else
     {
@@ -250,7 +250,7 @@ void ActorList::sendCellChangeActors()
 void ActorList::sendActorsInCell(MWWorld::CellStore* cellStore)
 {
     reset();
-    cell = *cellStore->getCell();
+    cell = cellStore->getCell()->getEsm3();
     action = BaseActorList::SET;
 
     for (auto &ref : cellStore->getNpcs()->mList)
@@ -261,7 +261,7 @@ void ActorList::sendActorsInCell(MWWorld::CellStore* cellStore)
         if (ptr.getCellRef().getRefNum().mIndex == 0 && ptr.getCellRef().getMpNum() == 0) continue;
 
         BaseActor actor;
-        actor.refId = ptr.getCellRef().getRefId();
+        actor.refId = ptr.getCellRef().getRefId().getRefIdString();
         actor.refNum = ptr.getCellRef().getRefNum().mIndex;
         actor.mpNum = ptr.getCellRef().getMpNum();
 
@@ -276,7 +276,7 @@ void ActorList::sendActorsInCell(MWWorld::CellStore* cellStore)
         if (ptr.getCellRef().getRefNum().mIndex == 0 && ptr.getCellRef().getMpNum() == 0) continue;
 
         BaseActor actor;
-        actor.refId = ptr.getCellRef().getRefId();
+        actor.refId = ptr.getCellRef().getRefId().getRefIdString();
         actor.refNum = ptr.getCellRef().getRefNum().mIndex;
         actor.mpNum = ptr.getCellRef().getMpNum();
 

@@ -213,19 +213,6 @@ int MWMechanics::NpcStats::getLevelProgress() const
 {
     return mLevelProgress;
 }
-/*
-    Start of tes3mp addition
-
-    Make it possible to set a player's level progress directly instead of going
-    through other methods
-*/
-void MWMechanics::NpcStats::setLevelProgress(int value)
-{
-    mLevelProgress = value;
-}
-/*
-    End of tes3mp addition
-*/
 
 /*
     Start of tes3mp addition

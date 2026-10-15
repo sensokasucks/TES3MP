@@ -163,7 +163,7 @@ namespace MWMechanics
 
                     Send an ID_PLAYER_SPELLBOOK packet every time a spell is purged here
                 */
-                mwmp::Main::get().getLocalPlayer()->sendSpellChange(spell->mId, mwmp::SpellbookChanges::REMOVE);
+                mwmp::Main::get().getLocalPlayer()->sendSpellChange(spell->mId.getRefIdString(), mwmp::SpellbookChanges::REMOVE);
                 /*
                     End of tes3mp addition
                 */
@@ -233,7 +233,7 @@ namespace MWMechanics
 
             Send an ID_PLAYER_COOLDOWN packet every time a cooldown is recorded here
         */
-        mwmp::Main::get().getLocalPlayer()->sendCooldownChange(spell->mId, timestamp.getDay(), timestamp.getHour());
+        mwmp::Main::get().getLocalPlayer()->sendCooldownChange(spell->mId.getRefIdString(), timestamp.getDay(), timestamp.getHour());
         /*
             End of tes3mp addition
         */

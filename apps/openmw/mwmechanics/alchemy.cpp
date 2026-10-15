@@ -308,7 +308,7 @@ void MWMechanics::Alchemy::removeIngredients()
 
                 Store this item removal for later sending to avoid packet spam
             */
-            mwmp::Main::get().getLocalPlayer()->storeItemRemoval(iter->getCellRef().getRefId(), 1);
+            mwmp::Main::get().getLocalPlayer()->storeItemRemoval(iter->getCellRef().getRefId().getRefIdString(), 1);
             /*
                 End of tes3mp addition
             */

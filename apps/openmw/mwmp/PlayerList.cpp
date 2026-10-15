@@ -71,7 +71,7 @@ DedicatedPlayer *PlayerList::getPlayer(const MWWorld::Ptr &ptr)
         if (playerEntry.second == nullptr || playerEntry.second->getPtr().mRef == nullptr)
             continue;
         
-        std::string refId = ptr.getCellRef().getRefId();
+        std::string refId = ptr.getCellRef().getRefId().getRefIdString();
         
         if (playerEntry.second->getPtr().getCellRef().getRefId() == refId)
             return playerEntry.second;

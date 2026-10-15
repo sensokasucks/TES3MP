@@ -134,7 +134,7 @@ namespace MWRender
     if (localAttack)
     {
         localAttack->attackStrength = attackStrength;
-        localAttack->rangedWeaponId = weapon->getCellRef().getRefId();
+        localAttack->rangedWeaponId = weapon->getCellRef().getRefId().getRefIdString();
         localAttack->shouldSend = true;
     }
     else
@@ -242,7 +242,7 @@ namespace MWRender
             If this is a local attack, record the rangedAmmoId used for it
         */
         if (localAttack)
-            localAttack->rangedAmmoId = ammo->getCellRef().getRefId();
+            localAttack->rangedAmmoId = ammo->getCellRef().getRefId().getRefIdString();
         /*
             End of tes3mp addition
         */

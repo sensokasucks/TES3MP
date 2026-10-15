@@ -901,7 +901,7 @@ namespace MWWorld
 
         Make it possible to update all Ptrs in active cells that have a certain refId
     */
-    void World::updatePtrsWithRefId(std::string refId)
+    void World::updatePtrsWithRefId(const ESM::RefId& refId)
     {
         for (Scene::CellStoreCollection::const_iterator iter(mWorldScene->getActiveCells().begin());
             iter != mWorldScene->getActiveCells().end(); ++iter)
@@ -910,7 +910,7 @@ namespace MWWorld
 
             for (auto &mergedRef : cellStore->getMergedRefs())
             {
-                if (Misc::StringUtils::ciEqual(refId, mergedRef->mRef.getRefId()))
+                if (mergedRef->mRef.getRefId() == refId)
                 {
                     MWWorld::Ptr ptr(mergedRef, cellStore);
 

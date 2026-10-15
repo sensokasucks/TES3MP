@@ -1,3 +1,4 @@
+#include <components/esm/generatedrefid.hpp>
 #include <algorithm>
 
 #include <components/esm3/esmwriter.hpp>
@@ -1634,7 +1635,7 @@ void LocalPlayer::sendSpellsActive()
 void LocalPlayer::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (params.getId().find("$dynamic") != std::string::npos)
+    if (params.getSourceSpellId().is<ESM::GeneratedRefId>())
         return;
 
     spellsActiveChanges.activeSpells.clear();
@@ -1656,7 +1657,7 @@ void LocalPlayer::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::Acti
 void LocalPlayer::sendSpellsActiveRemoval(const MWMechanics::ActiveSpells::ActiveSpellParams& params)
 {
     // Skip any bugged spells that somehow have clientside-only dynamic IDs
-    if (params.getId().find("$dynamic") != std::string::npos)
+    if (params.getSourceSpellId().is<ESM::GeneratedRefId>())
         return;
 
     spellsActiveChanges.activeSpells.clear();

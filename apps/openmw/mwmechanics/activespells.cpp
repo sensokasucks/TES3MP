@@ -9,6 +9,8 @@
 #include <components/misc/strings/algorithm.hpp>
 
 #include <components/esm/generatedrefid.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
 #include <components/esm3/loadench.hpp>
 #include <components/esm3/loadmgef.hpp>
 #include <components/esm3/loadstat.hpp>
@@ -166,10 +168,9 @@ namespace MWMechanics
         Make it possible to create ActiveSpellParams from the ones received in a packet
     */
     ActiveSpells::ActiveSpellParams::ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp)
-    : mId(params.mId), mEffects(params.mEffects), mDisplayName(params.mDisplayName), mCasterActorId(casterActorId)
-    , mSlot(params.mItem.isSet() ? params.mItem.mIndex : 0)
-    , mType(params.mType), mWorsenings(params.mWorsenings), mNextWorsening({params.mNextWorsening})
-    , mTimeStamp(MWBase::Environment::get().getWorld()->getTimeStamp())
+    : mActiveSpellId(ESM::RefId()), mSourceSpellId(params.mSourceSpellId), mEffects(params.mEffects)
+    , mDisplayName(params.mDisplayName), mCasterActorId(casterActorId), mItem(params.mItem)
+    , mFlags(params.mFlags), mWorsenings(params.mWorsenings), mNextWorsening({params.mNextWorsening})
     , mTimeStamp(timestamp), mReceivedFromServer(true)
     {
         // Effects received from other clients have already been through reflection, absorption and resistances there
@@ -778,7 +779,7 @@ namespace MWMechanics
         if (mSuppressPackets || ptr.isEmpty())
             return;
 
-        if (params.mType != ESM::ActiveSpells::Type_Temporary && params.mType != ESM::ActiveSpells::Type_Consumable)
+        if (!params.hasFlag(ESM::ActiveSpells::Flag_Temporary))
             return;
 
         if (ptr == MWMechanics::getPlayer())
@@ -792,7 +793,7 @@ namespace MWMechanics
         if (mSuppressPackets || ptr.isEmpty())
             return;
 
-        if (params.mType != ESM::ActiveSpells::Type_Temporary && params.mType != ESM::ActiveSpells::Type_Consumable)
+        if (!params.hasFlag(ESM::ActiveSpells::Flag_Temporary))
             return;
 
         if (ptr == MWMechanics::getPlayer())
@@ -822,7 +823,7 @@ namespace MWMechanics
 
         for (const auto& spell : mSpells)
         {
-            if (Misc::StringUtils::ciEqual(spell.mId, id) && spell.mTimeStamp == timestamp)
+            if (spell.mSourceSpellId == std::string_view(id) && spell.mTimeStamp == timestamp)
             {
                 found = true;
                 break;
@@ -834,7 +835,7 @@ namespace MWMechanics
             mSuppressPackets = true;
             purge([=] (const ActiveSpellParams& params)
             {
-                return Misc::StringUtils::ciEqual(params.mId, id) && params.mTimeStamp == timestamp;
+                return params.mSourceSpellId == std::string_view(id) && params.mTimeStamp == timestamp;
             }, ptr);
             mSuppressPackets = false;
         }
@@ -847,7 +848,7 @@ namespace MWMechanics
         mSuppressPackets = true;
         purge([=] (const ActiveSpellParams& params)
         {
-            return Misc::StringUtils::ciEqual(params.mId, id);
+            return params.mSourceSpellId == std::string_view(id);
         }, ptr);
         mSuppressPackets = false;
     }
@@ -859,7 +860,9 @@ namespace MWMechanics
     {
         purge([=] (const ActiveSpellParams&, const ESM::ActiveEffect& effect)
         {
-            return effect.mEffectId == effectId && effect.mArg == effectArg;
+            const ESM::RefId arg = effect.getSkillOrAttribute();
+            return effect.mEffectId == effectId
+                && (ESM::Attribute::refIdToIndex(arg) == effectArg || ESM::Skill::refIdToIndex(arg) == effectArg);
         }, ptr);
     }
 
@@ -870,7 +873,7 @@ namespace MWMechanics
     {
         for (const auto& spell : mSpells)
         {
-            if (Misc::StringUtils::ciEqual(spell.mId, sourceId))
+            if (spell.mSourceSpellId == std::string_view(sourceId))
             {
                 for (const auto& effect : spell.mEffects)
                 {

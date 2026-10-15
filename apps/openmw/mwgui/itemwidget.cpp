@@ -14,6 +14,7 @@
 #include "../mwbase/environment.hpp"
 
 #include "../mwworld/class.hpp"
+#include "../mwbase/windowmanager.hpp"
 
 namespace
 {

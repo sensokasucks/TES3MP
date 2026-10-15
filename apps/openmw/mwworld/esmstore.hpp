@@ -308,7 +308,7 @@ namespace MWWorld
     */
     template <>
     inline const ESM::Cell *ESMStore::overrideRecord<ESM::Cell>(const ESM::Cell &cell) {
-        return mCells.override(cell);
+        return getWritable<ESM::Cell>().override(cell);
     }
     /*
         End of tes3mp addition
@@ -322,7 +322,7 @@ namespace MWWorld
     */
     template <>
     inline const ESM::Pathgrid* ESMStore::overrideRecord<ESM::Pathgrid>(const ESM::Pathgrid& pathgrid) {
-        return mPathgrids.override(pathgrid);
+        return getWritable<ESM::Pathgrid>().override(pathgrid);
     }
     /*
         End of tes3mp addition

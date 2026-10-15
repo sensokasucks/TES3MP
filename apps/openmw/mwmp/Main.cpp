@@ -254,6 +254,16 @@ bool Main::isValidPacketScript(std::string scriptId)
     return false;
 }
 
+bool Main::isValidPacketScript(const ESM::RefId& scriptId)
+{
+    return isValidPacketScript(scriptId.getRefIdString());
+}
+
+bool Main::isValidPacketGlobal(const ESM::RefId& globalId)
+{
+    return isValidPacketGlobal(globalId.getRefIdString());
+}
+
 bool Main::isValidPacketGlobal(std::string globalId)
 {
     mwmp::BaseWorldstate *worldstate = get().getNetworking()->getWorldstate();

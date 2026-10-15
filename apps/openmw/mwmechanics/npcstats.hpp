@@ -113,7 +113,6 @@ namespace MWMechanics
 
                 Useful methods for setting player stats
             */
-            void setLevelProgress(int value);
             int getSkillIncrease(int attribute) const;
             void setSkillIncrease(int attribute, int value);
             /*
