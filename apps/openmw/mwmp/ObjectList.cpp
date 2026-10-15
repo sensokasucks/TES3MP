@@ -261,7 +261,7 @@ void ObjectList::editContainers(MWWorld::CellStore* cellStore)
                         {
                             if (itemPtr.getCellRef().getCharge() == containerItem.charge &&
                                 itemPtr.getCellRef().getEnchantmentCharge() == containerItem.enchantmentCharge &&
-                                itemPtr.getCellRef().getSoul() == std::string_view(containerItem.soul))
+                                itemPtr.getCellRef().getSoul() == ESM::RefId::stringRefId(containerItem.soul))
                             {
                                 // Store the sound of the first item in a TAKE_ALL
                                 if (isLocalTakeAll && takeAllSound.empty())

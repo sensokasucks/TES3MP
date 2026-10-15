@@ -676,7 +676,7 @@ MWWorld::Ptr MechanicsHelper::getItemPtrFromStore(const mwmp::Item& item, MWWorl
         if (storeIterator->getCellRef().getRefId() == std::string_view(item.refId) &&
             item.count == storeIterator->getCellRef().getCount() &&
             item.charge == storeIterator->getCellRef().getCharge() &&
-            storeIterator->getCellRef().getSoul() == std::string_view(item.soul))
+            storeIterator->getCellRef().getSoul() == ESM::RefId::stringRefId(item.soul))
         {
             // If we have no closestPtr, set it to the Ptr corresponding to this storeIterator; otherwise, make
             // sure the storeIterator's enchantmentCharge is closer to our goal than that of the previous closestPtr
