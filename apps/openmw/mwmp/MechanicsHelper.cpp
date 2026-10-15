@@ -2,6 +2,10 @@
 #include <components/openmw-mp/Utils.hpp>
 
 #include <components/misc/rng.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
+#include <components/esm3/loadmgef.hpp>
+#include "../mwworld/esmstore.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
@@ -227,6 +231,19 @@ ESM::ActiveSpells::ActiveSpellParams MechanicsHelper::getEsmActiveSpellParams(co
     esmParams.mCasterActorId = casterActorId;
     esmParams.mItem.mIndex = 0;
     esmParams.mItem.mContentFile = -1;
+
+    // Server scripts set effect args as plain indexes; turn them into the RefIds 0.49 expects
+    for (auto& effect : esmParams.mEffects)
+    {
+        if (const int* index = std::get_if<int>(&effect.mArg))
+        {
+            const ESM::MagicEffect* magicEffect = MWBase::Environment::get().getESMStore()->get<ESM::MagicEffect>().search(effect.mEffectId);
+            if (magicEffect && (magicEffect->mData.mFlags & ESM::MagicEffect::TargetSkill))
+                effect.mArg = ESM::Skill::indexToRefId(*index);
+            else if (magicEffect && (magicEffect->mData.mFlags & ESM::MagicEffect::TargetAttribute))
+                effect.mArg = ESM::Attribute::indexToRefId(*index);
+        }
+    }
     return esmParams;
 }
 

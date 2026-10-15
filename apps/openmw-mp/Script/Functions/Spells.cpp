@@ -1,7 +1,9 @@
 #include "Spells.hpp"
 
-#include <components/misc/stringops.hpp>
+#include <components/misc/strings/algorithm.hpp>
 #include <components/openmw-mp/NetworkMessages.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
 
 #include <apps/openmw-mp/Script/ScriptFunctions.hpp>
 #include <apps/openmw-mp/Networking.hpp>
@@ -96,7 +98,7 @@ void SpellFunctions::AddSpell(unsigned short pid, const char* spellId) noexcept
     GET_PLAYER(pid, player, );
 
     ESM::Spell spell;
-    spell.mId = spellId;
+    spell.mId = ESM::RefId::stringRefId(spellId);
 
     player->spellbookChanges.spells.push_back(spell);
 }
@@ -153,7 +155,7 @@ const char *SpellFunctions::GetSpellId(unsigned short pid, unsigned int index) n
     if (index >= player->spellbookChanges.spells.size())
         return "invalid";
 
-    return player->spellbookChanges.spells.at(index).mId.c_str();
+    return player->spellbookChanges.spells.at(index).mId.getRefIdString().c_str();
 }
 
 const char* SpellFunctions::GetSpellsActiveId(unsigned short pid, unsigned int index) noexcept
@@ -219,7 +221,13 @@ int SpellFunctions::GetSpellsActiveEffectArg(unsigned short pid, unsigned int sp
     if (spellIndex >= player->spellsActiveChanges.activeSpells.size())
         return 0;
 
-    return player->spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
+    const auto& arg = player->spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
+    if (const int* actorId = std::get_if<int>(&arg))
+        return *actorId;
+    int index = ESM::Attribute::refIdToIndex(std::get<ESM::RefId>(arg));
+    if (index == -1)
+        index = ESM::Skill::refIdToIndex(std::get<ESM::RefId>(arg));
+    return index;
 }
 
 double SpellFunctions::GetSpellsActiveEffectMagnitude(unsigned short pid, unsigned int spellIndex, unsigned int effectIndex) noexcept

@@ -121,11 +121,11 @@ const char *RecordsDynamicFunctions::GetRecordId(unsigned int index) noexcept
     unsigned short readRecordsType = RecordsDynamicFunctions::GetRecordType();
 
     if (readRecordsType == mwmp::RECORD_TYPE::SPELL)
-        return WorldstateFunctions::readWorldstate->spellRecords.at(index).data.mId.c_str();
+        return WorldstateFunctions::readWorldstate->spellRecords.at(index).data.mId.getRefIdString().c_str();
     else if (readRecordsType == mwmp::RECORD_TYPE::POTION)
-        return WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mId.c_str();
+        return WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mId.getRefIdString().c_str();
     else if (readRecordsType == mwmp::RECORD_TYPE::ENCHANTMENT)
-        return WorldstateFunctions::readWorldstate->enchantmentRecords.at(index).data.mId.c_str();
+        return WorldstateFunctions::readWorldstate->enchantmentRecords.at(index).data.mId.getRefIdString().c_str();
 
     return "invalid";
 }
@@ -197,7 +197,7 @@ const char *RecordsDynamicFunctions::GetRecordScript(unsigned int index) noexcep
     unsigned short readRecordsType = RecordsDynamicFunctions::GetRecordType();
 
     if (readRecordsType == mwmp::RECORD_TYPE::POTION)
-        return WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mScript.c_str();
+        return WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mScript.getRefIdString().c_str();
 
     return "invalid";
 }
@@ -207,13 +207,13 @@ const char *RecordsDynamicFunctions::GetRecordEnchantmentId(unsigned int index) 
     unsigned short readRecordsType = RecordsDynamicFunctions::GetRecordType();
 
     if (readRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        return WorldstateFunctions::readWorldstate->armorRecords.at(index).data.mEnchant.c_str();
+        return WorldstateFunctions::readWorldstate->armorRecords.at(index).data.mEnchant.getRefIdString().c_str();
     else if (readRecordsType == mwmp::RECORD_TYPE::BOOK)
-        return WorldstateFunctions::readWorldstate->bookRecords.at(index).data.mEnchant.c_str();
+        return WorldstateFunctions::readWorldstate->bookRecords.at(index).data.mEnchant.getRefIdString().c_str();
     else if (readRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        return WorldstateFunctions::readWorldstate->clothingRecords.at(index).data.mEnchant.c_str();
+        return WorldstateFunctions::readWorldstate->clothingRecords.at(index).data.mEnchant.getRefIdString().c_str();
     else if (readRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        return WorldstateFunctions::readWorldstate->weaponRecords.at(index).data.mEnchant.c_str();
+        return WorldstateFunctions::readWorldstate->weaponRecords.at(index).data.mEnchant.getRefIdString().c_str();
 
     return "invalid";
 }
@@ -239,7 +239,7 @@ int RecordsDynamicFunctions::GetRecordAutoCalc(unsigned int index) noexcept
     unsigned short readRecordsType = RecordsDynamicFunctions::GetRecordType();
 
     if (readRecordsType == mwmp::RECORD_TYPE::POTION)
-        return WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mData.mAutoCalc;
+        return (WorldstateFunctions::readWorldstate->potionRecords.at(index).data.mData.mFlags & ESM::Potion::Autocalc) != 0;
 
     return -1;
 }
@@ -312,42 +312,42 @@ unsigned int RecordsDynamicFunctions::GetRecordQuantity(unsigned int index) noex
 
 unsigned int RecordsDynamicFunctions::GetRecordEffectId(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mEffectID;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mEffectID;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectAttribute(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mAttribute;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mAttribute;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectSkill(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mSkill;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mSkill;
 }
 
 unsigned int RecordsDynamicFunctions::GetRecordEffectRangeType(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mRange;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mRange;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectArea(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mArea;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mArea;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectDuration(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mDuration;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mDuration;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectMagnitudeMax(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mMagnMax;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mMagnMax;
 }
 
 int RecordsDynamicFunctions::GetRecordEffectMagnitudeMin(unsigned int recordIndex, unsigned int effectIndex) noexcept
 {
-    return GetRecordEffects(recordIndex).mList.at(effectIndex).mMagnMin;
+    return GetRecordEffects(recordIndex).mList.at(effectIndex).mData.mMagnMin;
 }
 
 void RecordsDynamicFunctions::SetRecordType(unsigned int type) noexcept
@@ -360,53 +360,53 @@ void RecordsDynamicFunctions::SetRecordId(const char* id) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::SPELL)
-        tempSpell.data.mId = id;
+        tempSpell.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::POTION)
-        tempPotion.data.mId = id;
+        tempPotion.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ENCHANTMENT)
-        tempEnchantment.data.mId = id;
+        tempEnchantment.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        tempArmor.data.mId = id;
+        tempArmor.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BOOK)
-        tempBook.data.mId = id;
+        tempBook.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        tempClothing.data.mId = id;
+        tempClothing.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::MISCELLANEOUS)
-        tempMiscellaneous.data.mId = id;
+        tempMiscellaneous.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        tempWeapon.data.mId = id;
+        tempWeapon.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ACTIVATOR)
-        tempActivator.data.mId = id;
+        tempActivator.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::APPARATUS)
-        tempApparatus.data.mId = id;
+        tempApparatus.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BODYPART)
-        tempBodyPart.data.mId = id;
+        tempBodyPart.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CONTAINER)
-        tempContainer.data.mId = id;
+        tempContainer.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CREATURE)
-        tempCreature.data.mId = id;
+        tempCreature.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::DOOR)
-        tempDoor.data.mId = id;
+        tempDoor.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::INGREDIENT)
-        tempIngredient.data.mId = id;
+        tempIngredient.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::LIGHT)
-        tempLight.data.mId = id;
+        tempLight.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::LOCKPICK)
-        tempLockpick.data.mId = id;
+        tempLockpick.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mId = id;
+        tempNpc.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::PROBE)
-        tempProbe.data.mId = id;
+        tempProbe.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::REPAIR)
-        tempRepair.data.mId = id;
+        tempRepair.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::SCRIPT)
-        tempScript.data.mId = id;
+        tempScript.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::STATIC)
-        tempStatic.data.mId = id;
+        tempStatic.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::SOUND)
-        tempSound.data.mId = id;
+        tempSound.data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::GAMESETTING)
-        tempGameSetting.data.mId = id;
+        tempGameSetting.data.mId = ESM::RefId::stringRefId(id);
     else
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set id for record type %i which lacks that property", writeRecordsType);
 }
@@ -654,39 +654,39 @@ void RecordsDynamicFunctions::SetRecordScript(const char* script) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::POTION)
-        tempPotion.data.mScript = script;
+        tempPotion.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        tempArmor.data.mScript = script;
+        tempArmor.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BOOK)
-        tempBook.data.mScript = script;
+        tempBook.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        tempClothing.data.mScript = script;
+        tempClothing.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::MISCELLANEOUS)
-        tempMiscellaneous.data.mScript = script;
+        tempMiscellaneous.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        tempWeapon.data.mScript = script;
+        tempWeapon.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ACTIVATOR)
-        tempActivator.data.mScript = script;
+        tempActivator.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::APPARATUS)
-        tempApparatus.data.mScript = script;
+        tempApparatus.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CONTAINER)
-        tempContainer.data.mScript = script;
+        tempContainer.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CREATURE)
-        tempCreature.data.mScript = script;
+        tempCreature.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::DOOR)
-        tempDoor.data.mScript = script;
+        tempDoor.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::INGREDIENT)
-        tempIngredient.data.mScript = script;
+        tempIngredient.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::LIGHT)
-        tempLight.data.mScript = script;
+        tempLight.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::LOCKPICK)
-        tempLockpick.data.mScript = script;
+        tempLockpick.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mScript = script;
+        tempNpc.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::PROBE)
-        tempProbe.data.mScript = script;
+        tempProbe.data.mScript = ESM::RefId::stringRefId(script);
     else if (writeRecordsType == mwmp::RECORD_TYPE::REPAIR)
-        tempRepair.data.mScript = script;
+        tempRepair.data.mScript = ESM::RefId::stringRefId(script);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set script for record type %i which lacks that property", writeRecordsType);
@@ -701,13 +701,13 @@ void RecordsDynamicFunctions::SetRecordEnchantmentId(const char* enchantmentId) 
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        tempArmor.data.mEnchant = enchantmentId;
+        tempArmor.data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BOOK)
-        tempBook.data.mEnchant = enchantmentId;
+        tempBook.data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        tempClothing.data.mEnchant = enchantmentId;
+        tempClothing.data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        tempWeapon.data.mEnchant = enchantmentId;
+        tempWeapon.data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set enchantment id for record type %i which lacks that property", writeRecordsType);
@@ -743,7 +743,12 @@ void RecordsDynamicFunctions::SetRecordAutoCalc(int autoCalc) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::POTION)
-        tempPotion.data.mData.mAutoCalc = autoCalc;
+        {
+        if (autoCalc)
+            tempPotion.data.mData.mFlags |= ESM::Potion::Autocalc;
+        else
+            tempPotion.data.mData.mFlags &= ~ESM::Potion::Autocalc;
+    }
     else if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
     {
         if (autoCalc)
@@ -1128,7 +1133,10 @@ void RecordsDynamicFunctions::SetRecordKeyState(bool keyState) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::MISCELLANEOUS)
-        tempMiscellaneous.data.mData.mIsKey = keyState;
+        if (keyState)
+            tempMiscellaneous.data.mData.mFlags |= ESM::Miscellaneous::Key;
+        else
+            tempMiscellaneous.data.mData.mFlags &= ~ESM::Miscellaneous::Key;
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set key state for record type %i which lacks that property", writeRecordsType);
@@ -1188,7 +1196,7 @@ void RecordsDynamicFunctions::SetRecordHair(const char* hair) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mHair = hair;
+        tempNpc.data.mHair = ESM::RefId::stringRefId(hair);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set hair for record type %i which lacks that property", writeRecordsType);
@@ -1203,7 +1211,7 @@ void RecordsDynamicFunctions::SetRecordHead(const char* head) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mHead = head;
+        tempNpc.data.mHead = ESM::RefId::stringRefId(head);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set head for record type %i which lacks that property", writeRecordsType);
@@ -1235,9 +1243,9 @@ void RecordsDynamicFunctions::SetRecordRace(const char* race) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::BODYPART)
-        tempBodyPart.data.mRace = race;
+        tempBodyPart.data.mRace = ESM::RefId::stringRefId(race);
     else if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mRace = race;
+        tempNpc.data.mRace = ESM::RefId::stringRefId(race);
     else
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set race for record type %i which lacks that property", writeRecordsType);
 
@@ -1249,7 +1257,7 @@ void RecordsDynamicFunctions::SetRecordClass(const char* charClass) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mClass = charClass;
+        tempNpc.data.mClass = ESM::RefId::stringRefId(charClass);
     else
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set character class for record type %i which lacks that property", writeRecordsType);
 }
@@ -1259,7 +1267,7 @@ void RecordsDynamicFunctions::SetRecordFaction(const char* faction) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::NPC)
-        tempNpc.data.mFaction = faction;
+        tempNpc.data.mFaction = ESM::RefId::stringRefId(faction);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set faction for record type %i which lacks that property", writeRecordsType);
@@ -1453,7 +1461,7 @@ void RecordsDynamicFunctions::SetRecordSound(const char* sound) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::LIGHT)
-        tempLight.data.mSound = sound;
+        tempLight.data.mSound = ESM::RefId::stringRefId(sound);
     else if (writeRecordsType == mwmp::RECORD_TYPE::SOUND)
         tempSound.data.mSound = sound;
     else
@@ -1515,7 +1523,7 @@ void RecordsDynamicFunctions::SetRecordOpenSound(const char* sound) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::DOOR)
-        tempDoor.data.mOpenSound = sound;
+        tempDoor.data.mOpenSound = ESM::RefId::stringRefId(sound);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set open sound for record type %i which lacks that property", writeRecordsType);
@@ -1530,7 +1538,7 @@ void RecordsDynamicFunctions::SetRecordCloseSound(const char* sound) noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::DOOR)
-        tempDoor.data.mCloseSound = sound;
+        tempDoor.data.mCloseSound = ESM::RefId::stringRefId(sound);
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set close sound for record type %i which lacks that property", writeRecordsType);
@@ -1608,19 +1616,19 @@ void RecordsDynamicFunctions::SetRecordIdByIndex(unsigned int index, const char*
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::SPELL)
-        WorldstateFunctions::writeWorldstate.spellRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.spellRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::POTION)
-        WorldstateFunctions::writeWorldstate.potionRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.potionRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ENCHANTMENT)
-        WorldstateFunctions::writeWorldstate.enchantmentRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.enchantmentRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        WorldstateFunctions::writeWorldstate.armorRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.armorRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BOOK)
-        WorldstateFunctions::writeWorldstate.bookRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.bookRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        WorldstateFunctions::writeWorldstate.clothingRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.clothingRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else if (writeRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        WorldstateFunctions::writeWorldstate.weaponRecords.at(index).data.mId = id;
+        WorldstateFunctions::writeWorldstate.weaponRecords.at(index).data.mId = ESM::RefId::stringRefId(id);
     else
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set id for record type %i which lacks that property", writeRecordsType);
 }
@@ -1630,13 +1638,13 @@ void RecordsDynamicFunctions::SetRecordEnchantmentIdByIndex(unsigned int index, 
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::ARMOR)
-        WorldstateFunctions::writeWorldstate.armorRecords.at(index).data.mEnchant = enchantmentId;
+        WorldstateFunctions::writeWorldstate.armorRecords.at(index).data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::BOOK)
-        WorldstateFunctions::writeWorldstate.bookRecords.at(index).data.mEnchant = enchantmentId;
+        WorldstateFunctions::writeWorldstate.bookRecords.at(index).data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::CLOTHING)
-        WorldstateFunctions::writeWorldstate.clothingRecords.at(index).data.mEnchant = enchantmentId;
+        WorldstateFunctions::writeWorldstate.clothingRecords.at(index).data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else if (writeRecordsType == mwmp::RECORD_TYPE::WEAPON)
-        WorldstateFunctions::writeWorldstate.weaponRecords.at(index).data.mEnchant = enchantmentId;
+        WorldstateFunctions::writeWorldstate.weaponRecords.at(index).data.mEnchant = ESM::RefId::stringRefId(enchantmentId);
     else
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set enchantmentId for record type %i which lacks that property", writeRecordsType);
 }
@@ -1696,12 +1704,12 @@ void RecordsDynamicFunctions::SetRecordBodyPartType(unsigned int partType) noexc
 
 void RecordsDynamicFunctions::SetRecordBodyPartIdForMale(const char* partId) noexcept
 {
-    tempBodyPartReference.mMale = partId;
+    tempBodyPartReference.mMale = ESM::RefId::stringRefId(partId);
 }
 
 void RecordsDynamicFunctions::SetRecordBodyPartIdForFemale(const char* partId) noexcept
 {
-    tempBodyPartReference.mFemale = partId;
+    tempBodyPartReference.mFemale = ESM::RefId::stringRefId(partId);
 }
 
 void RecordsDynamicFunctions::SetRecordInventoryItemId(const char* itemId) noexcept
@@ -1877,11 +1885,11 @@ void RecordsDynamicFunctions::AddRecordEffect() noexcept
     unsigned short writeRecordsType = WorldstateFunctions::writeWorldstate.recordsType;
 
     if (writeRecordsType == mwmp::RECORD_TYPE::SPELL)
-        tempSpell.data.mEffects.mList.push_back(tempEffect);
+        tempSpell.data.mEffects.mList.push_back(ESM::IndexedENAMstruct{ tempEffect, static_cast<uint32_t>(tempSpell.data.mEffects.mList.size()) });
     else if (writeRecordsType == mwmp::RECORD_TYPE::POTION)
-        tempPotion.data.mEffects.mList.push_back(tempEffect);
+        tempPotion.data.mEffects.mList.push_back(ESM::IndexedENAMstruct{ tempEffect, static_cast<uint32_t>(tempPotion.data.mEffects.mList.size()) });
     else if (writeRecordsType == mwmp::RECORD_TYPE::ENCHANTMENT)
-        tempEnchantment.data.mEffects.mList.push_back(tempEffect);
+        tempEnchantment.data.mEffects.mList.push_back(ESM::IndexedENAMstruct{ tempEffect, static_cast<uint32_t>(tempEnchantment.data.mEffects.mList.size()) });
     else if (writeRecordsType == mwmp::RECORD_TYPE::INGREDIENT)
     {
         const static unsigned int effectCap = sizeof(tempIngredient.data.mData.mEffectID) / sizeof(tempIngredient.data.mData.mEffectID[0]);

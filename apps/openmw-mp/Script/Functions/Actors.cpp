@@ -1,4 +1,6 @@
 #include <components/openmw-mp/NetworkMessages.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
 #include <components/openmw-mp/Base/BaseActor.hpp>
 
 #include <apps/openmw-mp/Networking.hpp>
@@ -262,7 +264,13 @@ unsigned int ActorFunctions::GetActorSpellsActiveEffectId(unsigned int actorInde
 
 int ActorFunctions::GetActorSpellsActiveEffectArg(unsigned int actorIndex, unsigned int spellIndex, unsigned int effectIndex) noexcept
 {
-    return readActorList->baseActors.at(actorIndex).spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
+    const auto& arg = readActorList->baseActors.at(actorIndex).spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
+    if (const int* actorId = std::get_if<int>(&arg))
+        return *actorId;
+    int index = ESM::Attribute::refIdToIndex(std::get<ESM::RefId>(arg));
+    if (index == -1)
+        index = ESM::Skill::refIdToIndex(std::get<ESM::RefId>(arg));
+    return index;
 }
 
 double ActorFunctions::GetActorSpellsActiveEffectMagnitude(unsigned int actorIndex, unsigned int spellIndex, unsigned int effectIndex) noexcept

@@ -1,6 +1,7 @@
 #include "Server.hpp"
 
-#include <components/misc/stringops.hpp>
+#include <filesystem>
+#include <components/misc/strings/algorithm.hpp>
 #include <components/openmw-mp/NetworkMessages.hpp>
 #include <components/openmw-mp/TimedLog.hpp>
 #include <components/openmw-mp/Version.hpp>
@@ -50,16 +51,16 @@ void ServerFunctions::UnbanAddress(const char *ipAddress) noexcept
 
 bool ServerFunctions::DoesFilePathExist(const char *filePath) noexcept
 {
-    return boost::filesystem::exists(filePath);
+    return std::filesystem::exists(filePath);
 }
 
 const char *ServerFunctions::GetCaseInsensitiveFilename(const char *folderPath, const char *filename) noexcept
 {
-    if (!boost::filesystem::exists(folderPath)) return "invalid";
+    if (!std::filesystem::exists(folderPath)) return "invalid";
 
-    boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+    std::filesystem::directory_iterator end_itr; // default construction yields past-the-end
 
-    for (boost::filesystem::directory_iterator itr(folderPath); itr != end_itr; ++itr)
+    for (std::filesystem::directory_iterator itr(folderPath); itr != end_itr; ++itr)
     {
         if (Misc::StringUtils::ciEqual(itr->path().filename().string(), std::string_view(filename)))
         {

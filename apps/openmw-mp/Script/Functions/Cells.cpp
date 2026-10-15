@@ -75,7 +75,7 @@ const char *CellFunctions::GetRegion(unsigned short pid) noexcept
     Player *player;
     GET_PLAYER(pid, player, 0);
 
-    return player->cell.mRegion.c_str();
+    return player->cell.mRegion.getRefIdString().c_str();
 }
 
 bool CellFunctions::IsChangingRegion(unsigned short pid) noexcept

@@ -1,6 +1,7 @@
 #include <iostream>
 
-#include <boost/filesystem/fstream.hpp>
+#include <filesystem>
+#include <fstream>
 #include <boost/iostreams/concepts.hpp>
 #include <boost/iostreams/stream_buffer.hpp>
 #include <boost/program_options.hpp>
@@ -84,16 +85,16 @@ std::string loadSettings (Settings::Manager & settings)
     const std::string globaldefault = (mCfgMgr.getGlobalPath() / "tes3mp-server-default.cfg").string();
 
     // prefer local
-    if (boost::filesystem::exists(localdefault))
+    if (std::filesystem::exists(localdefault))
         settings.loadDefault(localdefault, false);
-    else if (boost::filesystem::exists(globaldefault))
+    else if (std::filesystem::exists(globaldefault))
         settings.loadDefault(globaldefault, false);
     else
         throw std::runtime_error ("No default settings file found! Make sure the file \"tes3mp-server-default.cfg\" was properly installed.");
 
     // load user settings if they exist
     const std::string settingspath = (mCfgMgr.getUserConfigPath() / "tes3mp-server.cfg").string();
-    if (boost::filesystem::exists(settingspath))
+    if (std::filesystem::exists(settingspath))
         settings.loadUser(settingspath);
 
     return settingspath;
@@ -150,13 +151,14 @@ int main(int argc, char *argv[])
     Settings::Manager mgr;
     Files::ConfigurationManager cfgMgr;
 
-    breakpad(boost::filesystem::path(cfgMgr.getLogPath()).string());
+    breakpad(std::filesystem::path(cfgMgr.getLogPath()).string());
 
     loadSettings(mgr);
 
     auto variables = launchOptions(argc, argv, cfgMgr);
 
-    auto version = Version::getOpenmwVersion(variables["resources"].as<Files::MaybeQuotedPath>().string());
+    struct { std::string mCommitHash; } version;
+    version.mCommitHash = std::string(Version::getCommitHash());
 
     int logLevel = mgr.getInt("logLevel", "General");
     if (logLevel < TimedLog::LOG_VERBOSE || logLevel > TimedLog::LOG_FATAL)
@@ -173,13 +175,13 @@ int main(int argc, char *argv[])
     std::ostream oldcout(cout_rdbuf);
     std::ostream oldcerr(cerr_rdbuf);
 
-    boost::filesystem::ofstream logfile;
+    std::ofstream logfile;
 
     if (!variables["no-logs"].as<bool>())
     {
         // Redirect cout and cerr to tes3mp server log
 
-        logfile.open(boost::filesystem::path(
+        logfile.open(std::filesystem::path(
                 cfgMgr.getLogPath() / "/tes3mp-server-" += TimedLog::getFilenameTimestamp() += ".log"));
 
         coutsb.open(Tee(logfile, oldcout));

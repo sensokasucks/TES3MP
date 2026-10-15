@@ -10,7 +10,7 @@ const char *CharClassFunctions::GetDefaultClass(unsigned short pid) noexcept
     Player *player;
     GET_PLAYER(pid, player, "");
 
-    return player->charClass.mId.c_str();
+    return player->charClass.mId.getRefIdString().c_str();
 }
 
 const char *CharClassFunctions::GetClassName(unsigned short pid) noexcept
@@ -83,7 +83,7 @@ void CharClassFunctions::SetDefaultClass(unsigned short pid, const char *id) noe
     Player *player;
     GET_PLAYER(pid, player,);
 
-    player->charClass.mId = id;
+    player->charClass.mId = ESM::RefId::stringRefId(id);
 }
 void CharClassFunctions::SetClassName(unsigned short pid, const char *name) noexcept
 {
@@ -91,7 +91,7 @@ void CharClassFunctions::SetClassName(unsigned short pid, const char *name) noex
     GET_PLAYER(pid, player,);
 
     player->charClass.mName = name;
-    player->charClass.mId = "";
+    player->charClass.mId = ESM::RefId::stringRefId("");
 }
 void CharClassFunctions::SetClassDesc(unsigned short pid, const char *desc) noexcept
 {

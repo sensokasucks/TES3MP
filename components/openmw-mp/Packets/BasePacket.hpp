@@ -2,7 +2,10 @@
 #define OPENMW_BASEPACKET_HPP
 
 #include <string>
+#include <variant>
 #include <components/esm/refid.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
 #include <RakNetTypes.h>
 #include <BitStream.h>
 #include <PacketPriority.h>
@@ -128,6 +131,44 @@ namespace mwmp
             bool res = RW(str, write, compress);
             if (!write)
                 refId = res ? ESM::RefId::deserializeText(str) : ESM::RefId();
+            return res;
+        }
+
+        // Active effect args are either an actor id (int) or a skill/attribute RefId; on the wire
+        // they are sent as a tag plus an index so the server-side Lua API can keep using ints
+        bool RW(std::variant<ESM::RefId, int> &arg, bool write)
+        {
+            uint8_t tag = 0;
+            int value = -1;
+            if (write)
+            {
+                if (const int* actorId = std::get_if<int>(&arg))
+                    value = *actorId;
+                else
+                {
+                    const ESM::RefId& id = std::get<ESM::RefId>(arg);
+                    int index = ESM::Attribute::refIdToIndex(id);
+                    if (index != -1)
+                        tag = 1;
+                    else
+                    {
+                        index = ESM::Skill::refIdToIndex(id);
+                        if (index != -1)
+                            tag = 2;
+                    }
+                    value = index;
+                }
+            }
+            bool res = RW(tag, write) && RW(value, write);
+            if (!write)
+            {
+                if (tag == 1)
+                    arg = ESM::Attribute::indexToRefId(value);
+                else if (tag == 2)
+                    arg = ESM::Skill::indexToRefId(value);
+                else
+                    arg = value;
+            }
             return res;
         }
 
