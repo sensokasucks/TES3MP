@@ -732,6 +732,24 @@ namespace MWWorld
 
         navigatorUpdateGuard.reset();
 
+        /*
+            Start of tes3mp addition
+
+            Send an ID_PLAYER_CELL_STATE packet with all cell states stored in LocalPlayer
+            and then clear them, but only if the player is logged in on the server
+
+            This has to happen here rather than only in changeToExteriorCell(), because walking
+            across exterior cell borders changes the cell grid without going through it
+        */
+        if (mwmp::Main::get().getLocalPlayer()->isLoggedIn())
+        {
+            mwmp::Main::get().getLocalPlayer()->sendCellStates();
+            mwmp::Main::get().getLocalPlayer()->clearCellStates();
+        }
+        /*
+            End of tes3mp addition
+        */
+
         CellStore& current = mWorld.getWorldModel().getExterior(playerCellIndex);
         MWBase::Environment::get().getWindowManager()->changeCell(&current);
 
@@ -1061,23 +1079,9 @@ namespace MWWorld
 
         const osg::Vec2i cellIndex(current.getCell()->getGridX(), current.getCell()->getGridY());
 
+        // tes3mp: changeCellGrid() sends the stored cell states
         changeCellGrid(position.asVec3(),
             ESM::ExteriorCellLocation(cellIndex.x(), cellIndex.y(), current.getCell()->getWorldSpace()), changeEvent);
-
-        /*
-            Start of tes3mp addition
-
-            Send an ID_PLAYER_CELL_STATE packet with all cell states stored in LocalPlayer
-            and then clear them, but only if the player is logged in on the server
-        */
-        if (mwmp::Main::get().getLocalPlayer()->isLoggedIn())
-        {
-            mwmp::Main::get().getLocalPlayer()->sendCellStates();
-            mwmp::Main::get().getLocalPlayer()->clearCellStates();
-        }
-        /*
-            End of tes3mp addition
-        */
 
         changePlayerCell(current, position, adjustPlayerPos);
 
