@@ -890,7 +890,7 @@ namespace MWGui
 
         if (!player.getCell()->isExterior())
         {
-            setActiveMap(player.getCell()->getCell()->getEsm3());
+            setActiveMap(*player.getCell()->getCell());
         }
         // else: need to know the current grid center, call setActiveMap from changeCell
 

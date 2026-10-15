@@ -64,7 +64,17 @@ namespace MWMechanics
             ActiveSpellParams(
                 const MWWorld::ConstPtr& item, const ESM::Enchantment* enchantment, const MWWorld::Ptr& actor);
 
+        public:
+            /*
+                Start of tes3mp change (minor)
+
+                Make this constructor public so CastSpell::inflict can build reflected spells
+            */
             ActiveSpellParams(const ActiveSpellParams& params, const MWWorld::Ptr& actor);
+            /*
+                End of tes3mp change (minor)
+            */
+        private:
 
 
 

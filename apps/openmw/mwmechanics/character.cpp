@@ -2822,7 +2822,7 @@ namespace MWMechanics
             actor->animation.groupname = groupname;
             actor->animation.mode = mode;
             actor->animation.count = count;
-            actor->animation.persist = persist;
+            actor->animation.persist = scripted;
         }
         /*
             End of tes3mp addition

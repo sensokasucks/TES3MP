@@ -80,9 +80,9 @@ namespace MWClass
             if (worldstate->hasPlacedObjectCollision || Utils::vectorContains(worldstate->enforcedCollisionRefIds, ptr.getCellRef().getRefId()))
             {
                 if (worldstate->useActorCollisionForPlacedObjects)
-                    physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Actor);
+                    physics.addObject(ptr, VFS::Path::Normalized(model), rotation, MWPhysics::CollisionType_Actor);
                 else
-                    physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_World);
+                    physics.addObject(ptr, VFS::Path::Normalized(model), rotation, MWPhysics::CollisionType_World);
             }
         }
     }

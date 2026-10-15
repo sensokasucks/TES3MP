@@ -42,6 +42,7 @@
 #include "../mwworld/manualref.hpp"
 #include "../mwworld/timestamp.hpp"
 #include "../mwbase/luamanager.hpp"
+#include "../mwworld/action.hpp"
 #include "../mwworld/worldmodel.hpp"
 
 using namespace mwmp;
@@ -381,7 +382,7 @@ void ObjectList::activateObjects(MWWorld::CellStore* cellStore)
             {
                 activatingActorPtr = MechanicsHelper::getPlayerPtr(baseObject.activatingActor);
                 LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Object has been activated by player %s",
-                    activatingActorPtr.getClass().getName(activatingActorPtr).c_str());
+                    std::string(activatingActorPtr.getClass().getName(activatingActorPtr)).c_str());
             }
             else
             {

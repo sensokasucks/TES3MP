@@ -100,7 +100,7 @@ void mwmp::GUIController::showDialogList(const mwmp::BasePlayer::GUIMessageBox &
     
     if (mListBox != NULL)
     {
-        windowManager->removeDialog(mListBox);
+        windowManager->removeDialog(std::unique_ptr<MWGui::Layout>(mListBox));
         windowManager->removeCurrentModal(mListBox);
         mListBox = NULL;
     }
@@ -153,7 +153,8 @@ void mwmp::GUIController::showInputBox(const BasePlayer::GUIMessageBox &guiMessa
 {
     MWBase::WindowManager *windowManager = MWBase::Environment::get().getWindowManager();
 
-    windowManager->removeDialog(mInputBox);
+    if (mInputBox != nullptr)
+        windowManager->removeDialog(std::unique_ptr<MWGui::Layout>(mInputBox));
     windowManager->pushGuiMode((MWGui::GuiMode)GM_TES3MP_InputBox);
     mInputBox = 0;
     mInputBox = new TextInputDialog();
@@ -188,7 +189,8 @@ void mwmp::GUIController::onInputBoxDone(MWGui::WindowBase *parWindow)
     playerPacket->Send();
 
     MWBase::WindowManager *windowManager = MWBase::Environment::get().getWindowManager();
-    windowManager->removeDialog(mInputBox);
+    if (mInputBox != nullptr)
+        windowManager->removeDialog(std::unique_ptr<MWGui::Layout>(mInputBox));
     mInputBox = 0;
     windowManager->popGuiMode();
 }

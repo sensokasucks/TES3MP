@@ -444,7 +444,7 @@ void Worldstate::setMapExplored()
 {
     for (const auto &mapTile : mapTiles)
     {
-        const MWWorld::CellStore *cellStore = &MWBase::Environment::get().getWorld()->getWorldModel().getExterior(ESM::ExteriorCellLocation(mapTile.x, mapTile.y, ESM::Cell::sDefaultWorldspaceId));
+        const MWWorld::CellStore *cellStore = &MWBase::Environment::get().getWorldModel()->getExterior(ESM::ExteriorCellLocation(mapTile.x, mapTile.y, ESM::Cell::sDefaultWorldspaceId));
 
         if (!cellStore->getCell()->getNameId().empty())
             MWBase::Environment::get().getWindowManager()->addVisitedLocation(std::string(cellStore->getCell()->getNameId()), mapTile.x, mapTile.y);
@@ -497,7 +497,7 @@ void Worldstate::resetCells(std::vector<ESM::Cell>* cells)
                     for (RakNet::RakNetGUID otherGuid : playersInCell)
                     {
                         DedicatedPlayer* dedicatedPlayer = mwmp::PlayerList::getPlayer(otherGuid);
-                        dedicatedPlayer->cell = world->getWorldModel().getInterior(RecordHelper::getPlaceholderInteriorCellName()).getCell()->getEsm3();
+                        dedicatedPlayer->cell = MWBase::Environment::get().getWorldModel()->getInterior(RecordHelper::getPlaceholderInteriorCellName()).getCell()->getEsm3();
                         dedicatedPlayer->setCell();
                     }
                 }

@@ -176,7 +176,7 @@ namespace MWGui
         */
         if (mwmp::Main::get().getLocalPlayer()->isLoggedIn() && !mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
         {
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(key->index, ESM::QuickKeys::Type::Unassigned);
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(key->index, static_cast<int>(ESM::QuickKeys::Type::Unassigned));
     }
         /*
             End of tes3mp addition
@@ -294,7 +294,7 @@ namespace MWGui
             by a player, not by a packet received from the server
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::Item, item.getCellRef().getRefId().getRefIdString());
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, static_cast<int>(ESM::QuickKeys::Type::Item), item.getCellRef().getRefId().getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -338,7 +338,7 @@ namespace MWGui
             Send a PLAYER_QUICKKEYS packet whenever a key is assigned to an item's magic
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::MagicItem, item.getCellRef().getRefId().getRefIdString());
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, static_cast<int>(ESM::QuickKeys::Type::MagicItem), item.getCellRef().getRefId().getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -390,7 +390,7 @@ namespace MWGui
             Send a PLAYER_QUICKKEYS packet whenever a key is assigned to a spell
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::Magic, spellId.getRefIdString());
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, static_cast<int>(ESM::QuickKeys::Type::Magic), spellId.getRefIdString());
         /*
             End of tes3mp addition
         */

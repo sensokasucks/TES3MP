@@ -59,7 +59,7 @@ DedicatedPlayer::DedicatedPlayer(RakNet::RakNetGUID guid) : BasePlayer(guid)
 
     MWBase::World* world = MWBase::Environment::get().getWorld();
     
-    cell = world->getWorldModel().getInterior(RecordHelper::getPlaceholderInteriorCellName()).getCell()->getEsm3();
+    cell = MWBase::Environment::get().getWorldModel()->getInterior(RecordHelper::getPlaceholderInteriorCellName()).getCell()->getEsm3();
     position.pos[0] = position.pos[1] = position.pos[2] = 0;
 
     npc = *world->getPlayerPtr().get<ESM::NPC>()->mBase;

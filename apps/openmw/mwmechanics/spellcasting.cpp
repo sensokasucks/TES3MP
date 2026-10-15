@@ -8,6 +8,7 @@
 #include <components/misc/constants.hpp>
 #include <components/misc/resourcehelpers.hpp>
 #include <components/settings/settings.hpp>
+#include <components/settings/values.hpp>
 
 /*
     Start of tes3mp addition
@@ -566,7 +567,7 @@ namespace MWMechanics
                     mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                    objectList->addObjectSound(mCaster, store->get<ESM::Skill>().find(school)->mSchool->mFailureSound.getRefIdString(), 1.0f, 1.0f);
+                    objectList->addObjectSound(mCaster, skill->mSchool->mFailureSound.getRefIdString(), 1.0f, 1.0f);
                     objectList->sendObjectSound();
                     /*
                         End of tes3mp addition
