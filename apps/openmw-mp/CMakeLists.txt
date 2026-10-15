@@ -213,3 +213,9 @@ if (MSVC)
     endif (CMAKE_CL_64)
     add_definitions("-D_USE_MATH_DEFINES")
 endif (MSVC)
+
+# Start of tes3mp addition
+if (WIN32)
+    install(TARGETS tes3mp-server RUNTIME DESTINATION ".")
+endif()
+# End of tes3mp addition
