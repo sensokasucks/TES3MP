@@ -1,8 +1,9 @@
 name: Build and test
 
+# Upstream OpenMW CI. Disabled on push for the TES3MP fork (it does not know about
+# CrabNet); run it manually if needed. The TES3MP Windows build is tes3mp-windows.yml.
 on:
-- push
-- pull_request
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: RelWithDebInfo
