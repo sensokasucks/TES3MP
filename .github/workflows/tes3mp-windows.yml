@@ -138,7 +138,7 @@ jobs:
 
     - name: Build TES3MP
       shell: bash
-      run: cmake --build build 2>&1 | tee build/build.log; exit ${PIPESTATUS[0]}
+      run: cmake --build build -- -k 0 2>&1 | tee build/build.log; exit ${PIPESTATUS[0]}
 
     - name: Post error excerpt as a commit comment
       if: failure()
@@ -153,7 +153,7 @@ jobs:
           for f in build/configure.log build/build.log; do
             if [ -f "$f" ]; then
               echo "== $f =="
-              grep -n -E "CMake Error|CMake Warning|error C[0-9]+|error LNK[0-9]+|fatal error|FAILED:|Could NOT|Could not|not found|NOTFOUND" "$f" | head -200
+              grep -n -E "CMake Error|CMake Warning|error C[0-9]+|error LNK[0-9]+|fatal error|FAILED:|Could NOT|Could not|not found|NOTFOUND" "$f" | head -400
               echo "-- tail --"
               tail -n 60 "$f"
             fi
