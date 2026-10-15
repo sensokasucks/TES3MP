@@ -1,4 +1,6 @@
+#include <filesystem>
 #include <QApplication>
+#include <components/misc/strings/algorithm.hpp>
 #include <components/settings/settings.hpp>
 #include <components/files/configurationmanager.hpp>
 #include <apps/browser/netutils/QueryClient.hpp>
@@ -12,16 +14,16 @@ std::string loadSettings (Settings::Manager & settings)
     const std::string globaldefault = (mCfgMgr.getGlobalPath() / "tes3mp-client-default.cfg").string();
 
     // prefer local
-    if (boost::filesystem::exists(localdefault))
+    if (std::filesystem::exists(localdefault))
         settings.loadDefault(localdefault, false);
-    else if (boost::filesystem::exists(globaldefault))
+    else if (std::filesystem::exists(globaldefault))
         settings.loadDefault(globaldefault, false);
     else
         throw std::runtime_error ("No default settings file found! Make sure the file \"tes3mp-client-default.cfg\" was properly installed.");
 
     // load user settings if they exist
     const std::string settingspath = (mCfgMgr.getUserConfigPath() / "tes3mp-client.cfg").string();
-    if (boost::filesystem::exists(settingspath))
+    if (std::filesystem::exists(settingspath))
         settings.loadUser(settingspath);
 
     return settingspath;

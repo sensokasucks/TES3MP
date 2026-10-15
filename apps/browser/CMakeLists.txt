@@ -1,5 +1,5 @@
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 20)
 
 set(BROWSER_UI
         ${CMAKE_SOURCE_DIR}/files/tes3mp/ui/Main.ui
@@ -55,9 +55,9 @@ if (DESIRED_QT_VERSION MATCHES 4)
     #QT4_WRAP_CPP(MOC_SRCS ${BROWSER_HEADER_MOC})
     #QT4_WRAP_UI(UI_HDRS ${BROWSER_UI})
 else()
-    QT5_ADD_RESOURCES(RCC_SRCS ${CMAKE_SOURCE_DIR}/files/launcher/launcher.qrc)
-    QT5_WRAP_CPP(MOC_SRCS ${BROWSER_HEADER_MOC})
-    QT5_WRAP_UI(UI_HDRS ${BROWSER_UI})
+    qt_add_resources(RCC_SRCS ${CMAKE_SOURCE_DIR}/files/launcher/launcher.qrc)
+    qt_wrap_cpp(MOC_SRCS ${BROWSER_HEADER_MOC})
+    qt_wrap_ui(UI_HDRS ${BROWSER_UI})
 endif()
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -82,7 +82,7 @@ endif (WIN32)
 target_link_libraries(tes3mp-browser
         ${SDL2_LIBRARY_ONLY}
         ${RakNet_LIBRARY}
-        components
+        components_qt
         )
 
 if (DESIRED_QT_VERSION MATCHES 4)
@@ -91,7 +91,7 @@ if (DESIRED_QT_VERSION MATCHES 4)
 #        target_link_libraries(tes3mp-browser ${QT_QTMAIN_LIBRARY})
 #    endif(WIN32)
 else()
-    qt5_use_modules(tes3mp-browser Widgets Core)
+    target_link_libraries(tes3mp-browser Qt::Widgets Qt::Core Qt::Svg)
 endif()
 
 if (BUILD_WITH_CODE_COVERAGE)
