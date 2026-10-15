@@ -528,12 +528,14 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                             anim->addEffect(Misc::ResourceHelpers::correctMeshPath(VFS::Path::Normalized(fx->mModel)).value(), "", false);
                     }
 
-                    int creatureActorId = newPtr.getClass().getCreatureStats(newPtr).getActorId();
+                    const ESM::RefNum creatureRefNum = newPtr.getCellRef().getRefNum();
+                    const ESM::RefId summonEffectId = ESM::MagicEffect::indexToRefId(baseObject.summonEffectId);
                     MWMechanics::CreatureStats& masterCreatureStats = masterPtr.getClass().getCreatureStats(masterPtr);
 
                     std::vector<ESM::ActiveEffect> activeEffects;
                     ESM::ActiveEffect activeEffect;
-                    activeEffect.mEffectId = baseObject.summonEffectId;
+                    activeEffect.mEffectId = summonEffectId;
+                    activeEffect.mArg = creatureRefNum;
                     activeEffect.mDuration = baseObject.summonDuration;
                     activeEffect.mMagnitude = 1;
                     activeEffects.push_back(activeEffect);
@@ -548,23 +550,23 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                         esmParams.mSourceSpellId = ESM::RefId::deserializeText(baseObject.summonSpellId);
                         esmParams.mEffects = activeEffects;
                         esmParams.mDisplayName = "";
-                        esmParams.mCasterActorId = masterCreatureStats.getActorId();
+                        esmParams.mCaster = masterPtr.getCellRef().getRefNum();
                         esmParams.mFlags = ESM::ActiveSpells::Flag_Temporary;
                         esmParams.mWorsenings = -1;
-                        activeSpells.addSpell(esmParams, masterCreatureStats.getActorId(), MWBase::Environment::get().getWorld()->getTimeStamp());
+                        activeSpells.addSpell(esmParams, masterPtr.getCellRef().getRefNum(), MWBase::Environment::get().getWorld()->getTimeStamp());
                     }
 
-                    LOG_APPEND(TimedLog::LOG_INFO, "-- setting summoned creatureActorId for %i-%i to %i",
-                        newPtr.getCellRef().getRefNum(), newPtr.getCellRef().getMpNum(), creatureActorId);
+                    LOG_APPEND(TimedLog::LOG_INFO, "-- registering summoned creature %u-%u for its master",
+                        newPtr.getCellRef().getRefNum().mIndex, newPtr.getCellRef().getMpNum());
 
                     // Check if this creature is present in the summoner's summoned creature map
-                    std::multimap<int, int>& creatureMap = masterCreatureStats.getSummonedCreatureMap();
+                    std::multimap<ESM::RefId, ESM::RefNum>& creatureMap = masterCreatureStats.getSummonedCreatureMap();
 
                     bool foundSummonedCreature = false;
 
                     for (auto it = creatureMap.begin(); it != creatureMap.end(); )
                     {
-                        if (it->first == baseObject.summonEffectId)
+                        if (it->first == summonEffectId)
                         {
                             foundSummonedCreature = true;
                             break;
@@ -575,12 +577,12 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                     // If it is, update its creatureActorId
                     if (foundSummonedCreature)
                     {
-                        masterCreatureStats.setSummonedCreatureActorId(baseObject.refId, creatureActorId);
+                        masterCreatureStats.setSummonedCreatureRefNum(baseObject.refId, creatureRefNum);
                     }
                     // If not, add it to the summoned creature map
                     else
                     {
-                        creatureMap.emplace(baseObject.summonEffectId, creatureActorId);
+                        creatureMap.emplace(summonEffectId, creatureRefNum);
                     }
 
                     creatureStats.setFriendlyHits(0);

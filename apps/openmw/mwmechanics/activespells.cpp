@@ -182,9 +182,9 @@ namespace MWMechanics
 
         Make it possible to create ActiveSpellParams from the ones received in a packet
     */
-    ActiveSpells::ActiveSpellParams::ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp)
+    ActiveSpells::ActiveSpellParams::ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, const ESM::RefNum& caster, MWWorld::TimeStamp timestamp)
     : mActiveSpellId(ESM::RefId()), mSourceSpellId(params.mSourceSpellId), mEffects(params.mEffects)
-    , mDisplayName(params.mDisplayName), mCasterActorId(casterActorId), mItem(params.mItem)
+    , mDisplayName(params.mDisplayName), mCaster(caster), mItem(params.mItem)
     , mFlags(params.mFlags), mWorsenings(params.mWorsenings), mNextWorsening({params.mNextWorsening})
     , mTimeStamp(timestamp), mReceivedFromServer(true)
     {

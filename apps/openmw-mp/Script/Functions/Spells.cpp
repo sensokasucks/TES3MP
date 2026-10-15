@@ -1,3 +1,6 @@
+#include <components/esm3/loadmgef.hpp>
+#include <components/esm3/loadskil.hpp>
+#include <components/esm/attr.hpp>
 #include "Spells.hpp"
 
 #include <components/misc/strings/algorithm.hpp>
@@ -125,11 +128,19 @@ void SpellFunctions::AddSpellActiveEffect(unsigned short pid, int effectId, doub
     GET_PLAYER(pid, player, );
 
     ESM::ActiveEffect effect;
-    effect.mEffectId = effectId;
+    effect.mEffectId = ESM::MagicEffect::indexToRefId(effectId);
     effect.mMagnitude = magnitude;
     effect.mDuration = duration;
     effect.mTimeLeft = timeLeft;
-    effect.mArg = arg;
+
+    // Keep the Lua API on plain indexes: skill/attribute effects get a RefId arg, everything else an actor RefNum
+    const int effectFlags = ESM::MagicEffect::getHardcodedFlags(effectId);
+    if (effectFlags & ESM::MagicEffect::TargetSkill)
+        effect.mArg = ESM::Skill::indexToRefId(arg);
+    else if (effectFlags & ESM::MagicEffect::TargetAttribute)
+        effect.mArg = ESM::Attribute::indexToRefId(arg);
+    else
+        effect.mArg = ESM::RefNum{ static_cast<uint32_t>(arg), -1 };
 
     storedActiveEffects.push_back(effect);
 }
@@ -210,7 +221,7 @@ unsigned int SpellFunctions::GetSpellsActiveEffectId(unsigned short pid, unsigne
     if (spellIndex >= player->spellsActiveChanges.activeSpells.size())
         return 0;
 
-    return player->spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mEffectId;
+    return ESM::MagicEffect::refIdToIndex(player->spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mEffectId);
 }
 
 int SpellFunctions::GetSpellsActiveEffectArg(unsigned short pid, unsigned int spellIndex, unsigned int effectIndex) noexcept
@@ -222,8 +233,8 @@ int SpellFunctions::GetSpellsActiveEffectArg(unsigned short pid, unsigned int sp
         return 0;
 
     const auto& arg = player->spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
-    if (const int* actorId = std::get_if<int>(&arg))
-        return *actorId;
+    if (const ESM::RefNum* refNum = std::get_if<ESM::RefNum>(&arg))
+        return static_cast<int>(refNum->mIndex);
     int index = ESM::Attribute::refIdToIndex(std::get<ESM::RefId>(arg));
     if (index == -1)
         index = ESM::Skill::refIdToIndex(std::get<ESM::RefId>(arg));

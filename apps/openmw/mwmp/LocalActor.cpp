@@ -296,7 +296,7 @@ void LocalActor::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::Activ
 
     spellsActiveChanges.activeSpells.clear();
 
-    const MWWorld::Ptr& caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.getCasterActorId());
+    const MWWorld::Ptr& caster = MWBase::Environment::get().getWorldModel()->getPtr(params.getCaster());
 
     mwmp::ActiveSpell spell = MechanicsHelper::getActiveSpell(params);
     spell.caster = MechanicsHelper::getTarget(caster);

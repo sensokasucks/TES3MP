@@ -766,7 +766,6 @@ ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
 
 # Libraries needed by both the client and the server
 target_link_libraries(components
-    Boost::system
     Boost::program_options
     Boost::iostreams
     ${LUA_LIBRARIES}

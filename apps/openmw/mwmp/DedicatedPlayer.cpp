@@ -509,12 +509,12 @@ void DedicatedPlayer::addSpellsActive()
     for (const auto& activeSpell : spellsActiveChanges.activeSpells)
     {
         MWWorld::TimeStamp timestamp = MWWorld::TimeStamp(activeSpell.timestampHour, activeSpell.timestampDay);
-        int casterActorId = MechanicsHelper::getActorId(activeSpell.caster);
+        ESM::RefNum caster = MechanicsHelper::getActorRefNum(activeSpell.caster);
 
         MechanicsHelper::createSpellGfx(getPtr(), activeSpell.params.mEffects);
 
         // Don't do a check for a spell's existence, because active effects from potions need to be applied here too
-        activeSpells.addSpell(MechanicsHelper::getEsmActiveSpellParams(activeSpell, casterActorId), casterActorId, timestamp);
+        activeSpells.addSpell(MechanicsHelper::getEsmActiveSpellParams(activeSpell, caster), caster, timestamp);
     }
 }
 

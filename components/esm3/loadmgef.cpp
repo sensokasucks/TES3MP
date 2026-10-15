@@ -814,6 +814,19 @@ namespace ESM
         return sMagicEffectIds[it->second];
     }
 
+    /*
+        Start of tes3mp addition
+    */
+    int MagicEffect::getHardcodedFlags(int index)
+    {
+        if (index >= 0 && index < NumberOfHardcodedFlags)
+            return HardcodedFlags[index];
+        return 0;
+    }
+    /*
+        End of tes3mp addition
+    */
+
     RefId MagicEffect::indexToRefId(int index)
     {
         if (index < 0 || index >= Length)

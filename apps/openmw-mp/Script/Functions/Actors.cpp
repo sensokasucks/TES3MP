@@ -1,3 +1,6 @@
+#include <components/esm3/loadmgef.hpp>
+#include <components/esm3/loadskil.hpp>
+#include <components/esm/attr.hpp>
 #include <components/openmw-mp/NetworkMessages.hpp>
 #include <components/esm/attr.hpp>
 #include <components/esm3/loadskil.hpp>
@@ -259,14 +262,14 @@ unsigned int ActorFunctions::GetActorSpellsActiveEffectCount(unsigned int actorI
 
 unsigned int ActorFunctions::GetActorSpellsActiveEffectId(unsigned int actorIndex, unsigned int spellIndex, unsigned int effectIndex) noexcept
 {
-    return readActorList->baseActors.at(actorIndex).spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mEffectId;
+    return ESM::MagicEffect::refIdToIndex(readActorList->baseActors.at(actorIndex).spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mEffectId);
 }
 
 int ActorFunctions::GetActorSpellsActiveEffectArg(unsigned int actorIndex, unsigned int spellIndex, unsigned int effectIndex) noexcept
 {
     const auto& arg = readActorList->baseActors.at(actorIndex).spellsActiveChanges.activeSpells.at(spellIndex).params.mEffects.at(effectIndex).mArg;
-    if (const int* actorId = std::get_if<int>(&arg))
-        return *actorId;
+    if (const ESM::RefNum* refNum = std::get_if<ESM::RefNum>(&arg))
+        return static_cast<int>(refNum->mIndex);
     int index = ESM::Attribute::refIdToIndex(std::get<ESM::RefId>(arg));
     if (index == -1)
         index = ESM::Skill::refIdToIndex(std::get<ESM::RefId>(arg));
@@ -513,11 +516,19 @@ void ActorFunctions::AddActorSpellActive(const char* spellId, const char* displa
 void ActorFunctions::AddActorSpellActiveEffect(int effectId, double magnitude, double duration, double timeLeft, int arg) noexcept
 {
     ESM::ActiveEffect effect;
-    effect.mEffectId = effectId;
+    effect.mEffectId = ESM::MagicEffect::indexToRefId(effectId);
     effect.mMagnitude = magnitude;
     effect.mDuration = duration;
     effect.mTimeLeft = timeLeft;
-    effect.mArg = arg;
+
+    // Keep the Lua API on plain indexes: skill/attribute effects get a RefId arg, everything else an actor RefNum
+    const int effectFlags = ESM::MagicEffect::getHardcodedFlags(effectId);
+    if (effectFlags & ESM::MagicEffect::TargetSkill)
+        effect.mArg = ESM::Skill::indexToRefId(arg);
+    else if (effectFlags & ESM::MagicEffect::TargetAttribute)
+        effect.mArg = ESM::Attribute::indexToRefId(arg);
+    else
+        effect.mArg = ESM::RefNum{ static_cast<uint32_t>(arg), -1 };
 
     storedActorActiveEffects.push_back(effect);
 }

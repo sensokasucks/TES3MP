@@ -90,7 +90,7 @@ namespace MWMechanics
                 Make it possible to create ActiveSpellParams from the ones received in a packet, to convert
                 them back for packets, and to get their timestamp
             */
-            ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp);
+            ActiveSpellParams(const ESM::ActiveSpells::ActiveSpellParams& params, const ESM::RefNum& caster, MWWorld::TimeStamp timestamp);
 
             ESM::ActiveSpells::ActiveSpellParams toEsm() const;
 
@@ -213,7 +213,7 @@ namespace MWMechanics
                 Add a separate addSpell() for spells received from the server, which get the timestamp
                 they had on the client that sent them and do not get sent back to the server
             */
-            void addSpell(const ESM::ActiveSpells::ActiveSpellParams& params, int casterActorId, MWWorld::TimeStamp timestamp);
+            void addSpell(const ESM::ActiveSpells::ActiveSpellParams& params, const ESM::RefNum& caster, MWWorld::TimeStamp timestamp);
             /*
                 End of tes3mp addition
             */

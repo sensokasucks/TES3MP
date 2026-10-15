@@ -4,6 +4,8 @@
 #include <string>
 #include <variant>
 #include <components/esm/refid.hpp>
+#include <components/esm/formid.hpp>
+#include <components/esm3/loadmgef.hpp>
 #include <components/esm/attr.hpp>
 #include <components/esm3/loadskil.hpp>
 #include <RakNetTypes.h>
@@ -134,16 +136,21 @@ namespace mwmp
             return res;
         }
 
-        // Active effect args are either an actor id (int) or a skill/attribute RefId; on the wire
+        // Active effect args are either an actor RefNum or a skill/attribute RefId; on the wire
         // they are sent as a tag plus an index so the server-side Lua API can keep using ints
-        bool RW(std::variant<ESM::RefId, int> &arg, bool write)
+        // (tag 0: RefNum index + content file, tag 1: attribute index, tag 2: skill index)
+        bool RW(std::variant<ESM::RefId, ESM::RefNum> &arg, bool write)
         {
             uint8_t tag = 0;
             int value = -1;
+            int contentFile = -1;
             if (write)
             {
-                if (const int* actorId = std::get_if<int>(&arg))
-                    value = *actorId;
+                if (const ESM::RefNum* refNum = std::get_if<ESM::RefNum>(&arg))
+                {
+                    value = static_cast<int>(refNum->mIndex);
+                    contentFile = refNum->mContentFile;
+                }
                 else
                 {
                     const ESM::RefId& id = std::get<ESM::RefId>(arg);
@@ -159,7 +166,7 @@ namespace mwmp
                     value = index;
                 }
             }
-            bool res = RW(tag, write) && RW(value, write);
+            bool res = RW(tag, write) && RW(value, write) && RW(contentFile, write);
             if (!write)
             {
                 if (tag == 1)
@@ -167,7 +174,7 @@ namespace mwmp
                 else if (tag == 2)
                     arg = ESM::Skill::indexToRefId(value);
                 else
-                    arg = value;
+                    arg = ESM::RefNum{ static_cast<uint32_t>(value), contentFile };
             }
             return res;
         }

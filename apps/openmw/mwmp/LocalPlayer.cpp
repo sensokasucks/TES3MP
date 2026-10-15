@@ -727,10 +727,10 @@ void LocalPlayer::addSpellsActive()
     for (const auto& activeSpell : spellsActiveChanges.activeSpells)
     {
         MWWorld::TimeStamp timestamp = MWWorld::TimeStamp(activeSpell.timestampHour, activeSpell.timestampDay);
-        int casterActorId = MechanicsHelper::getActorId(activeSpell.caster);
+        ESM::RefNum caster = MechanicsHelper::getActorRefNum(activeSpell.caster);
 
         // Don't do a check for a spell's existence, because active effects from potions need to be applied here too
-        activeSpells.addSpell(MechanicsHelper::getEsmActiveSpellParams(activeSpell, casterActorId), casterActorId, timestamp);
+        activeSpells.addSpell(MechanicsHelper::getEsmActiveSpellParams(activeSpell, caster), caster, timestamp);
     }
 }
 
@@ -1624,7 +1624,7 @@ void LocalPlayer::sendSpellsActive()
     for (const auto& params : activeSpells)
     {
         mwmp::ActiveSpell packetSpell = MechanicsHelper::getActiveSpell(params);
-        MWWorld::Ptr caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.getCasterActorId());
+        MWWorld::Ptr caster = MWBase::Environment::get().getWorldModel()->getPtr(params.getCaster());
         packetSpell.caster = MechanicsHelper::getTarget(caster);
         spellsActiveChanges.activeSpells.push_back(packetSpell);
     }
@@ -1642,7 +1642,7 @@ void LocalPlayer::sendSpellsActiveAddition(const MWMechanics::ActiveSpells::Acti
 
     spellsActiveChanges.activeSpells.clear();
 
-    MWWorld::Ptr caster = MWBase::Environment::get().getWorld()->searchPtrViaActorId(params.getCasterActorId());
+    MWWorld::Ptr caster = MWBase::Environment::get().getWorldModel()->getPtr(params.getCaster());
 
     mwmp::ActiveSpell spell = MechanicsHelper::getActiveSpell(params);
     spell.caster = MechanicsHelper::getTarget(caster);

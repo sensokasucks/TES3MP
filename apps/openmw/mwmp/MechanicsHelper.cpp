@@ -170,9 +170,9 @@ MWWorld::Ptr MechanicsHelper::getPlayerPtr(const Target& target)
     return nullptr;
 }
 
-unsigned int MechanicsHelper::getActorId(const mwmp::Target& target)
+ESM::RefNum MechanicsHelper::getActorRefNum(const mwmp::Target& target)
 {
-    int actorId = -1;
+    ESM::RefNum refNum;
     MWWorld::Ptr targetPtr;
 
     if (target.isPlayer)
@@ -194,10 +194,10 @@ unsigned int MechanicsHelper::getActorId(const mwmp::Target& target)
 
     if (!targetPtr.isEmpty())
     {
-        actorId = targetPtr.getClass().getCreatureStats(targetPtr).getActorId();
+        refNum = targetPtr.getCellRef().getRefNum();
     }
 
-    return actorId;
+    return refNum;
 }
 
 mwmp::Item MechanicsHelper::getItem(const MWWorld::Ptr& itemPtr, int count)
@@ -229,27 +229,13 @@ mwmp::ActiveSpell MechanicsHelper::getActiveSpell(const MWMechanics::ActiveSpell
     return activeSpell;
 }
 
-ESM::ActiveSpells::ActiveSpellParams MechanicsHelper::getEsmActiveSpellParams(const mwmp::ActiveSpell& activeSpell, int casterActorId)
+ESM::ActiveSpells::ActiveSpellParams MechanicsHelper::getEsmActiveSpellParams(const mwmp::ActiveSpell& activeSpell, const ESM::RefNum& caster)
 {
     ESM::ActiveSpells::ActiveSpellParams esmParams = activeSpell.params;
     esmParams.mActiveSpellId = ESM::RefId();
     esmParams.mSourceSpellId = ESM::RefId::deserializeText(activeSpell.id);
-    esmParams.mCasterActorId = casterActorId;
-    esmParams.mItem.mIndex = 0;
-    esmParams.mItem.mContentFile = -1;
-
-    // Server scripts set effect args as plain indexes; turn them into the RefIds 0.49 expects
-    for (auto& effect : esmParams.mEffects)
-    {
-        if (const int* index = std::get_if<int>(&effect.mArg))
-        {
-            const ESM::MagicEffect* magicEffect = MWBase::Environment::get().getESMStore()->get<ESM::MagicEffect>().search(effect.mEffectId);
-            if (magicEffect && (magicEffect->mData.mFlags & ESM::MagicEffect::TargetSkill))
-                effect.mArg = ESM::Skill::indexToRefId(*index);
-            else if (magicEffect && (magicEffect->mData.mFlags & ESM::MagicEffect::TargetAttribute))
-                effect.mArg = ESM::Attribute::indexToRefId(*index);
-        }
-    }
+    esmParams.mCaster = caster;
+    esmParams.mItem = ESM::RefNum();
     return esmParams;
 }
 

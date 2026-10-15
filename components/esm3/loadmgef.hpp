@@ -262,6 +262,16 @@ namespace ESM
         static std::string_view refIdToGmstString(RefId effectId);
         static RefId effectGmstIdToRefId(std::string_view gmstId);
 
+        /*
+            Start of tes3mp addition
+
+            Expose the hardcoded per-effect flags so the server (which has no ESM store) can tell
+            skill/attribute effects apart from actor-targeting ones
+        */
+        static int getHardcodedFlags(int index);
+        /*
+            End of tes3mp addition
+        */
         static RefId indexToRefId(int index);
         static int refIdToIndex(RefId effectId);
 
