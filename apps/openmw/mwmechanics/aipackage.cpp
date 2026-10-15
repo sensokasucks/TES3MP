@@ -177,7 +177,7 @@ bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f&
             if (wasShortcutting || doesPathNeedRecalc(dest, actor)) // if need to rebuild path
             {
                 const ESM::Pathgrid* pathgrid
-                    = world->getStore().get<ESM::Pathgrid>().search(*actor.getCell()->getCell());
+                    = world->getStore().get<ESM::Pathgrid>().search(actor.getCell()->getCell()->getEsm3());
                 const DetourNavigator::Flags navigatorFlags = getNavigatorFlags(actor);
                 const DetourNavigator::AreaCosts areaCosts = getAreaCosts(actor, navigatorFlags);
                 mPathFinder.buildLimitedPath(actor, position, dest, actor.getCell(), getPathGridGraph(pathgrid),

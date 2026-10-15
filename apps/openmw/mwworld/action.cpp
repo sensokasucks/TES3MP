@@ -65,7 +65,7 @@ void MWWorld::Action::execute(const Ptr& actor, bool noSound)
             mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
             objectList->reset();
             objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-            objectList->addObjectSound(actor, mSoundId, 1.0, 1.0);
+            objectList->addObjectSound(actor, mSoundId.getRefIdString(), 1.0, 1.0);
             objectList->sendObjectSound();
             /*
                 End of tes3mp addition
@@ -90,7 +90,7 @@ void MWWorld::Action::execute(const Ptr& actor, bool noSound)
                     mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                    objectList->addObjectSound(local ? actor : mTarget, mSoundId, 1.0, 1.0);
+                    objectList->addObjectSound(local ? actor : mTarget, mSoundId.getRefIdString(), 1.0, 1.0);
                     objectList->sendObjectSound();
                 }
                 /*
@@ -112,7 +112,7 @@ void MWWorld::Action::execute(const Ptr& actor, bool noSound)
                     mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                    objectList->addObjectSound(local ? actor : mTarget, mSoundId, 1.0, 1.0);
+                    objectList->addObjectSound(local ? actor : mTarget, mSoundId.getRefIdString(), 1.0, 1.0);
                     objectList->sendObjectSound();
                 }
                 /*

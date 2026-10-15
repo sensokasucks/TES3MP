@@ -37,7 +37,7 @@ namespace MWMechanics
         Allow AiActivate to be initialized using a Ptr instead of a refId
     */
     AiActivate::AiActivate(MWWorld::Ptr object)
-        : mObjectId("")
+        : mObjectId()
     {
         mObjectPtr = object;
     }

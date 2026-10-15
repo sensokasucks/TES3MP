@@ -278,18 +278,18 @@ namespace MWMechanics
                 */
                 if (targetIsActor && (mwmp::PlayerList::isDedicatedPlayer(target) || mwmp::Main::get().getCellController()->isDedicatedActor(target)))
                 {
-                    if (!caster.isEmpty() && caster.getClass().isActor() && caster != target && mType != ESM::ActiveSpells::Type_Enchantment)
+                    if (!mCaster.isEmpty() && mCaster.getClass().isActor() && mCaster != target && !mItem.isSet())
                     {
                         const CreatureStats& targetStats = target.getClass().getCreatureStats(target);
 
-                        if (targetStats.getMagicEffects().get(ESM::MagicEffect::Reflect).getMagnitude() > 0.f)
+                        if (targetStats.getMagicEffects().getOrDefault(ESM::MagicEffect::Reflect).getMagnitude() > 0.f)
                         {
                             auto& prng = MWBase::Environment::get().getWorld()->getPrng();
                             std::optional<ActiveSpells::ActiveSpellParams> reflected;
 
                             for (auto& effect : params.getEffects())
                             {
-                                const ESM::MagicEffect* magicEffect = magicEffects[effect.mEffectIndex];
+                                const ESM::MagicEffect* magicEffect = store.find(effect.mEffectId);
                                 bool canReflect = magicEffect->mData.mFlags & ESM::MagicEffect::Harmful && !(magicEffect->mData.mFlags & ESM::MagicEffect::Unreflectable) &&
                                     !(effect.mFlags & ESM::ActiveEffect::Flag_Ignore_Reflect);
 
@@ -316,11 +316,10 @@ namespace MWMechanics
                                     {
                                         if (!reflected)
                                         {
-                                            static const bool keepOriginalCaster = Settings::Manager::getBool("classic reflected absorb spells behavior", "Game");
-                                            if (keepOriginalCaster)
-                                                reflected = ActiveSpells::ActiveSpellParams{*this, caster};
+                                            if (Settings::game().mClassicReflectedAbsorbSpellsBehavior)
+                                                reflected = ActiveSpells::ActiveSpellParams{params, mCaster};
                                             else
-                                                reflected = ActiveSpells::ActiveSpellParams{*this, target};
+                                                reflected = ActiveSpells::ActiveSpellParams{params, target};
                                         }
 
                                         auto& reflectedEffect = reflected->getEffects().emplace_back(effect);
@@ -332,15 +331,15 @@ namespace MWMechanics
 
                             if (reflected)
                             {
-                                const ESM::Static* reflectStatic = MWBase::Environment::get().getWorld()->getStore().get<ESM::Static>().find("VFX_Reflect");
+                                const ESM::Static* reflectStatic = MWBase::Environment::get().getWorld()->getStore().get<ESM::Static>().find(ESM::RefId::stringRefId("VFX_Reflect"));
                                 MWRender::Animation* animation = MWBase::Environment::get().getWorld()->getAnimation(target);
                                 if (animation && !reflectStatic->mModel.empty())
                                 {
-                                    const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
-                                    animation->addEffect(Misc::ResourceHelpers::correctMeshPath(reflectStatic->mModel, vfs),
-                                        ESM::MagicEffect::Reflect, false, std::string());
+                                    const VFS::Path::Normalized reflectStaticModel
+                                        = Misc::ResourceHelpers::correctMeshPath(VFS::Path::Normalized(reflectStatic->mModel));
+                                    animation->addEffect(reflectStaticModel, ESM::MagicEffect::indexToName(ESM::MagicEffect::Reflect), false);
                                 }
-                                caster.getClass().getCreatureStats(caster).getActiveSpells().addSpell(*reflected);
+                                mCaster.getClass().getCreatureStats(mCaster).getActiveSpells().addSpell(*reflected);
                             }
                         }
                     }
@@ -443,7 +442,7 @@ namespace MWMechanics
                     mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                    objectList->addObjectSound(mCaster, "Spell Failure " + schools[school], 1.0f, 1.0f);
+                    objectList->addObjectSound(mCaster, store->get<ESM::Skill>().find(school)->mSchool->mFailureSound.getRefIdString(), 1.0f, 1.0f);
                     objectList->sendObjectSound();
                     /*
                         End of tes3mp addition
@@ -534,7 +533,7 @@ namespace MWMechanics
                 else
                 {
                     localCast = MechanicsHelper::getLocalCast(mCaster);
-                    localCast->success = MechanicsHelper::getSpellSuccess(mId, mCaster);
+                    localCast->success = MechanicsHelper::getSpellSuccess(mId.getRefIdString(), mCaster);
                     localCast->pressed = false;
                     localCast->shouldSend = true;
                 }
@@ -567,7 +566,7 @@ namespace MWMechanics
                     mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                    objectList->addObjectSound(mCaster, "Spell Failure " + schools[school], 1.0f, 1.0f);
+                    objectList->addObjectSound(mCaster, store->get<ESM::Skill>().find(school)->mSchool->mFailureSound.getRefIdString(), 1.0f, 1.0f);
                     objectList->sendObjectSound();
                     /*
                         End of tes3mp addition
@@ -735,7 +734,7 @@ namespace MWMechanics
                 mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
                 objectList->reset();
                 objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                objectList->addObjectSound(target, magicEffect.mHitSound.empty() ? schools[magicEffect.mData.mSchool] + " hit" : magicEffect.mHitSound, 1.0f, 1.0f);
+                objectList->addObjectSound(target, magicEffect.mHitSound.empty() ? store->get<ESM::Skill>().find(magicEffect.mData.mSchool)->mSchool->mHitSound.getRefIdString() : magicEffect.mHitSound.getRefIdString(), 1.0f, 1.0f);
                 objectList->sendObjectSound();
             }
             /*

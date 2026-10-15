@@ -537,7 +537,7 @@ namespace MWScript
                         spells.add(spell);
 
                         if (mwmp::Main::get().getLocalPlayer()->isLoggedIn() && ptr == MWMechanics::getPlayer())
-                            mwmp::Main::get().getLocalPlayer()->sendSpellChange(id, mwmp::SpellbookChanges::ADD);
+                            mwmp::Main::get().getLocalPlayer()->sendSpellChange(id.getRefIdString(), mwmp::SpellbookChanges::ADD);
                     }
                     /*
                         End of tes3mp change (major)
@@ -597,7 +597,7 @@ namespace MWScript
                         Send an ID_PLAYER_SPELLBOOK packet every time a player loses a spell here
                     */
                     if (mwmp::Main::get().getLocalPlayer()->isLoggedIn())
-                        mwmp::Main::get().getLocalPlayer()->sendSpellChange(id, mwmp::SpellbookChanges::REMOVE);
+                        mwmp::Main::get().getLocalPlayer()->sendSpellChange(id.getRefIdString(), mwmp::SpellbookChanges::REMOVE);
                     /*
                         End of tes3mp change (major)
                     */
@@ -690,7 +690,7 @@ namespace MWScript
                             Send an ID_PLAYER_FACTION packet every time a player joins a faction
                         */
                         int newRank = player.getClass().getNpcStats(player).getFactionRanks().at(factionID);
-                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID, newRank);
+                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID.getRefIdString(), newRank);
                         /*
                             End of tes3mp addition
                         */
@@ -739,7 +739,7 @@ namespace MWScript
                             Send an ID_PLAYER_FACTION packet every time a player rises in a faction
                         */
                         int newRank = player.getClass().getNpcStats(player).getFactionRanks().at(factionID);
-                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID, newRank);
+                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID.getRefIdString(), newRank);
                         /*
                             End of tes3mp addition
                         */
@@ -781,7 +781,7 @@ namespace MWScript
                             Send an ID_PLAYER_FACTION packet every time a player falls in a faction
                         */
                         int newRank = player.getClass().getNpcStats(player).getFactionRanks().at(factionID);
-                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID, newRank);
+                        mwmp::Main::get().getLocalPlayer()->sendFactionRank(factionID.getRefIdString(), newRank);
                         /*
                             End of tes3mp addition
                         */
@@ -944,7 +944,7 @@ namespace MWScript
 
                         Send an ID_PLAYER_FACTION packet every time a player's faction reputation changes
                     */
-                    mwmp::Main::get().getLocalPlayer()->sendFactionReputation(Misc::StringUtils::lowerCase(factionId), value);
+                    mwmp::Main::get().getLocalPlayer()->sendFactionReputation(factionId.getRefIdString(), value);
                     /*
                         End of tes3mp addition
                     */
@@ -987,7 +987,7 @@ namespace MWScript
                         Send an ID_PLAYER_FACTION packet every time a player's faction reputation changes
                     */
                     int newReputation = player.getClass().getNpcStats(player).getFactionReputation(factionId);
-                    mwmp::Main::get().getLocalPlayer()->sendFactionReputation(Misc::StringUtils::lowerCase(factionId), newReputation);
+                    mwmp::Main::get().getLocalPlayer()->sendFactionReputation(factionId.getRefIdString(), newReputation);
                     /*
                         End of tes3mp addition
                     */
@@ -1153,7 +1153,7 @@ namespace MWScript
                         Send an ID_PLAYER_FACTION packet every time a player is no longer expelled from a faction
                     */
                     if (factionID != "")
-                        mwmp::Main::get().getLocalPlayer()->sendFactionExpulsionState(Misc::StringUtils::lowerCase(factionID), false);
+                        mwmp::Main::get().getLocalPlayer()->sendFactionExpulsionState(factionID.getRefIdString(), false);
                     /*
                         End of tes3mp addition
                     */

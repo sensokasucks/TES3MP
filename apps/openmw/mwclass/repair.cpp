@@ -24,6 +24,8 @@
 #include "../mwworld/actionrepair.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 
 #include "../mwgui/tooltips.hpp"
 

@@ -499,7 +499,7 @@ namespace MWMechanics
 
                     Send a PlayerMiscellaneous packet with the player's new mark location
                 */
-                mwmp::Main::get().getLocalPlayer()->sendMarkLocation(*target.getCell()->getCell(), target.getRefData().getPosition());
+                mwmp::Main::get().getLocalPlayer()->sendMarkLocation(target.getCell()->getCell()->getEsm3(), target.getRefData().getPosition());
                 /*
                     End of tes3mp addition
                 */
@@ -634,7 +634,7 @@ namespace MWMechanics
 
                     Pass the spell id and effect duration along so they can be sent in the ID_OBJECT_SPAWN packet
                 */
-                effect.mArg = summonCreature(effect.mEffectId, target, spellParams.getId(), effect.mDuration);
+                effect.mArg = summonCreature(effect.mEffectId, target, spellParams.getSourceSpellId().getRefIdString(), effect.mDuration);
                 /*
                     End of tes3mp change (major)
                 */

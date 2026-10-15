@@ -70,7 +70,7 @@ namespace MWWorld
 
                 Send an ID_PLAYER_BOOK packet every time a player reads a skill book
             */
-            mwmp::Main::get().getLocalPlayer()->sendBook(ref->mBase->mId);
+            mwmp::Main::get().getLocalPlayer()->sendBook(ref->mBase->mId.getRefIdString());
             /*
                 End of tes3mp addition
             */

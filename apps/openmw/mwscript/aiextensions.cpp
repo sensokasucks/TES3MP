@@ -356,7 +356,7 @@ namespace MWScript
                         {
                             mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
                             actorList->reset();
-                            actorList->cell = *ptr.getCell()->getCell();
+                            actorList->cell = ptr.getCell()->getCell()->getEsm3();
                             actorList->addAiActor(ptr, MWBase::Environment::get().getWorld()->getPlayerPtr(), mwmp::BaseActorList::COMBAT);
                             actorList->sendAiActors();
                         }
@@ -412,11 +412,11 @@ namespace MWScript
                     */
                     MWWorld::Ptr targetPtr = MWBase::Environment::get().getWorld()->searchPtr(actorID, true);
 
-                    if (targetPtr)
+                    if (!targetPtr.isEmpty())
                     {
                         mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
                         actorList->reset();
-                        actorList->cell = *ptr.getCell()->getCell();
+                        actorList->cell = ptr.getCell()->getCell()->getEsm3();
                         actorList->addAiActor(ptr, targetPtr, mwmp::BaseActorList::FOLLOW);
                         actorList->sendAiActors();
                     }
@@ -601,7 +601,7 @@ namespace MWScript
                     {
                         mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
                         actorList->reset();
-                        actorList->cell = *actor.getCell()->getCell();
+                        actorList->cell = actor.getCell()->getCell()->getEsm3();
                         actorList->addAiActor(actor, target, mwmp::BaseActorList::COMBAT);
                         actorList->sendAiActors();
                     }

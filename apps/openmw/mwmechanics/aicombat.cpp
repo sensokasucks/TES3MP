@@ -361,7 +361,7 @@ namespace MWMechanics
             const auto agentBounds = world->getPathfindingAgentBounds(actor);
             const DetourNavigator::Flags navigatorFlags = getNavigatorFlags(actor);
             const DetourNavigator::AreaCosts areaCosts = getAreaCosts(actor, navigatorFlags);
-            const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(*actor.getCell()->getCell());
+            const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(actor.getCell()->getCell()->getEsm3());
             const auto& pathGridGraph = getPathGridGraph(pathgrid);
             mPathFinder.buildPath(actor, vActorPos, vTargetPos, actor.getCell(), pathGridGraph, agentBounds,
                 navigatorFlags, areaCosts, storage.mAttackRange, PathType::Full);
@@ -738,7 +738,7 @@ namespace MWMechanics
 
                     mwmp::ActorList *actorList = mwmp::Main::get().getNetworking()->getActorList();
                     actorList->reset();
-                    actorList->cell = *actor.getCell()->getCell();
+                    actorList->cell = actor.getCell()->getCell()->getEsm3();
                     actorList->addAttackActor(actor, *localAttack);
                     actorList->sendAttackActors();
                 }

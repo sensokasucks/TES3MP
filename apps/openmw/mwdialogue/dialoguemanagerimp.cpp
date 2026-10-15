@@ -147,8 +147,8 @@ namespace MWDialogue
 
                 Send an ID_PLAYER_TOPIC packet every time a new topic becomes known
             */
-            if (mActorKnownTopics.count(topicId) && isNewTopic(topicId))
-                mwmp::Main::get().getLocalPlayer()->sendTopic(topicId);
+            if (mActorKnownTopics.count(topicId) && isNewTopic(topicId.getRefIdString()))
+                mwmp::Main::get().getLocalPlayer()->sendTopic(topicId.getRefIdString());
             /*
                 End of tes3mp addition
             */

@@ -7,6 +7,8 @@
 */
 #include <components/openmw-mp/Utils.hpp>
 #include "../mwmp/Main.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 #include "../mwmp/Networking.hpp"
 /*
     End of tes3mp addition

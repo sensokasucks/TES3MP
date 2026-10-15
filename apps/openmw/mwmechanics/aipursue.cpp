@@ -109,7 +109,7 @@ namespace MWMechanics
 
             Close the player's inventory or open container and cancel any drag and drops
         */
-        LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "After being pursued by %s, diedSinceArrestAttempt is now false", actor.getCellRef().getRefId().c_str());
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "After being pursued by %s, diedSinceArrestAttempt is now false", actor.getCellRef().getRefId().getRefIdString().c_str());
         mwmp::Main::get().getLocalPlayer()->diedSinceArrestAttempt = false;
         mwmp::Main::get().getLocalPlayer()->closeInventoryWindows();
         /*

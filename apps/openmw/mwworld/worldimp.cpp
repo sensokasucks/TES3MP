@@ -886,7 +886,7 @@ namespace MWWorld
             
             MWWorld::Ptr ptrFound = cellStore->searchExact(refNum, mpNum);
 
-            if (ptrFound)
+            if (!ptrFound.isEmpty())
                 return ptrFound;
         }
 
@@ -1313,13 +1313,13 @@ namespace MWWorld
                 cell change if it is not
             */
             if (mwmp::PlayerList::isDedicatedPlayer(ptr) &&
-                !mwmp::Main::get().getCellController()->isSameCell(mwmp::PlayerList::getPlayer(ptr)->cell, *newCell->getCell()))
+                !mwmp::Main::get().getCellController()->isSameCell(mwmp::PlayerList::getPlayer(ptr)->cell, newCell->getCell()->getEsm3()))
             {
                 ptr.getRefData().setPosition(originalPos);
                 return ptr;
             }
             else if (mwmp::Main::get().getCellController()->isDedicatedActor(ptr) &&
-                !mwmp::Main::get().getCellController()->isSameCell(mwmp::Main::get().getCellController()->getDedicatedActor(ptr)->cell, *newCell->getCell()))
+                !mwmp::Main::get().getCellController()->isSameCell(mwmp::Main::get().getCellController()->getDedicatedActor(ptr)->cell, newCell->getCell()->getEsm3()))
             {
                 ptr.getRefData().setPosition(originalPos);
                 return ptr;
@@ -2808,30 +2808,6 @@ namespace MWWorld
     /*
         Start of tes3mp addition
 
-        Make it possible to check whether a cell is active
-    */
-    bool World::isCellActive(const ESM::Cell& cell)
-    {
-        const Scene::CellStoreCollection& activeCells = mWorldScene->getActiveCells();
-        mwmp::CellController *cellController = mwmp::Main::get().getCellController();
-
-        for (auto it = activeCells.begin(); it != activeCells.end(); ++it)
-        {
-            if (cellController->isSameCell(cell, *(*it)->getCell()))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-    /*
-        End of tes3mp addition
-    */
-
-    /*
-        Start of tes3mp addition
-
         Make it possible to unload a cell from elsewhere
     */
     void World::unloadCell(const ESM::Cell& cell)
@@ -2840,7 +2816,7 @@ namespace MWWorld
         {
             const Scene::CellStoreCollection& activeCells = mWorldScene->getActiveCells();
             mwmp::CellController *cellController = mwmp::Main::get().getCellController();
-            mWorldScene->unloadCell(cellController->getCellStore(cell));
+            mWorldScene->unloadCell(cellController->getCellStore(cell), nullptr);
         }
     }
     /*
@@ -2861,7 +2837,7 @@ namespace MWWorld
             // Ignore a placeholder interior that a player may currently be in
             if ((*it)->getCell()->isExterior() || !Misc::StringUtils::ciEqual((*it)->getCell()->getDescription(), RecordHelper::getPlaceholderInteriorCellName()))
             {
-                mWorldScene->unloadCell(*it);
+                mWorldScene->unloadCell(*it, nullptr);
             }
         }
     }
@@ -2881,7 +2857,7 @@ namespace MWWorld
 
         if (cellStore != nullptr)
             cellStore->clearMovesToCells();
-        mCells.clear(cell);
+        mWorldModel.clear(cell);
     }
     /*
         End of tes3mp addition

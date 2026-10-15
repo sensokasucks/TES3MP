@@ -82,7 +82,7 @@ namespace MWWorld
 
                 Track the original cell of this actor so we can use it when sending a packet
             */
-            ESM::Cell originalCell = *actor.getCell()->getCell();
+            const ESM::Cell& originalCell = actor.getCell()->getCell()->getEsm3();
             /*
                 End of tes3mp addition
             */
@@ -105,7 +105,7 @@ namespace MWWorld
             {
                 newCellStore = &worldModel->getCell(mCellId);
                 if (cellController->isDedicatedActor(actor))
-                    cellController->getDedicatedActor(actor)->cell = *newCellStore->getCell();
+                    cellController->getDedicatedActor(actor)->cell = newCellStore->getCell()->getEsm3();
 
                 teleported = world->moveObject(actor, newCellStore, mPosition.asVec3(), true, true);
             }
@@ -129,7 +129,7 @@ namespace MWWorld
                 mwmp::BaseActor baseActor;
                 baseActor.refNum = actor.getCellRef().getRefNum().mIndex;
                 baseActor.mpNum = actor.getCellRef().getMpNum();
-                baseActor.cell = *newCellStore->getCell();
+                baseActor.cell = newCellStore->getCell()->getEsm3();
                 baseActor.position = actor.getRefData().getPosition();
                 baseActor.isFollowerCellChange = true;
 

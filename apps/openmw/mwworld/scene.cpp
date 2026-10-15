@@ -383,7 +383,7 @@ namespace MWWorld
             Set a const pointer to the iterator's ESM::Cell here, because
             cell->getCell() can become invalid later down
         */
-        const ESM::Cell* esmCell = cell->getCell();
+        const ESM::Cell* esmCell = &cell->getCell()->getEsm3();
         /*
             End of tes3mp addition
         */

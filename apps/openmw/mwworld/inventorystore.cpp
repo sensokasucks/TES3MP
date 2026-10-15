@@ -235,7 +235,7 @@ MWWorld::ContainerStoreIterator MWWorld::InventoryStore::findSlot(int slot) cons
     if (mSlots[slot] == end())
         return mSlots[slot];
 
-    // NOTE: mSlots[slot]->getRefData().getCount() can be zero if the item is marked
+    // NOTE: mSlots[slot]->getCellRef().getCount() can be zero if the item is marked
     // for removal by a Lua script, but the removal action is not yet processed.
     // The item will be automatically unequiped in the current frame.
 
@@ -663,7 +663,7 @@ int MWWorld::InventoryStore::remove(const Ptr& item, int count, bool equipReplac
 
         Only fire inventory events for actors in loaded cells to avoid crashes
     */
-    if (mListener && MWBase::Environment::get().getWorld()->isCellActive(*actor.getCell()->getCell()))
+    if (mListener && MWBase::Environment::get().getWorld()->isCellActive(actor.getCell()->getCell()->getEsm3()))
         mListener->itemRemoved(item, retCount);
     /*
         End of tes3mp change (major)

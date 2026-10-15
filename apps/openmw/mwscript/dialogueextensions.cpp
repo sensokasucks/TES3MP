@@ -62,7 +62,7 @@ namespace MWScript
                             through a script
                         */
                         if (mwmp::Main::get().getLocalPlayer()->isLoggedIn() && !MWBase::Environment::get().getJournal()->hasEntry(quest, index))
-                            mwmp::Main::get().getLocalPlayer()->sendJournalEntry(quest, index, ptr);
+                            mwmp::Main::get().getLocalPlayer()->sendJournalEntry(quest.getRefIdString(), index, ptr);
                         /*
                             End of tes3mp addition
                         */
@@ -97,7 +97,7 @@ namespace MWScript
                         through a script
                     */
                     if (mwmp::Main::get().getLocalPlayer()->isLoggedIn())
-                        mwmp::Main::get().getLocalPlayer()->sendJournalIndex(quest, index);
+                        mwmp::Main::get().getLocalPlayer()->sendJournalIndex(quest.getRefIdString(), index);
                     /*
                         End of tes3mp addition
                     */
@@ -140,8 +140,8 @@ namespace MWScript
                         through a script
                     */
                     if (mwmp::Main::get().getLocalPlayer()->isLoggedIn() &&
-                        MWBase::Environment::get().getDialogueManager()->isNewTopic(Misc::StringUtils::lowerCase(topic)))
-                        mwmp::Main::get().getLocalPlayer()->sendTopic(Misc::StringUtils::lowerCase(topic));
+                        MWBase::Environment::get().getDialogueManager()->isNewTopic(topic.getRefIdString()))
+                        mwmp::Main::get().getLocalPlayer()->sendTopic(topic.getRefIdString());
                     /*
                         End of tes3mp addition
                     */
@@ -197,8 +197,6 @@ namespace MWScript
                         Don't start a dialogue if the target is already engaged in one, thus
                         preventing infinite greeting loops
                     */
-                    if (!MWBase::Environment::get().getWindowManager()->containsMode(MWGui::GM_Dialogue))
-
                 bool greetWerewolves = false;
                 const ESM::RefId& script = ptr.getClass().getScript(ptr);
                 if (!script.empty())
@@ -208,7 +206,8 @@ namespace MWScript
                 if (player.getClass().getNpcStats(player).isWerewolf() && !greetWerewolves)
                     return;
 
-                MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_Dialogue, ptr);
+                if (!MWBase::Environment::get().getWindowManager()->containsMode(MWGui::GM_Dialogue))
+                    MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_Dialogue, ptr);
                     /*
                         End of tes3mp change (major)
                     */

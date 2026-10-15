@@ -631,6 +631,19 @@ namespace MWClass
     void Npc::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, const MWWorld::Ptr& victim,
         const osg::Vec3f& hitPosition, bool success) const
     {
+        /*
+            Start of tes3mp addition
+
+            Ignore hit calculations on this client from DedicatedPlayers and DedicatedActors
+        */
+        if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
+        {
+            return;
+        }
+        /*
+            End of tes3mp addition
+        */
+
         MWWorld::InventoryStore& inv = getInventoryStore(ptr);
         MWWorld::ContainerStoreIterator weaponslot = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
         MWWorld::Ptr weapon;
@@ -1448,18 +1461,6 @@ namespace MWClass
     {
         if (name == "left" || name == "right")
         {
-        /*
-            Start of tes3mp addition
-
-            Ignore hit calculations on this client from DedicatedPlayers and DedicatedActors
-        */
-        if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
-        {
-            return;
-        }
-        /*
-            End of tes3mp addition
-        */
 
             MWBase::World* world = MWBase::Environment::get().getWorld();
             if (world->isFlying(ptr))

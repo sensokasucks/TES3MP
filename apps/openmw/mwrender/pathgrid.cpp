@@ -111,12 +111,12 @@ namespace MWRender
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
 
-        const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(*store->getCell());
+        const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(store->getCell()->getEsm3());
         if (!pathgrid)
             return;
 
         osg::Vec3f cellPathGridPos(0, 0, 0);
-        Misc::makeCoordinateConverter(*store->getCell()).toWorld(cellPathGridPos);
+        Misc::makeCoordinateConverter(store->getCell()->getEsm3()).toWorld(cellPathGridPos);
 
         osg::ref_ptr<osg::PositionAttitudeTransform> cellPathGrid = new osg::PositionAttitudeTransform;
         cellPathGrid->setPosition(cellPathGridPos);

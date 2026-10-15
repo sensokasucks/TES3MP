@@ -118,7 +118,6 @@ namespace MWMechanics
             {
                 auto world = MWBase::Environment::get().getWorld();
                 MWWorld::ManualRef ref(world->getStore(), creatureID, 1);
-                /*
                 MWWorld::Ptr placed = world->safePlaceObject(ref.getPtr(), summoner, summoner.getCell(), 0, 120.f);
                 /*
 
@@ -128,7 +127,6 @@ namespace MWMechanics
                 AiFollow package(summoner);
                 summonedCreatureStats.getAiSequence().stack(package, placed);
                 creatureActorId = summonedCreatureStats.getActorId();
-                */
 
                 MWRender::Animation* anim = world->getAnimation(placed);
                 if (anim)
@@ -142,7 +140,7 @@ namespace MWMechanics
                 }
                 */
 
-                if (mwmp::Main::get().getCellController()->hasLocalAuthority(*placed.getCell()->getCell()))
+                if (mwmp::Main::get().getCellController()->hasLocalAuthority(placed.getCell()->getCell()->getEsm3()))
                 {
                     mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();

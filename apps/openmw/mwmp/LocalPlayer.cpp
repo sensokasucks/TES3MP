@@ -44,6 +44,11 @@
 #include "CellController.hpp"
 #include "GUIController.hpp"
 #include "MechanicsHelper.hpp"
+#include <components/settings/values.hpp>
+#include <components/esm/util.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
+#include "../mwworld/globals.hpp"
 
 using namespace mwmp;
 
@@ -169,7 +174,7 @@ bool LocalPlayer::processCharGen()
         MWBase::World *world = MWBase::Environment::get().getWorld();
         MWWorld::Ptr ptrPlayer = world->getPlayerPtr();
         npc = *ptrPlayer.get<ESM::NPC>()->mBase;
-        birthsign = world->getPlayer().getBirthSign();
+        birthsign = world->getPlayer().getBirthSign().getRefIdString();
 
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending ID_PLAYER_BASEINFO to server with my CharGen info");
         getNetworking()->getPlayerPacket(ID_PLAYER_BASEINFO)->setPlayer(this);
@@ -268,14 +273,14 @@ void LocalPlayer::updateAttributes(bool forceUpdate)
 
     for (int i = 0; i < 8; ++i)
     {
-        if (ptrNpcStats.getAttribute(i).getBase() != creatureStats.mAttributes[i].mBase ||
-            ptrNpcStats.getAttribute(i).getModifier() != creatureStats.mAttributes[i].mMod ||
-            ptrNpcStats.getAttribute(i).getDamage() != creatureStats.mAttributes[i].mDamage ||
+        if (ptrNpcStats.getAttribute(ESM::Attribute::indexToRefId(i)).getBase() != creatureStats.mAttributes[i].mBase ||
+            ptrNpcStats.getAttribute(ESM::Attribute::indexToRefId(i)).getModifier() != creatureStats.mAttributes[i].mMod ||
+            ptrNpcStats.getAttribute(ESM::Attribute::indexToRefId(i)).getDamage() != creatureStats.mAttributes[i].mDamage ||
             ptrNpcStats.getSkillIncrease(i) != npcStats.mSkillIncrease[i] ||
             forceUpdate)
         {
             attributeIndexChanges.push_back(i);
-            ptrNpcStats.getAttribute(i).writeState(creatureStats.mAttributes[i]);
+            ptrNpcStats.getAttribute(ESM::Attribute::indexToRefId(i)).writeState(creatureStats.mAttributes[i]);
             npcStats.mSkillIncrease[i] = ptrNpcStats.getSkillIncrease(i);
         }
     }
@@ -303,14 +308,14 @@ void LocalPlayer::updateSkills(bool forceUpdate)
     for (int i = 0; i < 27; ++i)
     {
         // Update a skill if its base value has changed at all or its progress has changed enough
-        if (ptrNpcStats.getSkill(i).getBase() != npcStats.mSkills[i].mBase ||
-            ptrNpcStats.getSkill(i).getModifier() != npcStats.mSkills[i].mMod ||
-            ptrNpcStats.getSkill(i).getDamage() != npcStats.mSkills[i].mDamage ||
-            abs(ptrNpcStats.getSkill(i).getProgress() - npcStats.mSkills[i].mProgress) > 0.75 ||
+        if (ptrNpcStats.getSkill(ESM::Skill::indexToRefId(i)).getBase() != npcStats.mSkills[i].mBase ||
+            ptrNpcStats.getSkill(ESM::Skill::indexToRefId(i)).getModifier() != npcStats.mSkills[i].mMod ||
+            ptrNpcStats.getSkill(ESM::Skill::indexToRefId(i)).getDamage() != npcStats.mSkills[i].mDamage ||
+            abs(ptrNpcStats.getSkill(ESM::Skill::indexToRefId(i)).getProgress() - npcStats.mSkills[i].mProgress) > 0.75 ||
             forceUpdate)
         {
             skillIndexChanges.push_back(i);
-            ptrNpcStats.getSkill(i).writeState(npcStats.mSkills[i]);
+            ptrNpcStats.getSkill(ESM::Skill::indexToRefId(i)).writeState(npcStats.mSkills[i]);
         }
     }
 
@@ -429,11 +434,11 @@ void LocalPlayer::updateCell(bool forceUpdate)
         LOG_APPEND(TimedLog::LOG_INFO, "- Moved from %s to %s", cell.getShortDescription().c_str(),
                    ptrCell->getShortDescription().c_str());
 
-        if (!Misc::StringUtils::ciEqual(cell.mRegion, ptrCell->mRegion))
+        if (cell.mRegion != ptrCell->mRegion)
         {
             LOG_APPEND(TimedLog::LOG_INFO, "- Changed region from %s to %s",
-                cell.mRegion.empty() ? "none" : cell.mRegion.c_str(),
-                ptrCell->mRegion.empty() ? "none" : ptrCell->mRegion.c_str());
+                cell.mRegion.empty() ? "none" : cell.mRegion.getRefIdString().c_str(),
+                ptrCell->mRegion.empty() ? "none" : ptrCell->mRegion.getRefIdString().c_str());
 
             isChangingRegion = true;
         }
@@ -476,16 +481,16 @@ void LocalPlayer::updateEquipment(bool forceUpdate)
         {
             MWWorld::CellRef &cellRef = it->getCellRef();
 
-            if (Misc::StringUtils::ciEqual(cellRef.getRefId(), item.refId) == false ||
+            if (!(cellRef.getRefId() == std::string_view(item.refId)) ||
                 cellRef.getCharge() != item.charge ||
                 Utils::compareFloats(cellRef.getEnchantmentCharge(), item.enchantmentCharge, 1.0f) == false ||
-                it->getRefData().getCount() != item.count ||
+                it->getCellRef().getCount() != item.count ||
                 forceUpdate)
             {
                 equipmentIndexChanges.push_back(slot);
 
-                item.refId = it->getCellRef().getRefId();
-                item.count = it->getRefData().getCount();
+                item.refId = it->getCellRef().getRefId().getRefIdString();
+                item.count = it->getCellRef().getCount();
                 item.charge = it->getCellRef().getCharge();
                 item.enchantmentCharge = it->getCellRef().getEnchantmentCharge();
             }
@@ -520,13 +525,13 @@ void LocalPlayer::updateInventory(bool forceUpdate)
     mwmp::Item item;
 
     auto setItem = [](Item &item, const MWWorld::Ptr &iter) {
-        item.refId = iter.getCellRef().getRefId();
+        item.refId = iter.getCellRef().getRefId().getRefIdString();
         if (item.refId.find("$dynamic") != std::string::npos)
             return true;
-        item.count = iter.getRefData().getCount();
+        item.count = iter.getCellRef().getCount();
         item.charge = iter.getCellRef().getCharge();
         item.enchantmentCharge = iter.getCellRef().getEnchantmentCharge();
-        item.soul = iter.getCellRef().getSoul();
+        item.soul = iter.getCellRef().getSoul().getRefIdString();
 
         return false;
     };
@@ -676,7 +681,7 @@ void LocalPlayer::addItems()
 
         try
         {
-            MWWorld::ManualRef itemRef(esmStore, item.refId, item.count);
+            MWWorld::ManualRef itemRef(esmStore, ESM::RefId::stringRefId(item.refId), item.count);
             MWWorld::Ptr itemPtr = itemRef.getPtr();
 
             if (item.charge != -1)
@@ -686,11 +691,11 @@ void LocalPlayer::addItems()
                 itemPtr.getCellRef().setEnchantmentCharge(item.enchantmentCharge);
 
             if (!item.soul.empty())
-                itemPtr.getCellRef().setSoul(item.soul);
+                itemPtr.getCellRef().setSoul(ESM::RefId::stringRefId(item.soul));
 
             LOG_APPEND(TimedLog::LOG_INFO, "- Adding inventory item %s with count %i", item.refId.c_str(), item.count);
 
-            ptrStore.add(itemPtr, item.count, ptrPlayer);
+            ptrStore.add(itemPtr, item.count);
         }
         catch (std::exception&)
         {
@@ -711,7 +716,7 @@ void LocalPlayer::addSpells()
         if (MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(spell.mId))
             ptrSpells.add(spell.mId);
         else
-            LOG_APPEND(TimedLog::LOG_INFO, "- Ignored addition of invalid spell %s", spell.mId.c_str());
+            LOG_APPEND(TimedLog::LOG_INFO, "- Ignored addition of invalid spell %s", spell.mId.getRefIdString().c_str());
 }
 
 void LocalPlayer::addSpellsActive()
@@ -740,9 +745,9 @@ void LocalPlayer::addJournalItems()
             LOG_APPEND(TimedLog::LOG_VERBOSE, "- type: ENTRY, quest: %s, index: %i, actorRefId: %s",
                 journalItem.quest.c_str(), journalItem.index, journalItem.actorRefId.c_str());
 
-            ptrFound = MWBase::Environment::get().getWorld()->searchPtr(journalItem.actorRefId, false);
+            ptrFound = MWBase::Environment::get().getWorld()->searchPtr(ESM::RefId::stringRefId(journalItem.actorRefId), false);
 
-            if (!ptrFound)
+            if (ptrFound.isEmpty())
                 ptrFound = getPlayerPtr();
         }
         else
@@ -757,16 +762,16 @@ void LocalPlayer::addJournalItems()
             {
                 if (journalItem.hasTimestamp)
                 {
-                    MWBase::Environment::get().getJournal()->addEntry(journalItem.quest, journalItem.index, ptrFound,
+                    MWBase::Environment::get().getJournal()->addEntry(ESM::RefId::stringRefId(journalItem.quest), journalItem.index, ptrFound,
                         journalItem.timestamp.daysPassed, journalItem.timestamp.month, journalItem.timestamp.day);
                 }
                 else
                 {
-                    MWBase::Environment::get().getJournal()->addEntry(journalItem.quest, journalItem.index, ptrFound);
+                    MWBase::Environment::get().getJournal()->addEntry(ESM::RefId::stringRefId(journalItem.quest), journalItem.index, ptrFound);
                 }
             }
             else
-                MWBase::Environment::get().getJournal()->setJournalIndex(journalItem.quest, journalItem.index);
+                MWBase::Environment::get().getJournal()->setJournalIndex(ESM::RefId::stringRefId(journalItem.quest), journalItem.index);
         }
         catch (std::exception&)
         {
@@ -786,7 +791,7 @@ void LocalPlayer::addTopics()
         if (env.getWindowManager()->getTranslationDataStorage().hasTranslation())
             topicId = env.getWindowManager()->getTranslationDataStorage().getLocalizedTopicId(topicId);
 
-        env.getDialogueManager()->addTopic(topicId);
+        env.getDialogueManager()->addTopic(ESM::RefId::stringRefId(topicId));
 
         if (env.getWindowManager()->containsMode(MWGui::GM_Dialogue))
             env.getDialogueManager()->updateActorKnownTopics();
@@ -800,7 +805,7 @@ void LocalPlayer::removeItems()
 
     for (const auto &item : inventoryChanges.items)
     {
-        ptrStore.remove(item.refId, item.count, ptrPlayer);
+        ptrStore.remove(ESM::RefId::stringRefId(item.refId), item.count);
 
         LOG_APPEND(TimedLog::LOG_INFO, "- Removing inventory item %s with count %i", item.refId.c_str(), item.count);
     }
@@ -867,9 +872,9 @@ void LocalPlayer::resurrect()
     MWWorld::Ptr ptrPlayer = getPlayerPtr();
 
     if (resurrectType == mwmp::RESURRECT_TYPE::IMPERIAL_SHRINE)
-        MWBase::Environment::get().getWorld()->teleportToClosestMarker(ptrPlayer, "divinemarker");
+        MWBase::Environment::get().getWorld()->teleportToClosestMarker(ptrPlayer, ESM::RefId::stringRefId("divinemarker"));
     else if (resurrectType == mwmp::RESURRECT_TYPE::TRIBUNAL_TEMPLE)
-        MWBase::Environment::get().getWorld()->teleportToClosestMarker(ptrPlayer, "templemarker");
+        MWBase::Environment::get().getWorld()->teleportToClosestMarker(ptrPlayer, ESM::RefId::stringRefId("templemarker"));
 
     MWBase::Environment::get().getMechanicsManager()->resurrect(ptrPlayer);
 
@@ -896,7 +901,7 @@ void LocalPlayer::resurrect()
     LOG_APPEND(TimedLog::LOG_INFO, "- diedSinceArrestAttempt is now true");
 
     // Record that we are no longer a known werewolf, to avoid being attacked infinitely
-    MWBase::Environment::get().getWorld()->setGlobalInt("pcknownwerewolf", 0);
+    MWBase::Environment::get().getWorld()->setGlobalInt(MWWorld::Globals::sPCKnownWerewolf, 0);
 
     // Ensure we unequip any items with constant effects that can put us into an infinite
     // death loop
@@ -935,7 +940,7 @@ void LocalPlayer::setCharacter()
     // Ignore invalid races
     if (world->getStore().get<ESM::Race>().search(npc.mRace) != 0)
     {
-        MWBase::Environment::get().getWorld()->getPlayer().setBirthSign(birthsign);
+        MWBase::Environment::get().getWorld()->getPlayer().setBirthSign(ESM::RefId::stringRefId(birthsign));
 
         if (resetStats)
         {
@@ -964,7 +969,7 @@ void LocalPlayer::setCharacter()
     }
     else
     {
-        LOG_APPEND(TimedLog::LOG_INFO, "- Character update was ignored due to invalid race %s", npc.mRace.c_str());
+        LOG_APPEND(TimedLog::LOG_INFO, "- Character update was ignored due to invalid race %s", npc.mRace.getRefIdString().c_str());
     }
 }
 
@@ -997,14 +1002,14 @@ void LocalPlayer::setAttributes()
         // If the server wants to clear our attribute's non-zero modifier, we need to remove
         // the spell effect causing it, to avoid an infinite loop where the effect keeps resetting
         // the modifier
-        if (creatureStats.mAttributes[attributeIndex].mMod == 0 && ptrNpcStats->getAttribute(attributeIndex).getModifier() > 0)
+        if (creatureStats.mAttributes[attributeIndex].mMod == 0 && ptrNpcStats->getAttribute(ESM::Attribute::indexToRefId(attributeIndex)).getModifier() > 0)
         {
             ptrNpcStats->getActiveSpells().purgeEffectByArg(ptrPlayer, ESM::MagicEffect::FortifyAttribute, attributeIndex);
             MWBase::Environment::get().getMechanicsManager()->updateMagicEffects(ptrPlayer);
 
             // Is the modifier for this attribute still higher than 0? If so, unequip items that
             // fortify the attribute
-            if (ptrNpcStats->getAttribute(attributeIndex).getModifier() > 0)
+            if (ptrNpcStats->getAttribute(ESM::Attribute::indexToRefId(attributeIndex)).getModifier() > 0)
             {
                 MechanicsHelper::unequipItemsByEffect(ptrPlayer, ESM::Enchantment::ConstantEffect, ESM::MagicEffect::FortifyAttribute, attributeIndex, -1);
                 mwmp::Main::get().getGUIController()->refreshGuiMode(MWGui::GM_Inventory);
@@ -1012,7 +1017,7 @@ void LocalPlayer::setAttributes()
         }
 
         attributeValue.readState(creatureStats.mAttributes[attributeIndex]);
-        ptrNpcStats->setAttribute(attributeIndex, attributeValue);
+        ptrNpcStats->setAttribute(ESM::Attribute::indexToRefId(attributeIndex), attributeValue);
 
         ptrNpcStats->setSkillIncrease(attributeIndex, npcStats.mSkillIncrease[attributeIndex]);
     }
@@ -1030,14 +1035,14 @@ void LocalPlayer::setSkills()
         // If the server wants to clear our skill's non-zero modifier, we need to remove
         // the spell effect causing it, to avoid an infinite loop where the effect keeps resetting
         // the modifier
-        if (npcStats.mSkills[skillIndex].mMod == 0 && ptrNpcStats->getSkill(skillIndex).getModifier() > 0)
+        if (npcStats.mSkills[skillIndex].mMod == 0 && ptrNpcStats->getSkill(ESM::Skill::indexToRefId(skillIndex)).getModifier() > 0)
         {
             ptrNpcStats->getActiveSpells().purgeEffectByArg(ptrPlayer, ESM::MagicEffect::FortifySkill, skillIndex);
             MWBase::Environment::get().getMechanicsManager()->updateMagicEffects(ptrPlayer);
 
             // Is the modifier for this skill still higher than 0? If so, unequip items that
             // fortify the skill
-            if (ptrNpcStats->getSkill(skillIndex).getModifier() > 0)
+            if (ptrNpcStats->getSkill(ESM::Skill::indexToRefId(skillIndex)).getModifier() > 0)
             {
                 MechanicsHelper::unequipItemsByEffect(ptrPlayer, ESM::Enchantment::ConstantEffect, ESM::MagicEffect::FortifySkill, -1, skillIndex);
                 mwmp::Main::get().getGUIController()->refreshGuiMode(MWGui::GM_Inventory);
@@ -1045,7 +1050,7 @@ void LocalPlayer::setSkills()
         }
 
         skillValue.readState(npcStats.mSkills[skillIndex]);
-        ptrNpcStats->setSkill(skillIndex, skillValue);
+        ptrNpcStats->setSkill(ESM::Skill::indexToRefId(skillIndex), skillValue);
     }
 }
 
@@ -1124,17 +1129,19 @@ void LocalPlayer::setCell()
 
     if (cell.isExterior())
     {
-        world->indexToPosition(x, y, pos.pos[0], pos.pos[1], true);
+        const osg::Vec2f cellPos = ESM::indexToPosition(ESM::ExteriorCellLocation(x, y, ESM::Cell::sDefaultWorldspaceId), true);
+        pos.pos[0] = cellPos.x();
+        pos.pos[1] = cellPos.y();
         pos.pos[2] = 0;
 
         pos.rot[0] = pos.rot[1] = pos.rot[2] = 0;
 
-        world->changeToExteriorCell(pos, true);
+        world->changeToCell(ESM::RefId::esm3ExteriorCell(x, y), pos, true);
         world->fixPosition();
     }
-    else if (world->findExteriorPosition(cell.mName, pos))
+    else if (const ESM::RefId exteriorCellId = world->findExteriorPosition(cell.mName, pos); !exteriorCellId.empty())
     {
-        world->changeToExteriorCell(pos, true);
+        world->changeToCell(exteriorCellId, pos, true);
         world->fixPosition();
     }
     else
@@ -1174,7 +1181,7 @@ void LocalPlayer::setClass()
             MWBase::Environment::get().getMechanicsManager()->setPlayerClass(charClass.mId);
         }
         else
-            LOG_APPEND(TimedLog::LOG_INFO, "- Ignored invalid default class %s", charClass.mId.c_str());
+            LOG_APPEND(TimedLog::LOG_INFO, "- Ignored invalid default class %s", charClass.mId.getRefIdString().c_str());
     }
 }
 
@@ -1191,7 +1198,7 @@ void LocalPlayer::setEquipment()
         if (!currentItem.refId.empty())
         {
             auto it = std::find_if(ptrInventory.begin(), ptrInventory.end(), [&currentItem](const MWWorld::Ptr &itemPtr) {
-                return Misc::StringUtils::ciEqual(itemPtr.getCellRef().getRefId(), currentItem.refId);
+                return itemPtr.getCellRef().getRefId() == std::string_view(currentItem.refId);
             });
 
             // If the item is not in our inventory, add it as long as it's not a bound item
@@ -1201,9 +1208,9 @@ void LocalPlayer::setEquipment()
                 {
                     try
                     {
-                        auto addIter = ptrInventory.ContainerStore::add(currentItem.refId.c_str(), currentItem.count, ptrPlayer);
+                        auto addIter = ptrInventory.ContainerStore::add(ESM::RefId::stringRefId(currentItem.refId), currentItem.count);
 
-                        ptrInventory.equip(slot, addIter, ptrPlayer);
+                        ptrInventory.equip(slot, addIter);
                     }
                     catch (std::exception&)
                     {
@@ -1215,11 +1222,11 @@ void LocalPlayer::setEquipment()
             {
                 // Don't try to equip an item that is already equipped
                 if (ptrInventory.getSlot(slot) != it)
-                    ptrInventory.equip(slot, it, ptrPlayer);
+                    ptrInventory.equip(slot, it);
             }
         }
         else
-            ptrInventory.unequipSlot(slot, ptrPlayer);
+            ptrInventory.unequipSlot(slot);
     }
 
     MWBase::Environment::get().getWindowManager()->getInventoryWindow()->updatePlayer();
@@ -1290,9 +1297,9 @@ void LocalPlayer::setCooldowns()
 
     for (const auto& cooldown : cooldownChanges)
     {
-        if (world->getStore().get<ESM::Spell>().search(cooldown.id))
+        if (world->getStore().get<ESM::Spell>().search(ESM::RefId::stringRefId(cooldown.id)))
         {
-            const ESM::Spell* spell = world->getStore().get<ESM::Spell>().search(cooldown.id);
+            const ESM::Spell* spell = world->getStore().get<ESM::Spell>().search(ESM::RefId::stringRefId(cooldown.id));
 
             ptrSpells.setPowerUseTimestamp(spell, cooldown.startTimestampDay, cooldown.startTimestampHour);
         }
@@ -1314,7 +1321,7 @@ void LocalPlayer::setQuickKeys()
             MWWorld::InventoryStore &ptrInventory = ptrPlayer.getClass().getInventoryStore(ptrPlayer);
 
             auto it = std::find_if(ptrInventory.begin(), ptrInventory.end(), [&quickKey](const MWWorld::Ptr &inventoryItem) {
-                return Misc::StringUtils::ciEqual(inventoryItem.getCellRef().getRefId(), quickKey.itemId);
+                return inventoryItem.getCellRef().getRefId() == std::string_view(quickKey.itemId);
             });
 
             if (it != ptrInventory.end())
@@ -1329,7 +1336,7 @@ void LocalPlayer::setQuickKeys()
             for (; iter != ptrSpells.end(); iter++)
             {
                 const ESM::Spell *spell = *iter;
-                if (Misc::StringUtils::ciEqual(spell->mId, quickKey.itemId))
+                if (spell->mId == std::string_view(quickKey.itemId))
                 {
                     hasSpell = true;
                     break;
@@ -1354,7 +1361,7 @@ void LocalPlayer::setFactions()
     for (const auto &faction : factionChanges.factions)
     {
         LOG_APPEND(TimedLog::LOG_VERBOSE, " - processing faction: %s", faction.factionId.c_str());
-        const ESM::Faction *esmFaction = MWBase::Environment::get().getWorld()->getStore().get<ESM::Faction>().search(faction.factionId);
+        const ESM::Faction *esmFaction = MWBase::Environment::get().getWorld()->getStore().get<ESM::Faction>().search(ESM::RefId::stringRefId(faction.factionId));
 
         if (!esmFaction)
         {
@@ -1365,39 +1372,34 @@ void LocalPlayer::setFactions()
         if (factionChanges.action == mwmp::FactionChanges::RANK)
         {
 
-            if (!ptrNpcStats.isInFaction(faction.factionId))
+            if (!ptrNpcStats.isInFaction(ESM::RefId::stringRefId(faction.factionId)))
             {
                 // If the player isn't in this faction, make them join it
-                ptrNpcStats.joinFaction(faction.factionId);
+                ptrNpcStats.joinFaction(ESM::RefId::stringRefId(faction.factionId));
                 LOG_APPEND(TimedLog::LOG_VERBOSE, "\t>JOINED FACTION: %s on rank change to: %d.",
                     faction.factionId.c_str(), faction.rank);
             }
 
             // While the faction rank is different in the packet than in the NpcStats,
             // adjust the NpcStats accordingly
-            while (faction.rank != ptrNpcStats.getFactionRanks().at(faction.factionId))
-            {
-                if (faction.rank > ptrNpcStats.getFactionRanks().at(faction.factionId))
-                    ptrNpcStats.raiseRank(faction.factionId);
-                else
-                    ptrNpcStats.lowerRank(faction.factionId);
-            }
+            if (faction.rank != ptrNpcStats.getFactionRank(ESM::RefId::stringRefId(faction.factionId)))
+                ptrNpcStats.setFactionRank(ESM::RefId::stringRefId(faction.factionId), faction.rank);
         }
         else if (factionChanges.action == mwmp::FactionChanges::EXPULSION)
         {
             // If the expelled state is different in the packet than in the NpcStats,
             // adjust the NpcStats accordingly
-            if (faction.isExpelled != ptrNpcStats.getExpelled(faction.factionId))
+            if (faction.isExpelled != ptrNpcStats.getExpelled(ESM::RefId::stringRefId(faction.factionId)))
             {
                 if (faction.isExpelled)
-                    ptrNpcStats.expell(faction.factionId);
+                    ptrNpcStats.expell(ESM::RefId::stringRefId(faction.factionId), true);
                 else
-                    ptrNpcStats.clearExpelled(faction.factionId);
+                    ptrNpcStats.clearExpelled(ESM::RefId::stringRefId(faction.factionId));
             }
         }
 
         else if (factionChanges.action == mwmp::FactionChanges::REPUTATION)
-            ptrNpcStats.setFactionReputation(faction.factionId, faction.reputation);
+            ptrNpcStats.setFactionReputation(ESM::RefId::stringRefId(faction.factionId), faction.reputation);
     }
 }
 
@@ -1407,7 +1409,7 @@ void LocalPlayer::setBooks()
     MWMechanics::NpcStats &ptrNpcStats = ptrPlayer.getClass().getNpcStats(ptrPlayer);
 
     for (const auto &book : bookChanges)
-        ptrNpcStats.flagAsUsed(book.bookId);
+        ptrNpcStats.flagAsUsed(ESM::RefId::stringRefId(book.bookId));
 }
 
 void LocalPlayer::setShapeshift()
@@ -1433,11 +1435,11 @@ void LocalPlayer::setSelectedSpell()
     MWMechanics::CreatureStats& stats = ptrPlayer.getClass().getCreatureStats(ptrPlayer);
     MWMechanics::Spells& spells = stats.getSpells();
 
-    if (!spells.hasSpell(selectedSpellId))
+    if (!spells.hasSpell(ESM::RefId::stringRefId(selectedSpellId)))
         return;
  
-    MWBase::Environment::get().getWindowManager()->setSelectedSpell(selectedSpellId,
-        int(MWMechanics::getSpellSuccessChance(selectedSpellId, ptrPlayer)));
+    MWBase::Environment::get().getWindowManager()->setSelectedSpell(ESM::RefId::stringRefId(selectedSpellId),
+        int(MWMechanics::getSpellSuccessChance(ESM::RefId::stringRefId(selectedSpellId), ptrPlayer)));
 }
 
 void LocalPlayer::sendDeath(char newDeathState)
@@ -1460,9 +1462,9 @@ void LocalPlayer::sendClass()
     const ESM::NPC *npcBase = world->getPlayerPtr().get<ESM::NPC>()->mBase;
     const ESM::Class *esmClass = world->getStore().get<ESM::Class>().find(npcBase->mClass);
 
-    if (npcBase->mClass.find("$dynamic") != std::string::npos) // custom class
+    if (npcBase->mClass.is<ESM::GeneratedRefId>()) // custom class
     {
-        charClass.mId = "";
+        charClass.mId = ESM::RefId();
         charClass.mName = esmClass->mName;
         charClass.mDescription = esmClass->mDescription;
         charClass.mData = esmClass->mData;
@@ -1486,7 +1488,7 @@ void LocalPlayer::sendInventory()
 
     for (const auto &iter : ptrInventory)
     {
-        item.refId = iter.getCellRef().getRefId();
+        item.refId = iter.getCellRef().getRefId().getRefIdString();
 
         // Skip any items that somehow have clientside-only dynamic IDs
         if (item.refId.find("$dynamic") != std::string::npos)
@@ -1496,10 +1498,10 @@ void LocalPlayer::sendInventory()
         if (MWBase::Environment::get().getMechanicsManager()->isBoundItem(item.refId))
             continue;
 
-        item.count = iter.getRefData().getCount();
+        item.count = iter.getCellRef().getCount();
         item.charge = iter.getCellRef().getCharge();
         item.enchantmentCharge = iter.getCellRef().getEnchantmentCharge();
-        item.soul = iter.getCellRef().getSoul();
+        item.soul = iter.getCellRef().getSoul().getRefIdString();
 
         inventoryChanges.items.push_back(item);
     }
@@ -1603,7 +1605,7 @@ void LocalPlayer::sendSpellChange(std::string id, unsigned int action)
     spellbookChanges.spells.clear();
 
     ESM::Spell spell;
-    spell.mId = id;
+    spell.mId = ESM::RefId::stringRefId(id);
     spellbookChanges.spells.push_back(spell);
 
     spellbookChanges.action = action;
@@ -1718,7 +1720,7 @@ void LocalPlayer::sendJournalEntry(const std::string& quest, int index, const MW
     journalItem.type = JournalItem::ENTRY;
     journalItem.quest = quest;
     journalItem.index = index;
-    journalItem.actorRefId = actor.getCellRef().getRefId();
+    journalItem.actorRefId = actor.getCellRef().getRefId().getRefIdString();
     journalItem.hasTimestamp = false;
 
     journalChanges.push_back(journalItem);
@@ -1853,11 +1855,11 @@ void LocalPlayer::sendSelectedSpell(const std::string& newSelectedSpellId)
 
 void LocalPlayer::sendItemUse(const MWWorld::Ptr& itemPtr, bool itemMagicState, MWMechanics::DrawState currentDrawState)
 {
-    usedItem.refId = itemPtr.getCellRef().getRefId();
-    usedItem.count = itemPtr.getRefData().getCount();
+    usedItem.refId = itemPtr.getCellRef().getRefId().getRefIdString();
+    usedItem.count = itemPtr.getCellRef().getCount();
     usedItem.charge = itemPtr.getCellRef().getCharge();
     usedItem.enchantmentCharge = itemPtr.getCellRef().getEnchantmentCharge();
-    usedItem.soul = itemPtr.getCellRef().getSoul();
+    usedItem.soul = itemPtr.getCellRef().getSoul().getRefIdString();
 
     usingItemMagic = itemMagicState;
     itemUseDrawState = static_cast<char>(currentDrawState);
@@ -1908,7 +1910,7 @@ void LocalPlayer::storeCellState(const ESM::Cell& storedCell, int stateType)
 
 void LocalPlayer::storeCurrentContainer(const MWWorld::Ptr &container)
 {
-    currentContainer.refId = container.getCellRef().getRefId();
+    currentContainer.refId = container.getCellRef().getRefId().getRefIdString();
     currentContainer.refNum = container.getCellRef().getRefNum().mIndex;
     currentContainer.mpNum = container.getCellRef().getMpNum();
 }
@@ -1933,9 +1935,9 @@ void LocalPlayer::playAnimation()
 
 void LocalPlayer::playSpeech()
 {
-    MWBase::Environment::get().getSoundManager()->say(getPlayerPtr(), sound);
+    MWBase::Environment::get().getSoundManager()->say(getPlayerPtr(), VFS::Path::Normalized(sound));
 
     MWBase::WindowManager *winMgr = MWBase::Environment::get().getWindowManager();
-    if (winMgr->getSubtitlesEnabled())
+    if (Settings::gui().mSubtitles)
         winMgr->messageBox(MWBase::Environment::get().getDialogueManager()->getVoiceCaption(sound), MWGui::ShowInDialogueMode_Never);
 }

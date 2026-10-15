@@ -291,6 +291,19 @@ namespace MWClass
     void Creature::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, const MWWorld::Ptr& victim,
         const osg::Vec3f& hitPosition, bool success) const
     {
+        /*
+            Start of tes3mp addition
+
+            Ignore hit calculations on this client from DedicatedPlayers and DedicatedActors
+        */
+        if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
+        {
+            return;
+        }
+        /*
+            End of tes3mp addition
+        */
+
         MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
 
         if (stats.getDrawState() != MWMechanics::DrawState::Weapon)
@@ -924,18 +937,6 @@ namespace MWClass
 
     float Creature::getSkill(const MWWorld::Ptr& ptr, ESM::RefId id) const
     {
-        /*
-            Start of tes3mp addition
-
-            Ignore hit calculations on this client from DedicatedPlayers and DedicatedActors
-        */
-        if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
-        {
-            return;
-        }
-        /*
-            End of tes3mp addition
-        */
 
         MWWorld::LiveCellRef<ESM::Creature>* ref = ptr.get<ESM::Creature>();
 

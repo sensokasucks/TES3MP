@@ -51,7 +51,7 @@ namespace MWWorld
         mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
         objectList->reset();
         objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-        objectList->cell = *target.getCell()->getCell();
+        objectList->cell = target.getCell()->getCell()->getEsm3();
         objectList->action = mwmp::BaseObjectList::REMOVE;
         objectList->containerSubAction = mwmp::BaseObjectList::NONE;
 

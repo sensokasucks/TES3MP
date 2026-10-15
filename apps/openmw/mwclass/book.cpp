@@ -27,6 +27,8 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/failedaction.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 
 #include "../mwrender/objects.hpp"
 #include "../mwrender/renderinginterface.hpp"
@@ -203,7 +205,7 @@ namespace MWClass
             Send the newly created record to the server and expect it to be
             returned with a server-set id
         */
-        mwmp::Main::get().getNetworking()->getWorldstate()->sendBookRecord(&newItem, ref->mBase->mId);
+        mwmp::Main::get().getNetworking()->getWorldstate()->sendBookRecord(&newItem, ref->mBase->mId.getRefIdString());
         /*
             End of tes3mp addition
         */

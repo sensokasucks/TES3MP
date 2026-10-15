@@ -86,7 +86,7 @@ namespace MWWorld
             This is a common error in multiplayer, so additional logging has been added for it
         */
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Attempt at getting creatureStats for %s %i-%i which is a %s!",
-            ptr.getCellRef().getRefId().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum(),
+            ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum(),
             std::string(ptr.getTypeDescription()).c_str());
         /*
             End of tes3mp addition

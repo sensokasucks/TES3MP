@@ -27,6 +27,8 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 
 #include "../mwgui/tooltips.hpp"
 
@@ -247,7 +249,7 @@ namespace MWClass
             Send the newly created record to the server and expect it to be
             returned with a server-set id
         */
-        mwmp::Main::get().getNetworking()->getWorldstate()->sendClothingRecord(&newItem, ref->mBase->mId);
+        mwmp::Main::get().getNetworking()->getWorldstate()->sendClothingRecord(&newItem, ref->mBase->mId.getRefIdString());
         /*
             End of tes3mp addition
         */

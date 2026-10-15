@@ -890,7 +890,7 @@ namespace MWGui
 
         if (!player.getCell()->isExterior())
         {
-            setActiveMap(*player.getCell()->getCell());
+            setActiveMap(player.getCell()->getCell()->getEsm3());
         }
         // else: need to know the current grid center, call setActiveMap from changeCell
 
@@ -1762,17 +1762,17 @@ namespace MWGui
 
             switch (quickKeyType)
             {
-            case QuickKeysMenu::Type_Unassigned:
+            case static_cast<int>(ESM::QuickKeys::Type::Unassigned):
                 mQuickKeysMenu->unassignIndex(slot - 1);
                 break;
-            case QuickKeysMenu::Type_Item:
+            case static_cast<int>(ESM::QuickKeys::Type::Item):
                 mQuickKeysMenu->onAssignItem(item);
                 break;
-            case QuickKeysMenu::Type_MagicItem:
+            case static_cast<int>(ESM::QuickKeys::Type::MagicItem):
                 mQuickKeysMenu->onAssignMagicItem(item);
                 break;
-            case QuickKeysMenu::Type_Magic:
-                mQuickKeysMenu->onAssignMagic(spellId);
+            case static_cast<int>(ESM::QuickKeys::Type::Magic):
+                mQuickKeysMenu->onAssignMagic(ESM::RefId::stringRefId(spellId));
                 break;
             }
         }

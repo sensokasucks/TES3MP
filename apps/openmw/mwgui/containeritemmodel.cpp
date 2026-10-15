@@ -128,7 +128,7 @@ namespace MWGui
         mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
         objectList->reset();
         objectList->packetOrigin = mwmp::PACKET_ORIGIN::CLIENT_GAMEPLAY;
-        objectList->cell = *source.first.getCell()->getCell();
+        objectList->cell = source.first.getCell()->getCell()->getEsm3();
         objectList->action = mwmp::BaseObjectList::ADD;
         objectList->containerSubAction = mwmp::BaseObjectList::NONE;
         mwmp::BaseObject baseObject = objectList->getBaseObjectFromPtr(source.first);
@@ -190,15 +190,15 @@ namespace MWGui
                     mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
                     objectList->reset();
                     objectList->packetOrigin = mwmp::PACKET_ORIGIN::CLIENT_GAMEPLAY;
-                    objectList->cell = *source.first.getCell()->getCell();
+                    objectList->cell = source.first.getCell()->getCell()->getEsm3();
                     objectList->action = mwmp::BaseObjectList::REMOVE;
                     objectList->containerSubAction = mwmp::BaseObjectList::NONE;
                     mwmp::BaseObject baseObject = objectList->getBaseObjectFromPtr(source.first);
-                    objectList->addContainerItem(baseObject, *it, it->getRefData().getCount(), toRemove);
+                    objectList->addContainerItem(baseObject, *it, it->getCellRef().getCount(), toRemove);
                     objectList->addBaseObject(baseObject);
                     objectList->sendContainer();
                     
-                    toRemove -= it->getRefData().getCount();
+                    toRemove -= it->getCellRef().getCount();
                 }
                 else
                 {
@@ -215,6 +215,7 @@ namespace MWGui
 
                 if (toRemove <= 0)
                     return;
+                }
             }
         }
         for (MWWorld::Ptr& source : mWorldItems)

@@ -222,7 +222,8 @@ int MWMechanics::NpcStats::getLevelProgress() const
 */
 int MWMechanics::NpcStats::getSkillIncrease(int attribute) const
 {
-    return mSkillIncreases[attribute];
+    auto it = mSkillIncreases.find(ESM::Attribute::indexToRefId(attribute));
+    return it == mSkillIncreases.end() ? 0 : it->second;
 }
 /*
     End of tes3mp addition
@@ -236,7 +237,7 @@ int MWMechanics::NpcStats::getSkillIncrease(int attribute) const
 */
 void MWMechanics::NpcStats::setSkillIncrease(int attribute, int value)
 {
-    mSkillIncreases[attribute] = value;
+    mSkillIncreases[ESM::Attribute::indexToRefId(attribute)] = value;
 }
 /*
     End of tes3mp addition

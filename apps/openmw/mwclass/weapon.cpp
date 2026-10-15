@@ -30,6 +30,8 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 
 #include "../mwmechanics/weapontype.hpp"
 
@@ -322,7 +324,7 @@ namespace MWClass
         */
         unsigned int quantity = mwmp::Main::get().getLocalPlayer()->lastEnchantmentQuantity;
 
-        mwmp::Main::get().getNetworking()->getWorldstate()->sendWeaponRecord(&newItem, ref->mBase->mId, quantity);
+        mwmp::Main::get().getNetworking()->getWorldstate()->sendWeaponRecord(&newItem, ref->mBase->mId.getRefIdString(), quantity);
         /*
             End of tes3mp addition
         */

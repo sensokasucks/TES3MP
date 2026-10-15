@@ -20,7 +20,7 @@ namespace
 {
     std::string getCountString(int count)
     {
-        static const int fontHeight = MWBase::Environment::get().getWindowManager()->getFontHeight();
+        static const int fontHeight = Settings::gui().mFontSize;
 
         if (count == 1)
             return {};

@@ -1,6 +1,7 @@
 #include <components/openmw-mp/TimedLog.hpp>
 
 #include "../mwbase/environment.hpp"
+#include <components/settings/values.hpp>
 #include "../mwbase/soundmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 
@@ -184,10 +185,10 @@ void DedicatedActor::setEquipment()
 
         if (it != invStore.end())
         {
-            storeRefId = it->getCellRef().getRefId();
+            storeRefId = it->getCellRef().getRefId().getRefIdString();
 
             if (!Misc::StringUtils::ciEqual(storeRefId, packetRefId)) // if other item equiped
-                invStore.unequipSlot(slot, ptr);
+                invStore.unequipSlot(slot);
             else
                 equal = true;
         }
@@ -197,7 +198,7 @@ void DedicatedActor::setEquipment()
 
         if (!hasItem(packetRefId, packetCharge))
         {
-            ptr.getClass().getContainerStore(ptr).add(packetRefId, count, ptr);
+            ptr.getClass().getContainerStore(ptr).add(ESM::RefId::stringRefId(packetRefId), count);
         }
 
         // Equip items silently if this is the first time equipment is being set for this character
@@ -248,7 +249,7 @@ void DedicatedActor::setAi()
             targetPtr = MechanicsHelper::getPlayerPtr(aiTarget);
 
             LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Has player target %s",
-                targetPtr.getClass().getName(targetPtr).c_str());
+                std::string(targetPtr.getClass().getName(targetPtr)).c_str());
         }
         else
         {
@@ -259,7 +260,7 @@ void DedicatedActor::setAi()
             else if (aiAction == mwmp::BaseActorList::ACTIVATE)
                 targetPtr = MWBase::Environment::get().getWorld()->searchPtrViaUniqueIndex(aiTarget.refNum, aiTarget.mpNum);
 
-            if (targetPtr)
+            if (!targetPtr.isEmpty())
             {
                 LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Has actor target %s %i-%i",
                     targetPtr.getCellRef().getRefId().getRefIdString().c_str(), aiTarget.refNum, aiTarget.mpNum);
@@ -272,7 +273,7 @@ void DedicatedActor::setAi()
 
         }
 
-        if (targetPtr)
+        if (!targetPtr.isEmpty())
         {
             if (aiAction == mwmp::BaseActorList::ACTIVATE)
             {
@@ -325,10 +326,10 @@ void DedicatedActor::playSound()
 {
     if (!sound.empty())
     {
-        MWBase::Environment::get().getSoundManager()->say(ptr, sound);
+        MWBase::Environment::get().getSoundManager()->say(ptr, VFS::Path::Normalized(sound));
 
         MWBase::WindowManager *winMgr = MWBase::Environment::get().getWindowManager();
-        if (winMgr->getSubtitlesEnabled())
+        if (Settings::gui().mSubtitles)
             winMgr->messageBox(MWBase::Environment::get().getDialogueManager()->getVoiceCaption(sound), MWGui::ShowInDialogueMode_Never);
 
         sound.clear();
@@ -339,7 +340,7 @@ bool DedicatedActor::hasItem(std::string itemId, int charge)
 {
     for (const auto &itemPtr : ptr.getClass().getInventoryStore(ptr))
     {
-        if (::Misc::StringUtils::ciEqual(itemPtr.getCellRef().getRefId(), itemId) && itemPtr.getCellRef().getCharge() == charge)
+        if (itemPtr.getCellRef().getRefId() == std::string_view(itemId) && itemPtr.getCellRef().getCharge() == charge)
             return true;
     }
 
@@ -350,7 +351,7 @@ void DedicatedActor::equipItem(std::string itemId, int charge, bool noSound)
 {
     for (const auto &itemPtr : ptr.getClass().getInventoryStore(ptr))
     {
-        if (::Misc::StringUtils::ciEqual(itemPtr.getCellRef().getRefId(), itemId) && itemPtr.getCellRef().getCharge() == charge)
+        if (itemPtr.getCellRef().getRefId() == std::string_view(itemId) && itemPtr.getCellRef().getCharge() == charge)
         {
             std::shared_ptr<MWWorld::Action> action = itemPtr.getClass().use(itemPtr);
             action->execute(ptr, noSound);
@@ -412,7 +413,7 @@ void DedicatedActor::setPtr(const MWWorld::Ptr& newPtr)
 {
     ptr = newPtr;
 
-    refId = ptr.getCellRef().getRefId();
+    refId = ptr.getCellRef().getRefId().getRefIdString();
     refNum = ptr.getCellRef().getRefNum().mIndex;
     mpNum = ptr.getCellRef().getMpNum();
 

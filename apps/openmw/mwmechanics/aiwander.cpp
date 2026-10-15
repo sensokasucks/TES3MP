@@ -214,7 +214,7 @@ namespace MWMechanics
         if (!mPathFinder.isPathConstructed() && mHasDestination)
         {
             const ESM::Pathgrid* pathgrid
-                = MWBase::Environment::get().getESMStore()->get<ESM::Pathgrid>().search(*actor.getCell()->getCell());
+                = MWBase::Environment::get().getESMStore()->get<ESM::Pathgrid>().search(actor.getCell()->getCell()->getEsm3());
             if (mUsePathgrid)
             {
                 mPathFinder.buildPathByPathgrid(
@@ -617,7 +617,7 @@ namespace MWMechanics
         const osg::Vec3f start = actorPos.asVec3();
 
         // don't take shortcuts for wandering
-        const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(*actor.getCell()->getCell());
+        const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(actor.getCell()->getCell()->getEsm3());
         const osg::Vec3f destVec3f = PathFinder::makeOsgVec3(dest);
         mPathFinder.buildPathByPathgrid(start, destVec3f, actor.getCell(), getPathGridGraph(pathgrid));
 
@@ -744,7 +744,7 @@ namespace MWMechanics
         auto& prng = MWBase::Environment::get().getWorld()->getPrng();
         int index = Misc::Rng::rollDice(storage.mAllowedNodes.size(), prng);
         ESM::Pathgrid::Point worldDest = storage.mAllowedNodes[index];
-        const Misc::CoordinateConverter converter = Misc::makeCoordinateConverter(*actor.getCell()->getCell());
+        const Misc::CoordinateConverter converter = Misc::makeCoordinateConverter(actor.getCell()->getCell()->getEsm3());
         ESM::Pathgrid::Point dest = converter.toLocalPoint(worldDest);
 
         bool isPathGridOccupied = MWBase::Environment::get().getMechanicsManager()->isAnyActorInRange(

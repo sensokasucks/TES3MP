@@ -223,7 +223,7 @@ void OMW::Engine::executeLocalScripts()
             origin determined by serverside scripts
         */
         interpreterContext.trackContextType(Interpreter::Context::SCRIPT_LOCAL);
-        interpreterContext.trackCurrentScriptName(script.first);
+        interpreterContext.trackCurrentScriptName(script.first.getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -293,7 +293,6 @@ bool OMW::Engine::frame(unsigned frameNumber, float frametime)
             Time should not be frozen in multiplayer, so the paused boolean is always set to
             false instead
         */
-        paused = false;
         /*
             End of tes3mp change (major)
         */
@@ -311,7 +310,7 @@ bool OMW::Engine::frame(unsigned frameNumber, float frametime)
             mStateManager->update(frametime);
         }
 
-        bool paused = mWorld->getTimeManager()->isPaused();
+        bool paused = false; // tes3mp: time is never frozen in multiplayer
 
         {
             ScopedProfile<UserStatsType::Script> profile(frameStart, frameNumber, *timer, *stats);

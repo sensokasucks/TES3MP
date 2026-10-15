@@ -1673,7 +1673,7 @@ namespace MWMechanics
                     {
                         MechanicsHelper::resetCast(localCast);
                         localCast->type = mwmp::Cast::REGULAR;
-                        localCast->spellId = spellid;
+                        localCast->spellId = spellid.getRefIdString();
                         localCast->pressed = true;
                         localCast->shouldSend = true;
                     }
@@ -1807,23 +1807,19 @@ namespace MWMechanics
                             End of tes3mp addition
                         */
                         }
-                    /*
-                        Start of tes3mp addition
+                        /*
+                            Start of tes3mp addition
 
-                        If this is a DedicatedPlayer or DedicatedActor, use the attack animation received
-                        in the latest Attack packet about them
-                    */
-                    else
-                    {
-                        mwmp::Attack *dedicatedAttack = MechanicsHelper::getDedicatedAttack(mPtr);
-
-                        if (dedicatedAttack)
-                            mAttackType = dedicatedAttack->attackAnimation;
-                    }
-                    /*
-                        End of tes3mp addition
-                    */
-
+                            If this is a DedicatedPlayer or DedicatedActor, use the attack animation received
+                            in the latest Attack packet about them
+                        */
+                        else if (MechanicsHelper::getDedicatedAttack(mPtr) != nullptr)
+                        {
+                            mAttackType = MechanicsHelper::getDedicatedAttack(mPtr)->attackAnimation;
+                        }
+                        /*
+                            End of tes3mp addition
+                        */
                         else if (aiInactive)
                         {
                             mAttackType = getDesiredAttackType();

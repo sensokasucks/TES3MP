@@ -489,7 +489,7 @@ namespace MWScript
 
                             Track the original cell of this object in case we need to use it when sending a packet
                         */
-                        ESM::Cell originalCell = *ptr.getCell()->getCell();
+                        const ESM::Cell& originalCell = ptr.getCell()->getCell()->getEsm3();
                         /*
                             End of tes3mp addition
                         */
@@ -505,12 +505,12 @@ namespace MWScript
                             Send ActorCellChange packets when actors are moved here, regardless of whether we're
                             the cell authority or not; the server can decide if it wants to comply with them
                         */
-                        if (ptr.getClass().isActor() && !mwmp::Main::get().getCellController()->isSameCell(originalCell, *store->getCell()))
+                        if (ptr.getClass().isActor() && !mwmp::Main::get().getCellController()->isSameCell(originalCell, store->getCell()->getEsm3()))
                         {
                             mwmp::BaseActor baseActor;
                             baseActor.refNum = ptr.getCellRef().getRefNum().mIndex;
                             baseActor.mpNum = ptr.getCellRef().getMpNum();
-                            baseActor.cell = *store->getCell();
+                            baseActor.cell = store->getCell()->getEsm3();
                             baseActor.position = ptr.getRefData().getPosition();
                             baseActor.isFollowerCellChange = true;
 
@@ -519,7 +519,7 @@ namespace MWScript
                             actorList->cell = originalCell;
 
                             LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Sending ID_ACTOR_CELL_CHANGE about %s %i-%i to server",
-                                ptr.getCellRef().getRefId().c_str(), baseActor.refNum, baseActor.mpNum);
+                                ptr.getCellRef().getRefId().getRefIdString().c_str(), baseActor.refNum, baseActor.mpNum);
 
                             LOG_APPEND(TimedLog::LOG_INFO, "- Moved from %s to %s", actorList->cell.getDescription().c_str(),
                                 baseActor.cell.getDescription().c_str());

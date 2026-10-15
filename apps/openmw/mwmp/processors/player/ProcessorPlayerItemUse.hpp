@@ -37,7 +37,7 @@ namespace mwmp
 
                 MWWorld::Ptr itemPtr = MechanicsHelper::getItemPtrFromStore(player->usedItem, inventoryStore);
 
-                if (itemPtr)
+                if (!itemPtr.isEmpty())
                 {
                     MWBase::Environment::get().getWindowManager()->getInventoryWindow()->useItem(itemPtr);
 

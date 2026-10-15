@@ -3,6 +3,9 @@
 #include <apps/openmw/mwmechanics/steering.hpp>
 
 #include "../mwbase/environment.hpp"
+#include <components/settings/values.hpp>
+#include <components/esm/attr.hpp>
+#include <components/esm3/loadskil.hpp>
 #include "../mwbase/soundmanager.hpp"
 
 #include "../mwclass/npc.hpp"
@@ -36,6 +39,7 @@
 #include "CellController.hpp"
 #include "MechanicsHelper.hpp"
 #include "RecordHelper.hpp"
+#include "../mwworld/worldmodel.hpp"
 
 
 using namespace mwmp;
@@ -55,12 +59,12 @@ DedicatedPlayer::DedicatedPlayer(RakNet::RakNetGUID guid) : BasePlayer(guid)
 
     MWBase::World* world = MWBase::Environment::get().getWorld();
     
-    cell = *world->getInterior(RecordHelper::getPlaceholderInteriorCellName())->getCell();
+    cell = world->getWorldModel().getInterior(RecordHelper::getPlaceholderInteriorCellName()).getCell()->getEsm3();
     position.pos[0] = position.pos[1] = position.pos[2] = 0;
 
     npc = *world->getPlayerPtr().get<ESM::NPC>()->mBase;
-    npc.mId = "";
-    previousRace = npc.mRace;
+    npc.mId = ESM::RefId();
+    previousRace = npc.mRace.getRefIdString();
 
     hasReceivedInitialEquipment = false;
     hasFinishedInitialTeleportation = false;
@@ -158,12 +162,12 @@ void DedicatedPlayer::setBaseInfo()
 {
     // Use the previous race if the new one doesn't exist
     if (!RecordHelper::doesRecordIdExist<ESM::Race>(npc.mRace))
-        npc.mRace = previousRace;
+        npc.mRace = ESM::RefId::stringRefId(previousRace);
 
     if (!reference)
     {
         npc.mId = RecordHelper::createRecord(npc)->mId;
-        createReference(npc.mId);
+        createReference(npc.mId.getRefIdString());
     }
     else
     {
@@ -175,7 +179,7 @@ void DedicatedPlayer::setBaseInfo()
     if (ptr.getType() == ESM::NPC::sRecordId)
         setEquipment();
 
-    previousRace = npc.mRace;
+    previousRace = npc.mRace.getRefIdString();
 }
 
 void DedicatedPlayer::setStatsDynamic()
@@ -208,7 +212,7 @@ void DedicatedPlayer::setAnimFlags()
         MWMechanics::CastSpell levitationCast(ptr, ptr);
         levitationCast.mHitPosition = ptr.getRefData().getPosition().asVec3();
         levitationCast.mAlwaysSucceed = true;
-        levitationCast.cast("Levitate");
+        levitationCast.cast(ESM::RefId::stringRefId("Levitate"));
         isLevitationPurged = false;
     }
 
@@ -241,7 +245,7 @@ void DedicatedPlayer::setAttributes()
     for (int i = 0; i < 8; ++i)
     {
         attributeValue.readState(creatureStats.mAttributes[i]);
-        ptrCreatureStats->setAttribute(i, attributeValue);
+        ptrCreatureStats->setAttribute(ESM::Attribute::indexToRefId(i), attributeValue);
     }
 }
 
@@ -256,7 +260,7 @@ void DedicatedPlayer::setSkills()
     for (int i = 0; i < 27; ++i)
     {
         skillValue.readState(npcStats.mSkills[i]);
-        ptrNpcStats->setSkill(i, skillValue);
+        ptrNpcStats->setSkill(ESM::Skill::indexToRefId(i), skillValue);
     }
 }
 
@@ -278,7 +282,7 @@ void DedicatedPlayer::setEquipment()
 
         if (it != invStore.end())
         {
-            ptrItemId = it->getCellRef().getRefId();
+            ptrItemId = it->getCellRef().getRefId().getRefIdString();
 
             if (!Misc::StringUtils::ciEqual(ptrItemId, packetRefId)) // if other item is now equipped
             {
@@ -298,7 +302,7 @@ void DedicatedPlayer::setEquipment()
                 
                 if (shouldRemove)
                 {
-                    store.remove(ptrItemId, store.count(ptrItemId), ptr);
+                    store.remove(ESM::RefId::stringRefId(ptrItemId), store.count(ESM::RefId::stringRefId(ptrItemId)));
                 }
             }
             else
@@ -309,7 +313,7 @@ void DedicatedPlayer::setEquipment()
             continue;
 
         const int count = equipmentItems[slot].count;
-        ptr.getClass().getContainerStore(ptr).add(packetRefId, count, ptr);
+        ptr.getClass().getContainerStore(ptr).add(ESM::RefId::stringRefId(packetRefId), count);
         // Equip items silently if this is the first time equipment is being set for this character
         equipItem(packetRefId, !hasReceivedInitialEquipment);
         equippedSomething = true;
@@ -335,9 +339,9 @@ void DedicatedPlayer::setShapeshift()
         {
             deleteReference();
 
-            const ESM::Creature* tmpCreature = world->getStore().get<ESM::Creature>().search(creatureRefId);
+            const ESM::Creature* tmpCreature = world->getStore().get<ESM::Creature>().search(ESM::RefId::stringRefId(creatureRefId));
             creature = *tmpCreature;
-            creature.mScript = "";
+            creature.mScript = ESM::RefId();
             if (!displayCreatureName)
                 creature.mName = npc.mName;
             LOG_APPEND(TimedLog::LOG_INFO, "- %s is disguised as %s", npc.mName.c_str(), creatureRefId.c_str());
@@ -346,17 +350,18 @@ void DedicatedPlayer::setShapeshift()
             // and reuse it
             if (creatureRecordId.empty())
             {
-                creature.mId = creatureRecordId = RecordHelper::createRecord(creature)->mId;
+                creature.mId = RecordHelper::createRecord(creature)->mId;
+                creatureRecordId = creature.mId.getRefIdString();
                 LOG_APPEND(TimedLog::LOG_INFO, "- Creating new creature record %s", creatureRecordId.c_str());
             }
             else
             {
-                creature.mId = creatureRecordId;
+                creature.mId = ESM::RefId::stringRefId(creatureRecordId);
                 RecordHelper::overrideRecord(creature);
             }
 
-            LOG_APPEND(TimedLog::LOG_INFO, "- Creating reference for %s", creature.mId.c_str());
-            createReference(creature.mId);
+            LOG_APPEND(TimedLog::LOG_INFO, "- Creating reference for %s", creature.mId.getRefIdString().c_str());
+            createReference(creature.mId.getRefIdString());
         }
         // This player was already a creature, but the new creature refId was empty or
         // invalid, so we'll turn this player into their NPC self again as a result
@@ -368,7 +373,7 @@ void DedicatedPlayer::setShapeshift()
             }
 
             RecordHelper::overrideRecord(npc);
-            createReference(npc.mId);
+            createReference(npc.mId.getRefIdString());
             reloadPtr();
         }
 
@@ -435,8 +440,7 @@ void DedicatedPlayer::setCell()
     // or is a new player, we should send our latest weather data to the server
     if (world->getWeatherCreationState())
     {
-        if (!hasFinishedInitialTeleportation || Misc::StringUtils::ciEqual(getPtr().getCell()->getCell()->getEsm3().mRegion,
-            world->getPlayerPtr().getCell()->getCell()->getEsm3().mRegion))
+        if (!hasFinishedInitialTeleportation || getPtr().getCell()->getCell()->getEsm3().mRegion == world->getPlayerPtr().getCell()->getCell()->getEsm3().mRegion)
         {
             world->sendWeather();
         }
@@ -453,10 +457,10 @@ void DedicatedPlayer::playAnimation()
 
 void DedicatedPlayer::playSpeech()
 {
-    MWBase::Environment::get().getSoundManager()->say(getPtr(), sound);
+    MWBase::Environment::get().getSoundManager()->say(getPtr(), VFS::Path::Normalized(sound));
 
     MWBase::WindowManager *winMgr = MWBase::Environment::get().getWindowManager();
-    if (winMgr->getSubtitlesEnabled())
+    if (Settings::gui().mSubtitles)
         winMgr->messageBox(MWBase::Environment::get().getDialogueManager()->getVoiceCaption(sound), MWGui::ShowInDialogueMode_Never);
 }
 
@@ -464,7 +468,7 @@ void DedicatedPlayer::equipItem(std::string itemId, bool noSound)
 {
     for (const auto& itemPtr : ptr.getClass().getInventoryStore(ptr))
     {
-        if (::Misc::StringUtils::ciEqual(itemPtr.getCellRef().getRefId(), itemId))
+        if (itemPtr.getCellRef().getRefId() == std::string_view(itemId))
         {
             std::shared_ptr<MWWorld::Action> action = itemPtr.getClass().use(itemPtr);
             action->execute(ptr, noSound);
@@ -587,7 +591,7 @@ void DedicatedPlayer::createReference(const std::string& recId)
 {
     MWBase::World *world = MWBase::Environment::get().getWorld();
 
-    reference = new MWWorld::ManualRef(world->getStore(), recId, 1);
+    reference = new MWWorld::ManualRef(world->getStore(), ESM::RefId::stringRefId(recId), 1);
 
     LOG_APPEND(TimedLog::LOG_INFO, "- Creating new reference pointer for %s", npc.mName.c_str());
 

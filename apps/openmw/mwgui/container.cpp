@@ -125,13 +125,13 @@ namespace MWGui
         mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
         objectList->reset();
         objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-        objectList->cell = *mPtr.getCell()->getCell();
+        objectList->cell = mPtr.getCell()->getCell()->getEsm3();
         objectList->action = mwmp::BaseObjectList::REMOVE;
         objectList->containerSubAction = mwmp::BaseObjectList::DRAG;
 
         mwmp::BaseObject baseObject = objectList->getBaseObjectFromPtr(mPtr);
         MWWorld::Ptr itemPtr = mModel->getItem(mSelectedItem).mBase;
-        objectList->addContainerItem(baseObject, itemPtr, itemPtr.getRefData().getCount(), count);
+        objectList->addContainerItem(baseObject, itemPtr, itemPtr.getCellRef().getCount(), count);
         objectList->addBaseObject(baseObject);
         objectList->sendContainer();
         /*
@@ -170,7 +170,7 @@ namespace MWGui
             mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
             objectList->reset();
             objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-            objectList->cell = *mPtr.getCell()->getCell();
+            objectList->cell = mPtr.getCell()->getCell()->getEsm3();
             objectList->action = mwmp::BaseObjectList::ADD;
             objectList->containerSubAction = mwmp::BaseObjectList::DROP;
 
@@ -314,7 +314,7 @@ namespace MWGui
         mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
         objectList->reset();
         objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-        objectList->cell = *mPtr.getCell()->getCell();
+        objectList->cell = mPtr.getCell()->getCell()->getEsm3();
         objectList->action = mwmp::BaseObjectList::REMOVE;
         objectList->containerSubAction = mwmp::BaseObjectList::TAKE_ALL;
         mwmp::BaseObject baseObject = objectList->getBaseObjectFromPtr(mPtr);

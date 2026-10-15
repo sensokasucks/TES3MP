@@ -27,6 +27,8 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/nullaction.hpp"
 #include "../mwworld/ptr.hpp"
+#include "../mwphysics/physicssystem.hpp"
+#include "../mwphysics/collisiontype.hpp"
 
 #include "../mwgui/tooltips.hpp"
 

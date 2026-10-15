@@ -781,7 +781,7 @@ namespace MWRender
         texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         texture->setResizeNonPowerOfTwoHint(false);
 
-        requestOverlayTextureUpdate(posX, mHeight - posY, mCellSize, mCellSize, texture, true, false);
+        requestOverlayTextureUpdate(posX, mHeight - posY, Settings::map().mGlobalMapCellSize, Settings::map().mGlobalMapCellSize, texture, true, false);
     }
     /*
         End of tes3mp addition

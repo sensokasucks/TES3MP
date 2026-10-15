@@ -278,7 +278,7 @@ void Networking::connect(const std::string &ip, unsigned short port, std::vector
     std::stringstream sstr;
     sstr << TES3MP_VERSION;
     sstr << TES3MP_PROTO_VERSION;
-    std::string commitHashString = Version::getOpenmwVersion(Main::getResDir()).mCommitHash;
+    std::string commitHashString(Version::getCommitHash());
     // Remove carriage returns added to version file on Windows
     commitHashString.erase(std::remove(commitHashString.begin(), commitHashString.end(), '\r'), commitHashString.end());
     sstr << commitHashString;

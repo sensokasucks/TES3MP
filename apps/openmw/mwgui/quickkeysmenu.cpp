@@ -176,7 +176,7 @@ namespace MWGui
         */
         if (mwmp::Main::get().getLocalPlayer()->isLoggedIn() && !mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
         {
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(key->index, Type_Unassigned);
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(key->index, ESM::QuickKeys::Type::Unassigned);
     }
         /*
             End of tes3mp addition
@@ -294,7 +294,7 @@ namespace MWGui
             by a player, not by a packet received from the server
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, Type_Item, item.getCellRef().getRefId());
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::Item, item.getCellRef().getRefId().getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -338,7 +338,7 @@ namespace MWGui
             Send a PLAYER_QUICKKEYS packet whenever a key is assigned to an item's magic
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, Type_MagicItem, item.getCellRef().getRefId());
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::MagicItem, item.getCellRef().getRefId().getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -390,7 +390,7 @@ namespace MWGui
             Send a PLAYER_QUICKKEYS packet whenever a key is assigned to a spell
         */
         if (!mwmp::Main::get().getLocalPlayer()->isReceivingQuickKeys)
-            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, Type_Magic, spellId);
+            mwmp::Main::get().getLocalPlayer()->sendQuickKey(mSelected->index, ESM::QuickKeys::Type::Magic, spellId.getRefIdString());
         /*
             End of tes3mp addition
         */
@@ -559,7 +559,7 @@ namespace MWGui
 
                 Send a PlayerMiscellaneous packet with the player's new selected spell
             */
-            mwmp::Main::get().getLocalPlayer()->sendSelectedSpell(spellId);
+            mwmp::Main::get().getLocalPlayer()->sendSelectedSpell(spellId.getRefIdString());
             /*
                 End of tes3mp addition
             */

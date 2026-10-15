@@ -1272,7 +1272,7 @@ namespace MWMechanics
                     npcStats.setCrimeId(-1);
                     npcStats.setCrimeTime(time(0));
                     LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "NPC %s %i-%i has forgiven player's crimes after the player's death",
-                        ptr.getCellRef().getRefId().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
+                        ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
                 }
             }
             /*
@@ -1978,7 +1978,7 @@ namespace MWMechanics
             despawns for the local player or for a local actor
         */
         if (!ptr.isEmpty() &&
-            (casterStats.getActorId() == getPlayer().getClass().getCreatureStats(getPlayer()).getActorId() || mwmp::Main::get().getCellController()->hasLocalAuthority(*ptr.getCell()->getCell())))
+            (casterStats.getActorId() == getPlayer().getClass().getCreatureStats(getPlayer()).getActorId() || mwmp::Main::get().getCellController()->hasLocalAuthority(ptr.getCell()->getCell()->getEsm3())))
         {
             mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
             objectList->reset();
@@ -2188,7 +2188,7 @@ namespace MWMechanics
     */
     void Actors::setDeaths(const std::string& refId, int number)
     {
-        mDeathCount[Misc::StringUtils::lowerCase(refId)] = number;
+        mDeathCount[ESM::RefId::stringRefId(refId)] = number;
     }
     /*
         End of tes3mp addition
