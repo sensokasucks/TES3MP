@@ -4,7 +4,7 @@
 #include <string>
 #include <variant>
 #include <components/esm/refid.hpp>
-#include <components/esm/formid.hpp>
+#include <components/esm3/refnum.hpp>
 #include <components/esm3/loadmgef.hpp>
 #include <components/esm/attr.hpp>
 #include <components/esm3/loadskil.hpp>
