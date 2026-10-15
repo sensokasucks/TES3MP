@@ -435,8 +435,8 @@ void DedicatedPlayer::setCell()
     // or is a new player, we should send our latest weather data to the server
     if (world->getWeatherCreationState())
     {
-        if (!hasFinishedInitialTeleportation || Misc::StringUtils::ciEqual(getPtr().getCell()->getCell()->mRegion,
-            world->getPlayerPtr().getCell()->getCell()->mRegion))
+        if (!hasFinishedInitialTeleportation || Misc::StringUtils::ciEqual(getPtr().getCell()->getCell()->getEsm3().mRegion,
+            world->getPlayerPtr().getCell()->getCell()->getEsm3().mRegion))
         {
             world->sendWeather();
         }

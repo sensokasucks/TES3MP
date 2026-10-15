@@ -59,7 +59,7 @@ PlayerMarkerCollection::ContainerType::const_iterator PlayerMarkerCollection::en
     return mMarkers.end();
 }
 
-PlayerMarkerCollection::RangeType PlayerMarkerCollection::getMarkers(const ESM::CellId &cellId) const
+PlayerMarkerCollection::RangeType PlayerMarkerCollection::getMarkers(const ESM::RefId &cellId) const
 {
     return mMarkers.equal_range(cellId);
 }

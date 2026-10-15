@@ -614,5 +614,5 @@ MWWorld::CellStore *Cell::getCellStore()
 
 std::string Cell::getShortDescription()
 {
-    return store->getCell()->getShortDescription();
+    return std::string(store->getCell()->getDescription());
 }

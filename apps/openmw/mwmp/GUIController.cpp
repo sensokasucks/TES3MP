@@ -305,22 +305,12 @@ ESM::CustomMarker mwmp::GUIController::createMarker(const RakNet::RakNetGUID &gu
 
     const ESM::Cell *playerCell = &player->cell;
 
-    mEditingMarker.mCell = player->cell.mCellId;
+    mEditingMarker.mCell = ESM::Cell::generateIdForCell(playerCell->isExterior(), playerCell->mName,
+        playerCell->getGridX(), playerCell->getGridY());
 
     mEditingMarker.mWorldX = player->position.pos[0];
     mEditingMarker.mWorldY = player->position.pos[1];
 
-    mEditingMarker.mCell.mPaged = playerCell->isExterior();
-    if (!playerCell->isExterior())
-        mEditingMarker.mCell.mWorldspace = playerCell->mName;
-    else
-    {
-        mEditingMarker.mCell.mWorldspace = ESM::CellId::sDefaultWorldspace;
-
-        // Don't remove these, or the markers will stop showing up in exteriors
-        mEditingMarker.mCell.mIndex.mX = playerCell->getGridX();
-        mEditingMarker.mCell.mIndex.mY = playerCell->getGridY();
-    }
     return mEditingMarker;
 }
 
@@ -332,15 +322,21 @@ void mwmp::GUIController::updatePlayersMarkers(MWGui::LocalMapBase *localMapBase
         MyGUI::Gui::getInstance().destroyWidget(*markerWidgetIterator);
     localMapBase->mPlayerMarkerWidgets.clear();
 
-    for (int dX = -localMapBase->mCellDistance; dX <= localMapBase->mCellDistance; ++dX)
+    for (int dX = localMapBase->mGrid.left; dX <= localMapBase->mGrid.right; ++dX)
     {
-        for (int dY =-localMapBase->mCellDistance; dY <= localMapBase->mCellDistance; ++dY)
+        for (int dY = localMapBase->mGrid.top; dY <= localMapBase->mGrid.bottom; ++dY)
         {
-            ESM::CellId cellId;
-            cellId.mPaged = !localMapBase->mInterior;
-            cellId.mWorldspace = (localMapBase->mInterior ? localMapBase->mPrefix : ESM::CellId::sDefaultWorldspace);
-            cellId.mIndex.mX = localMapBase->mCurX+dX;
-            cellId.mIndex.mY = localMapBase->mCurY+dY;
+            if (!localMapBase->mActiveCell)
+                continue;
+
+            ESM::RefId cellId;
+            if (localMapBase->mActiveCell->isExterior())
+                cellId = ESM::RefId::esm3ExteriorCell(localMapBase->mActiveCell->getGridX() + dX,
+                    localMapBase->mActiveCell->getGridY() + dY);
+            else if (dX == 0 && dY == 0)
+                cellId = localMapBase->mActiveCell->getId();
+            else
+                continue;
 
             PlayerMarkerCollection::RangeType markers = mPlayerMarkers.getMarkers(cellId);
             for (PlayerMarkerCollection::ContainerType::const_iterator markerIterator = markers.first;
@@ -373,11 +369,7 @@ void mwmp::GUIController::updatePlayersMarkers(MWGui::LocalMapBase *localMapBase
 
 void mwmp::GUIController::setGlobalMapMarkerTooltip(MWGui::MapWindow *mapWindow, MyGUI::Widget *markerWidget, int x, int y)
 {
-    ESM::CellId cellId;
-    cellId.mIndex.mX = x;
-    cellId.mIndex.mY = y;
-    cellId.mWorldspace = ESM::CellId::sDefaultWorldspace;
-    cellId.mPaged = true;
+    ESM::RefId cellId = ESM::RefId::esm3ExteriorCell(x, y);
     PlayerMarkerCollection::RangeType markers = mPlayerMarkers.getMarkers(cellId);
     std::vector<std::string> destNotes;
     for (PlayerMarkerCollection::ContainerType::const_iterator it = markers.first; it != markers.second; ++it)

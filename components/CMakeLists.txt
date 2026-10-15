@@ -201,6 +201,12 @@ add_component_dir (esm3
     refnum
     )
 
+# Start of tes3mp change
+#
+# Don't include certain components in server-only builds
+IF (BUILD_OPENMW OR BUILD_OPENCS)
+# End of tes3mp change
+
 add_component_dir (esmterrain
     gridsampling
     storage
@@ -666,6 +672,11 @@ if (USE_QT)
         )
 
 endif()
+# Start of tes3mp change (major)
+#
+# Don't require Qt when building the server
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+# End of tes3mp change
 
 include_directories(${BULLET_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -725,6 +736,23 @@ if(yaml-cpp_VERSION VERSION_GREATER_EQUAL 0.8.0)
 else()
     target_link_libraries(components yaml-cpp)
 endif()
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+
+# Libraries needed by both the client and the server
+target_link_libraries(components
+    Boost::system
+    Boost::program_options
+    Boost::iostreams
+    ${LUA_LIBRARIES}
+    LZ4::LZ4
+    Base64
+    SQLite::SQLite3
+    smhasher
+    ${ICU_LIBRARIES}
+    ZLIB::ZLIB
+    )
+# End of tes3mp change (major)
+
 # Start of tes3mp change (major)
 #
 # Don't require Bullet when building the server

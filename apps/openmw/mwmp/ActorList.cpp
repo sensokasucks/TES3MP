@@ -97,7 +97,7 @@ void ActorList::addAiActor(const MWWorld::Ptr& actorPtr, const MWWorld::Ptr& tar
     baseActor.aiTarget = MechanicsHelper::getTarget(targetPtr);
 
     LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "Preparing to send ID_ACTOR_AI about %s %i-%i\n- action: %i",
-        actorPtr.getCellRef().getRefId().c_str(), baseActor.refNum, baseActor.mpNum, aiAction);
+        actorPtr.getCellRef().getRefId().getRefIdString().c_str(), baseActor.refNum, baseActor.mpNum, aiAction);
 
     if (baseActor.aiTarget.isPlayer)
     {
@@ -107,7 +107,7 @@ void ActorList::addAiActor(const MWWorld::Ptr& actorPtr, const MWWorld::Ptr& tar
     else
     {
         LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "- Has actor target %s %i-%i",
-            targetPtr.getCellRef().getRefId().c_str(), baseActor.aiTarget.refNum, baseActor.aiTarget.mpNum);
+            targetPtr.getCellRef().getRefId().getRefIdString().c_str(), baseActor.aiTarget.refNum, baseActor.aiTarget.mpNum);
     }
 
     addAiActor(baseActor);

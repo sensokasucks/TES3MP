@@ -34,7 +34,7 @@ void PacketPlayerSpellsActive::Packet(RakNet::BitStream *newBitstream, bool send
         RW(activeSpell.timestampDay, send);
         RW(activeSpell.timestampHour, send);
         RW(activeSpell.params.mDisplayName, send, true);
-        RW(activeSpell.params.mType, send);
+        RW(activeSpell.params.mFlags, send);
         RW(activeSpell.params.mWorsenings, send);
 
         RW(activeSpell.caster.isPlayer, send);

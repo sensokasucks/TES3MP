@@ -251,6 +251,15 @@ namespace ESM
     void CellRef::blank()
     {
         mRefNum = RefNum{};
+        /*
+            Start of tes3mp addition
+
+            Set the mMpNum (unique multiplayer reference number) to 0 by default
+        */
+        mMpNum = 0;
+        /*
+            End of tes3mp addition
+        */
         mRefID = ESM::RefId();
         mScale = 1;
         mOwner = ESM::RefId();
@@ -293,14 +302,4 @@ namespace ESM
         result.blank();
         return result;
     }
-
-    /*
-        Start of tes3mp addition
-
-        Set the mMpNum (unique multiplayer reference number) to 0 by default
-    */
-    mMpNum = 0;
-    /*
-        End of tes3mp addition
-    */
 }

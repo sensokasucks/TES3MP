@@ -468,7 +468,7 @@ void MechanicsHelper::processAttack(Attack attack, const MWWorld::Ptr& attacker)
         if (!weaponPtr.isEmpty())
         {
             LOG_APPEND(TimedLog::LOG_VERBOSE, "- weapon: %s\n- isRanged: %s\n- applyWeaponEnchantment: %s\n- applyAmmoEnchantment: %s",
-                weaponPtr.getCellRef().getRefId().c_str(), isRanged ? "true" : "false", attack.applyWeaponEnchantment ? "true" : "false",
+                weaponPtr.getCellRef().getRefId().getRefIdString().c_str(), isRanged ? "true" : "false", attack.applyWeaponEnchantment ? "true" : "false",
                 attack.applyAmmoEnchantment ? "true" : "false");
 
             if (attack.applyWeaponEnchantment)

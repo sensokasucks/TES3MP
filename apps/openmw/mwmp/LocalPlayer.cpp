@@ -418,7 +418,7 @@ void LocalPlayer::updatePosition(bool forceUpdate)
 
 void LocalPlayer::updateCell(bool forceUpdate)
 {
-    const ESM::Cell *ptrCell = MWBase::Environment::get().getWorld()->getPlayerPtr().getCell()->getCell();
+    const ESM::Cell *ptrCell = &MWBase::Environment::get().getWorld()->getPlayerPtr().getCell()->getCell()->getEsm3();
 
     // If the LocalPlayer's Ptr cell is different from the LocalPlayer's packet cell, proceed
     if (forceUpdate || !Main::get().getCellController()->isSameCell(*ptrCell, cell))
@@ -950,7 +950,8 @@ void LocalPlayer::setCharacter()
             player.mHair = npc.mHair;
             player.mModel = npc.mModel;
             player.setIsMale(npc.isMale());
-            world->createRecord(player);
+            world->getStore().insert(player);
+            world->renderPlayer();
 
             MWBase::Environment::get().getMechanicsManager()->playerLoaded();
 

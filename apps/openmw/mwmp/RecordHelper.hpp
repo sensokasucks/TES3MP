@@ -46,7 +46,7 @@ namespace RecordHelper
     {
         MWBase::World *world = MWBase::Environment::get().getWorld();
 
-        return world->createRecord(record);
+        return world->getModifiableStore().insert(record);
     }
 
     template<class RecordType>

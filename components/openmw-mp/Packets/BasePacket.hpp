@@ -2,6 +2,7 @@
 #define OPENMW_BASEPACKET_HPP
 
 #include <string>
+#include <components/esm/refid.hpp>
 #include <RakNetTypes.h>
 #include <BitStream.h>
 #include <PacketPriority.h>
@@ -116,6 +117,17 @@ namespace mwmp
                 else
                     str = std::string();
             }
+            return res;
+        }
+
+        bool RW(ESM::RefId &refId, bool write, bool compress = false)
+        {
+            std::string str;
+            if (write)
+                str = refId.serializeText();
+            bool res = RW(str, write, compress);
+            if (!write)
+                refId = res ? ESM::RefId::deserializeText(str) : ESM::RefId();
             return res;
         }
 

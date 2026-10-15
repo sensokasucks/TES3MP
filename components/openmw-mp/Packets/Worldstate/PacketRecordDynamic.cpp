@@ -183,7 +183,7 @@ void PacketRecordDynamic::Packet(RakNet::BitStream *newBitstream, bool send)
             RW(recordData.mIcon, send, true);
             RW(recordData.mData.mWeight, send);
             RW(recordData.mData.mValue, send);
-            RW(recordData.mData.mAutoCalc, send);
+            RW(recordData.mData.mFlags, send);
             RW(recordData.mScript, send, true);
             ProcessEffects(recordData.mEffects, send);
 
@@ -350,7 +350,7 @@ void PacketRecordDynamic::Packet(RakNet::BitStream *newBitstream, bool send)
             RW(recordData.mIcon, send, true);
             RW(recordData.mData.mWeight, send);
             RW(recordData.mData.mValue, send);
-            RW(recordData.mData.mIsKey, send);
+            RW(recordData.mData.mFlags, send);
             RW(recordData.mScript, send, true);
 
             if (!record.baseId.empty())
@@ -949,14 +949,15 @@ void PacketRecordDynamic::ProcessEffects(ESM::EffectList &effectList, bool send)
 
     for (auto &&effect : effectList.mList)
     {
-        RW(effect.mEffectID, send);
-        RW(effect.mAttribute, send);
-        RW(effect.mSkill, send);
-        RW(effect.mRange, send);
-        RW(effect.mArea, send);
-        RW(effect.mDuration, send);
-        RW(effect.mMagnMax, send);
-        RW(effect.mMagnMin, send);
+        RW(effect.mData.mEffectID, send);
+        RW(effect.mData.mAttribute, send);
+        RW(effect.mData.mSkill, send);
+        RW(effect.mData.mRange, send);
+        RW(effect.mData.mArea, send);
+        RW(effect.mData.mDuration, send);
+        RW(effect.mData.mMagnMax, send);
+        RW(effect.mData.mMagnMin, send);
+        RW(effect.mIndex, send);
     }
 }
 
@@ -1019,7 +1020,7 @@ void PacketRecordDynamic::ProcessInventoryList(std::vector<mwmp::Item> &inventor
         if (!send)
         {
             ESM::ContItem contItem;
-            contItem.mItem.assign(item.refId);
+            contItem.mItem = ESM::RefId::stringRefId(item.refId);
             contItem.mCount = item.count;
             inventoryList.mList.push_back(contItem);
         }

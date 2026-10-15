@@ -445,8 +445,8 @@ void Worldstate::setMapExplored()
     {
         const MWWorld::CellStore *cellStore = MWBase::Environment::get().getWorld()->getExterior(mapTile.x, mapTile.y);
 
-        if (!cellStore->getCell()->mName.empty())
-            MWBase::Environment::get().getWindowManager()->addVisitedLocation(cellStore->getCell()->mName, mapTile.x, mapTile.y);
+        if (!cellStore->getCell()->getNameId().empty())
+            MWBase::Environment::get().getWindowManager()->addVisitedLocation(cellStore->getCell()->getNameId(), mapTile.x, mapTile.y);
 
         MWBase::Environment::get().getWindowManager()->setGlobalMapImage(mapTile.x, mapTile.y, mapTile.imageData);
 
@@ -478,7 +478,7 @@ void Worldstate::resetCells(std::vector<ESM::Cell>* cells)
     MWBase::World* world = MWBase::Environment::get().getWorld();
 
     bool haveUnloadedActiveCells = false;
-    ESM::Cell playerCell = *world->getPlayerPtr().getCell()->getCell();
+    ESM::Cell playerCell = world->getPlayerPtr().getCell()->getCell()->getEsm3();
     ESM::Position playerPos = world->getPlayerPtr().getRefData().getPosition();
     std::vector<RakNet::RakNetGUID> playersInCell;
 

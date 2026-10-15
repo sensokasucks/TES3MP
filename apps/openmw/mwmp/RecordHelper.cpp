@@ -336,7 +336,7 @@ void RecordHelper::overrideRecord(const mwmp::CellRecord& record)
     }
 
     MWWorld::Ptr playerPtr = world->getPlayerPtr();
-    ESM::Cell playerCell = *playerPtr.getCell()->getCell();
+    ESM::Cell playerCell = playerPtr.getCell()->getCell()->getEsm3();
     ESM::Position playerPos = playerPtr.getRefData().getPosition();
 
     bool isActiveCell = world->isCellActive(recordData);
@@ -352,7 +352,7 @@ void RecordHelper::overrideRecord(const mwmp::CellRecord& record)
     if (record.baseId.empty())
     {
         recordData.mData.mFlags |= ESM::Cell::Flags::Interior;
-        recordData.mCellId.mWorldspace = Misc::StringUtils::lowerCase(recordData.mName);
+        recordData.updateId();
 
         world->unloadCell(recordData);
         world->clearCellStore(recordData);
@@ -363,7 +363,7 @@ void RecordHelper::overrideRecord(const mwmp::CellRecord& record)
         const ESM::Cell *baseData = world->getStore().get<ESM::Cell>().search(record.baseId);
         ESM::Cell finalData = *baseData;
         finalData.mName = recordData.mName;
-        finalData.mCellId.mWorldspace = Misc::StringUtils::lowerCase(recordData.mName);
+        finalData.updateId();
 
         world->unloadCell(finalData);
         world->clearCellStore(finalData);
