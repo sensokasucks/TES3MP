@@ -10,6 +10,8 @@
 
 #include <components/esm3/cellid.hpp>
 #include <components/files/configurationmanager.hpp>
+#include <components/misc/pathhelpers.hpp>
+#include <components/misc/strings/algorithm.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -357,10 +359,17 @@ void Networking::preInit(std::vector<std::string> &content, Files::Collections &
 {
     PacketPreInit::PluginContainer checksums;
     std::vector<std::string>::const_iterator it(content.begin());
-    for (int idx = 0; it != content.end(); ++it, ++idx)
+    for (int idx = 0; it != content.end(); ++it)
     {
-        std::filesystem::path filename(*it);
-        const Files::MultiDirCollection& col = collections.getCollection(filename.extension().string());
+        const std::string_view extension = Misc::getFileExtension(*it);
+
+        // OpenMW 0.51 always loads builtin.omwscripts first; Lua script lists are not data files
+        // the server's plugin list knows about, so leave them out of the checksums
+        if (Misc::StringUtils::ciEqual(extension, "omwscripts"))
+            continue;
+
+        // OpenMW 0.51 file collections are keyed by the extension without its leading dot
+        const Files::MultiDirCollection& col = collections.getCollection(extension);
         if (col.doesExist(*it))
         {
             PacketPreInit::HashList hashList;
@@ -369,9 +378,10 @@ void Networking::preInit(std::vector<std::string> &content, Files::Collections &
             checksums.push_back(make_pair(*it, hashList));
 
             LOG_APPEND(TimedLog::LOG_WARN, "idx: %d\tchecksum: %X\tfile: %s\n", idx, crc32, col.getPath(*it).string().c_str());
+            ++idx;
         }
         else
-            throw std::runtime_error("Plugin doesn't exist.");
+            throw std::runtime_error("Plugin doesn't exist: " + *it);
     }
 
     PacketPreInit packetPreInit(peer);
