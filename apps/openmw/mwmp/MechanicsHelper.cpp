@@ -264,7 +264,7 @@ mwmp::Target MechanicsHelper::getTarget(const MWWorld::Ptr& ptr)
             {
                 target.isPlayer = false;
                 target.refId = ptrRef->getRefId().getRefIdString();
-                target.refNum = ptrRef->getRefNum().mIndex;
+                target.refNum = ptrRef->getMpRefNum();
                 target.mpNum = ptrRef->getMpNum();
                 target.name = ptr.getClass().getName(ptr);
             }
@@ -310,7 +310,7 @@ void MechanicsHelper::assignAttackTarget(Attack* attack, const MWWorld::Ptr& tar
 
         attack->target.isPlayer = false;
         attack->target.refId = targetRef->getRefId().getRefIdString();
-        attack->target.refNum = targetRef->getRefNum().mIndex;
+        attack->target.refNum = targetRef->getMpRefNum();
         attack->target.mpNum = targetRef->getMpNum();
     }
 }

@@ -508,7 +508,7 @@ namespace MWScript
                         if (ptr.getClass().isActor() && !mwmp::Main::get().getCellController()->isSameCell(originalCell, store->getCell()->getEsm3()))
                         {
                             mwmp::BaseActor baseActor;
-                            baseActor.refNum = ptr.getCellRef().getRefNum().mIndex;
+                            baseActor.refNum = ptr.getCellRef().getMpRefNum();
                             baseActor.mpNum = ptr.getCellRef().getMpNum();
                             baseActor.cell = store->getCell()->getEsm3();
                             baseActor.position = ptr.getRefData().getPosition();

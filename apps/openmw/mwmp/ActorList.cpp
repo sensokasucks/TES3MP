@@ -91,7 +91,7 @@ void ActorList::addAiActor(BaseActor baseActor)
 void ActorList::addAiActor(const MWWorld::Ptr& actorPtr, const MWWorld::Ptr& targetPtr, unsigned int aiAction)
 {
     mwmp::BaseActor baseActor;
-    baseActor.refNum = actorPtr.getCellRef().getRefNum().mIndex;
+    baseActor.refNum = actorPtr.getCellRef().getMpRefNum();
     baseActor.mpNum = actorPtr.getCellRef().getMpNum();
     baseActor.aiAction = aiAction;
     baseActor.aiTarget = MechanicsHelper::getTarget(targetPtr);
@@ -121,7 +121,7 @@ void ActorList::addAttackActor(BaseActor baseActor)
 void ActorList::addAttackActor(const MWWorld::Ptr& actorPtr, const mwmp::Attack &attack)
 {
     mwmp::BaseActor baseActor;
-    baseActor.refNum = actorPtr.getCellRef().getRefNum().mIndex;
+    baseActor.refNum = actorPtr.getCellRef().getMpRefNum();
     baseActor.mpNum = actorPtr.getCellRef().getMpNum();
     baseActor.attack = attack;
     attackActors.push_back(baseActor);
@@ -258,11 +258,11 @@ void ActorList::sendActorsInCell(MWWorld::CellStore* cellStore)
         MWWorld::Ptr ptr(&ref, 0);
 
         // If this Ptr is lacking a unique index, ignore it
-        if (ptr.getCellRef().getRefNum().mIndex == 0 && ptr.getCellRef().getMpNum() == 0) continue;
+        if (ptr.getCellRef().getMpRefNum() == 0 && ptr.getCellRef().getMpNum() == 0) continue;
 
         BaseActor actor;
         actor.refId = ptr.getCellRef().getRefId().getRefIdString();
-        actor.refNum = ptr.getCellRef().getRefNum().mIndex;
+        actor.refNum = ptr.getCellRef().getMpRefNum();
         actor.mpNum = ptr.getCellRef().getMpNum();
 
         addActor(actor);
@@ -273,11 +273,11 @@ void ActorList::sendActorsInCell(MWWorld::CellStore* cellStore)
         MWWorld::Ptr ptr(&ref, 0);
 
         // If this Ptr is lacking a unique index, ignore it
-        if (ptr.getCellRef().getRefNum().mIndex == 0 && ptr.getCellRef().getMpNum() == 0) continue;
+        if (ptr.getCellRef().getMpRefNum() == 0 && ptr.getCellRef().getMpNum() == 0) continue;
 
         BaseActor actor;
         actor.refId = ptr.getCellRef().getRefId().getRefIdString();
-        actor.refNum = ptr.getCellRef().getRefNum().mIndex;
+        actor.refNum = ptr.getCellRef().getMpRefNum();
         actor.mpNum = ptr.getCellRef().getMpNum();
 
         addActor(actor);

@@ -104,7 +104,7 @@ bool PlayerList::isDedicatedPlayer(const MWWorld::Ptr &ptr)
         return false;
 
     // Players always have 0 as their refNum and mpNum
-    if (ptr.getCellRef().getRefNum().mIndex != 0 || ptr.getCellRef().getMpNum() != 0)
+    if (ptr.getCellRef().getMpRefNum() != 0 || ptr.getCellRef().getMpNum() != 0)
         return false;
 
     return (getPlayer(ptr) != nullptr);

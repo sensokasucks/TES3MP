@@ -1911,7 +1911,7 @@ void LocalPlayer::storeCellState(const ESM::Cell& storedCell, int stateType)
 void LocalPlayer::storeCurrentContainer(const MWWorld::Ptr &container)
 {
     currentContainer.refId = container.getCellRef().getRefId().getRefIdString();
-    currentContainer.refNum = container.getCellRef().getRefNum().mIndex;
+    currentContainer.refNum = container.getCellRef().getMpRefNum();
     currentContainer.mpNum = container.getCellRef().getMpNum();
 }
 

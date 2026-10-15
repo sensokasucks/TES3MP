@@ -504,7 +504,7 @@ void Cell::initializeLocalActors()
             MWWorld::Ptr ptr(mergedRef, store);
 
             // If this Ptr is lacking a unique index, ignore it
-            if (ptr.getCellRef().getRefNum().mIndex == 0 && ptr.getCellRef().getMpNum() == 0) continue;
+            if (ptr.getCellRef().getMpRefNum() == 0 && ptr.getCellRef().getMpNum() == 0) continue;
 
             // If this Ptr is disabled or deleted, ignore it
             if (!ptr.getRefData().isEnabled() || ptr.mRef->isDeleted()) continue;

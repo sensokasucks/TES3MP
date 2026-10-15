@@ -858,7 +858,7 @@ namespace MWGui
                 title of the console window, for easier debugging of almost everything
             */
             title.append(" (" + mPtr.getCellRef().getRefId().toDebugString() + ", " +
-                std::to_string(mPtr.getCellRef().getRefNum().mIndex) + "-" +
+                std::to_string(mPtr.getCellRef().getMpRefNum()) + "-" +
                 std::to_string(mPtr.getCellRef().getMpNum()) + ")");
             /*
                 End of tes3mp change (major)

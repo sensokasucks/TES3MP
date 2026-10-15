@@ -781,7 +781,7 @@ namespace MWWorld
 
         bool operator()(const Ptr& ptr)
         {
-            if (ptr.getCellRef().getRefNum().mIndex == mRefNumToFind && ptr.getCellRef().getMpNum() == mMpNumToFind)
+            if (ptr.getCellRef().getMpRefNum() == mRefNumToFind && ptr.getCellRef().getMpNum() == mMpNumToFind)
             {
                 if (!mActorsOnly || ptr.getClass().isActor())
                 {

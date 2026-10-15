@@ -392,7 +392,7 @@ std::string CellController::generateMapIndex(int refNum, int mpNum)
 
 std::string CellController::generateMapIndex(MWWorld::Ptr ptr)
 {
-    return generateMapIndex(ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
+    return generateMapIndex(ptr.getCellRef().getMpRefNum(), ptr.getCellRef().getMpNum());
 }
 
 std::string CellController::generateMapIndex(BaseActor baseActor)

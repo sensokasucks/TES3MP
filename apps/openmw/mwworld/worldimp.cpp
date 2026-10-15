@@ -783,7 +783,8 @@ namespace MWWorld
                     MWWorld::Ptr ptr(mergedRef, cellStore);
 
                     const ESM::Position* position = &ptr.getRefData().getPosition();
-                    const unsigned int refNum = ptr.getCellRef().getRefNum().mIndex;
+                    const ESM::RefNum fullRefNum = ptr.getCellRef().getRefNum();
+                    const unsigned int refNum = ptr.getCellRef().getMpRefNum();
                     const unsigned int mpNum = ptr.getCellRef().getMpNum();
 
                     deleteObject(ptr);
@@ -792,7 +793,12 @@ namespace MWWorld
 
                     MWWorld::ManualRef* reference = new MWWorld::ManualRef(getStore(), refId, 1);
                     MWWorld::Ptr newPtr = placeObject(reference->getPtr(), cellStore, *position);
-                    newPtr.getCellRef().setRefNum(refNum);
+
+                    // placeObject() registered newPtr under a freshly generated RefNum; give it back the
+                    // original one so the PtrRegistry and TES3MP's refNum/mpNum identity stay in sync
+                    mWorldModel.deregisterLiveCellRef(*newPtr.mRef);
+                    newPtr.getCellRef().setRefNum(fullRefNum);
+                    mWorldModel.registerPtr(newPtr);
                     newPtr.getCellRef().setMpNum(mpNum);
 
                     // Update Ptrs for LocalActors and DedicatedActors

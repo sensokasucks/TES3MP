@@ -360,7 +360,7 @@ void LocalActor::setPtr(const MWWorld::Ptr& newPtr)
     ptr = newPtr;
 
     refId = ptr.getCellRef().getRefId().getRefIdString();
-    refNum = ptr.getCellRef().getRefNum().mIndex;
+    refNum = ptr.getCellRef().getMpRefNum();
     mpNum = ptr.getCellRef().getMpNum();
 
     lastDrawState = ptr.getClass().getCreatureStats(ptr).getDrawState();

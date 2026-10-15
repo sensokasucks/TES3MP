@@ -56,6 +56,14 @@ namespace MWWorld
             Get the mMpNum (unique multiplayer reference number) of a CellRef
         */
         unsigned int getMpNum() const;
+
+        /*
+            Get the refNum index TES3MP uses to identify this reference: the ESM index for references
+            that come from a content file, or 0 for references created at runtime (OpenMW 0.49+ assigns
+            generated RefNums to those, which differ between clients and sessions, so TES3MP keeps
+            identifying them by their mpNum alone as it did on 0.47)
+        */
+        unsigned int getMpRefNum() const;
         /*
             End of tes3mp addition
         */

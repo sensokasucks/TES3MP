@@ -184,7 +184,7 @@ namespace MWGui
                 */
                 mwmp::CurrentContainer *currentContainer = &mwmp::Main::get().getLocalPlayer()->currentContainer;
 
-                if (currentContainer->refNum != source.first.getCellRef().getRefNum().mIndex ||
+                if (currentContainer->refNum != source.first.getCellRef().getMpRefNum() ||
                     currentContainer->mpNum != source.first.getCellRef().getMpNum())
                 {
                     mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();

@@ -214,7 +214,7 @@ void DedicatedActor::setAi()
     ptrCreatureStats->setAiSetting(MWMechanics::AiSetting::Fight, 0);
 
     LOG_APPEND(TimedLog::LOG_VERBOSE, "- actor cellRef: %s %i-%i",
-        ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
+        ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getMpRefNum(), ptr.getCellRef().getMpNum());
 
     if (aiAction == mwmp::BaseActorList::CANCEL)
     {
@@ -414,7 +414,7 @@ void DedicatedActor::setPtr(const MWWorld::Ptr& newPtr)
     ptr = newPtr;
 
     refId = ptr.getCellRef().getRefId().getRefIdString();
-    refNum = ptr.getCellRef().getRefNum().mIndex;
+    refNum = ptr.getCellRef().getMpRefNum();
     mpNum = ptr.getCellRef().getMpNum();
 
     position = ptr.getRefData().getPosition();

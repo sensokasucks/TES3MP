@@ -138,6 +138,12 @@ namespace MWWorld
 
         Get the mMpNum (unique multiplayer number) of a CellRef
     */
+    unsigned int CellRef::getMpRefNum() const
+    {
+        const ESM::RefNum refNum = getRefNum();
+        return refNum.hasContentFile() ? refNum.mIndex : 0;
+    }
+
     unsigned int CellRef::getMpNum() const
     {
         return std::visit(ESM::VisitOverload{ [&](const ESM4::Reference&) -> unsigned int { return 0; },

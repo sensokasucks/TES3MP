@@ -127,7 +127,7 @@ namespace MWWorld
             if (newCellStore)
             {
                 mwmp::BaseActor baseActor;
-                baseActor.refNum = actor.getCellRef().getRefNum().mIndex;
+                baseActor.refNum = actor.getCellRef().getMpRefNum();
                 baseActor.mpNum = actor.getCellRef().getMpNum();
                 baseActor.cell = newCellStore->getCell()->getEsm3();
                 baseActor.position = actor.getRefData().getPosition();

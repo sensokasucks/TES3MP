@@ -95,7 +95,7 @@ mwmp::BaseObject ObjectList::getBaseObjectFromPtr(const MWWorld::Ptr& ptr)
     {
         baseObject.isPlayer = false;
         baseObject.refId = ptr.getCellRef().getRefId().getRefIdString();
-        baseObject.refNum = ptr.getCellRef().getRefNum().mIndex;
+        baseObject.refNum = ptr.getCellRef().getMpRefNum();
         baseObject.mpNum = ptr.getCellRef().getMpNum();
     }
 
@@ -153,7 +153,7 @@ void ObjectList::addContainerItem(mwmp::BaseObject& baseObject, const std::strin
 void ObjectList::addEntireContainer(const MWWorld::Ptr& ptr)
 {
     LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Adding entire container %s %i-%i", ptr.getCellRef().getRefId().getRefIdString().c_str(),
-        ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
+        ptr.getCellRef().getMpRefNum(), ptr.getCellRef().getMpNum());
 
     MWWorld::ContainerStore& containerStore = ptr.getClass().getContainerStore(ptr);
 
@@ -200,7 +200,7 @@ void ObjectList::editContainers(MWWorld::CellStore* cellStore)
             {
                 CurrentContainer *currentContainer = &mwmp::Main::get().getLocalPlayer()->currentContainer;
 
-                if (currentContainer->refNum == ptrFound.getCellRef().getRefNum().mIndex &&
+                if (currentContainer->refNum == ptrFound.getCellRef().getMpRefNum() &&
                     currentContainer->mpNum == ptrFound.getCellRef().getMpNum())
                 {
                     isCurrentContainer = true;
@@ -388,7 +388,7 @@ void ObjectList::activateObjects(MWWorld::CellStore* cellStore)
             {
                 activatingActorPtr = cellStore->searchExact(baseObject.activatingActor.refNum, baseObject.activatingActor.mpNum, baseObject.activatingActor.refId);
                 LOG_APPEND(TimedLog::LOG_VERBOSE, "-- Object has been activated by actor %s %i-%i", activatingActorPtr.getCellRef().getRefId().getRefIdString().c_str(),
-                    activatingActorPtr.getCellRef().getRefNum().mIndex, activatingActorPtr.getCellRef().getMpNum());
+                    activatingActorPtr.getCellRef().getMpRefNum(), activatingActorPtr.getCellRef().getMpNum());
             }
 
             if (!activatingActorPtr.isEmpty())
@@ -557,7 +557,7 @@ void ObjectList::spawnObjects(MWWorld::CellStore* cellStore)
                     }
 
                     LOG_APPEND(TimedLog::LOG_INFO, "-- registering summoned creature %u-%u for its master",
-                        newPtr.getCellRef().getRefNum().mIndex, newPtr.getCellRef().getMpNum());
+                        newPtr.getCellRef().getMpRefNum(), newPtr.getCellRef().getMpNum());
 
                     // Check if this creature is present in the summoner's summoned creature map
                     std::multimap<ESM::RefId, ESM::RefNum>& creatureMap = masterCreatureStats.getSummonedCreatureMap();
@@ -612,7 +612,7 @@ void ObjectList::deleteObjects(MWWorld::CellStore* cellStore)
             {
                 CurrentContainer *currentContainer = &mwmp::Main::get().getLocalPlayer()->currentContainer;
 
-                if (currentContainer->refNum == ptrFound.getCellRef().getRefNum().mIndex &&
+                if (currentContainer->refNum == ptrFound.getCellRef().getMpRefNum() &&
                     currentContainer->mpNum == ptrFound.getCellRef().getMpNum())
                 {
                     MWBase::Environment::get().getWindowManager()->removeGuiMode(MWGui::GM_Container);

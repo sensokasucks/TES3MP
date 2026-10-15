@@ -1280,7 +1280,7 @@ namespace MWMechanics
                     npcStats.setCrimeId(-1);
                     npcStats.setCrimeTime(time(0));
                     LOG_MESSAGE_SIMPLE(TimedLog::LOG_INFO, "NPC %s %i-%i has forgiven player's crimes after the player's death",
-                        ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getRefNum().mIndex, ptr.getCellRef().getMpNum());
+                        ptr.getCellRef().getRefId().getRefIdString().c_str(), ptr.getCellRef().getMpRefNum(), ptr.getCellRef().getMpNum());
                 }
             }
             /*
