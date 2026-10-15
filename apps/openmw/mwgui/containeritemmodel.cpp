@@ -103,7 +103,7 @@ namespace MWGui
 
     ItemModel::ModelIndex ContainerItemModel::getIndex(const ItemStack& item)
     {
-        size_t i = 0;
+        ModelIndex i = 0;
         for (ItemStack& itemStack : mItems)
         {
             if (itemStack == item)
@@ -132,7 +132,7 @@ namespace MWGui
         objectList->action = mwmp::BaseObjectList::ADD;
         objectList->containerSubAction = mwmp::BaseObjectList::NONE;
         mwmp::BaseObject baseObject = objectList->getBaseObjectFromPtr(source.first);
-        objectList->addContainerItem(baseObject, item.mBase, count, 0);
+        objectList->addContainerItem(baseObject, item.mBase, static_cast<int>(count), 0);
         objectList->addBaseObject(baseObject);
         objectList->sendContainer();
         /*
@@ -158,13 +158,13 @@ namespace MWGui
         MWWorld::ContainerStore& store = source.first.getClass().getContainerStore(source.first);
         if (item.mBase.getContainerStore() == &store)
             throw std::runtime_error("Item to copy needs to be from a different container!");
-        MWWorld::ManualRef newRef(*MWBase::Environment::get().getESMStore(), item.mBase, count);
-        return *store.add(newRef.getPtr(), count, allowAutoEquip);
+        MWWorld::ManualRef newRef(*MWBase::Environment::get().getESMStore(), item.mBase, static_cast<int>(count));
+        return *store.add(newRef.getPtr(), static_cast<int>(count), allowAutoEquip);
     }
 
     void ContainerItemModel::removeItem(const ItemStack& item, size_t count)
     {
-        int toRemove = count;
+        int toRemove = static_cast<int>(count);
 
         for (auto& source : mItemSources)
         {
@@ -213,8 +213,8 @@ namespace MWGui
                     End of tes3mp change (major)
                 */
 
-                if (toRemove <= 0)
-                    return;
+                    if (toRemove <= 0)
+                        return;
                 }
             }
         }
@@ -317,7 +317,7 @@ namespace MWGui
         if (target.getType() != ESM::Container::sRecordId)
             return true;
 
-        // check container organic flag
+        // Check container organic flag
         MWWorld::LiveCellRef<ESM::Container>* ref = target.get<ESM::Container>();
         if (ref->mBase->mFlags & ESM::Container::Organic)
         {
@@ -325,9 +325,18 @@ namespace MWGui
             return false;
         }
 
-        // check that we don't exceed container capacity
-        float weight = item.getClass().getWeight(item) * count;
-        if (target.getClass().getCapacity(target) < target.getClass().getEncumbrance(target) + weight)
+        // Check for container without capacity
+        float capacity = target.getClass().getCapacity(target);
+        if (capacity <= 0.0f)
+        {
+            MWBase::Environment::get().getWindowManager()->messageBox("#{sContentsMessage3}");
+            return false;
+        }
+
+        // Check the container capacity plus one increment so the expected total weight can
+        // fit in the container with floating-point imprecision
+        float newEncumbrance = target.getClass().getEncumbrance(target) + (item.getClass().getWeight(item) * count);
+        if (std::nextafterf(capacity, std::numeric_limits<float>::max()) < newEncumbrance)
         {
             MWBase::Environment::get().getWindowManager()->messageBox("#{sContentsMessage3}");
             return false;

@@ -21,11 +21,14 @@ Configuration files and log files
 | Mac          | ``$HOME/Library/Preferences/openmw``                                                          |
 +--------------+---------------+-------------------------------------------------------------------------------+
 | Windows      | File Explorer | ``Documents\My Games\OpenMW``                                                 |
-|              |               |                                                                               |
+|              +---------------+-------------------------------------------------------------------------------+
 |              | PowerShell    | ``Join-Path ([environment]::GetFolderPath("mydocuments")) "My Games\OpenMW"`` |
-|              |               |                                                                               |
+|              +---------------+-------------------------------------------------------------------------------+
 |              | Example       | ``C:\Users\Username\Documents\My Games\OpenMW``                               |
 +--------------+---------------+-------------------------------------------------------------------------------+
+
+.. note::
+    Flatpak sets ``$XDG_CONFIG_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/config``, so these files will be at ``$HOME/.var/app/org.openmw.OpenMW/config/openmw`` if you use the Flatpak.
 
 Savegames
 ---------
@@ -38,11 +41,14 @@ Savegames
 | Mac          | ``$HOME/Library/Application\ Support/openmw/saves``                                                 |
 +--------------+---------------+-------------------------------------------------------------------------------------+
 | Windows      | File Explorer | ``Documents\My Games\OpenMW\saves``                                                 |
-|              |               |                                                                                     |
+|              +---------------+-------------------------------------------------------------------------------------+
 |              | PowerShell    | ``Join-Path ([environment]::GetFolderPath("mydocuments")) "My Games\OpenMW\saves"`` |
-|              |               |                                                                                     |
+|              +---------------+-------------------------------------------------------------------------------------+
 |              | Example       | ``C:\Users\Username\Documents\My Games\OpenMW\saves``                               |
 +--------------+---------------+-------------------------------------------------------------------------------------+
+
+.. note::
+    Flatpak sets ``$XDG_DATA_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/data``, so saves will be at ``$HOME/.var/app/org.openmw.OpenMW/data/openmw/saves`` if you use the Flatpak.
 
 Screenshots
 -----------
@@ -55,11 +61,39 @@ Screenshots
 | Mac          | ``$HOME/Library/Application\ Support/openmw/screenshots``                                                 |
 +--------------+---------------+-------------------------------------------------------------------------------------------+
 | Windows      | File Explorer | ``Documents\My Games\OpenMW\screenshots``                                                 |
-|              |               |                                                                                           |
+|              +---------------+-------------------------------------------------------------------------------------------+
 |              | PowerShell    | ``Join-Path ([environment]::GetFolderPath("mydocuments")) "My Games\OpenMW\screenshots"`` |
-|              |               |                                                                                           |
+|              +---------------+-------------------------------------------------------------------------------------------+
 |              | Example       | ``C:\Users\Username\Documents\My Games\OpenMW\screenshots``                               |
 +--------------+---------------+-------------------------------------------------------------------------------------------+
+
+.. note::
+    Flatpak sets ``$XDG_DATA_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/data``, so screenshots will be at ``$HOME/.var/app/org.openmw.OpenMW/data/openmw/screenshots`` if you use the Flatpak.
+
+Override directory (data-local)
+-------------------------------
+
+This is the directory in which OpenMW-CS saves generated content files. 
+Additionally, this is always the last-loaded data directory in OpenMW, overriding any which came before it.
+This can be useful, for instance, for placing automatically-generated plugins created by external tools or to be very certain that particular assets are always overridden regardless of load order.
+You may define your own, custom ``data-local`` directory by using it as a key in ``openmw.cfg``, e.g. ``data-local=C:/Games/OpenMW/data``.
+
++--------------+----------------------------------------------------------------------------------------------------+
+| OS           | Location                                                                                           |
++==============+====================================================================================================+
+| Linux        | ``$XDG_DATA_HOME/openmw/data`` or ``$HOME/.local/share/openmw/data``                               |
++--------------+----------------------------------------------------------------------------------------------------+
+| Mac          | ``$HOME/Library/Application\ Support/openmw/data``                                                 |
++--------------+---------------+------------------------------------------------------------------------------------+
+| Windows      | File Explorer | ``Documents\My Games\OpenMW\data``                                                 |
+|              +---------------+------------------------------------------------------------------------------------+
+|              | PowerShell    | ``Join-Path ([environment]::GetFolderPath("mydocuments")) "My Games\OpenMW\data"`` |
+|              +---------------+------------------------------------------------------------------------------------+
+|              | Example       | ``C:\Users\Username\Documents\My Games\OpenMW\data``                               |
++--------------+---------------+------------------------------------------------------------------------------------+
+
+.. note::
+    Flatpak sets ``$XDG_DATA_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/data``, so data-local will be set to ``$HOME/.var/app/org.openmw.OpenMW/data/openmw/data`` if you use the Flatpak.
 
 Custom configuration directories
 ================================
@@ -134,7 +168,8 @@ This can't change until computers are able to read minds.
 Lines with options have an option name, then an equals sign (``=``), then an option value.
 Option names and values have leading and trailing whitespace trimmed, but whitespace within an option value is preserved - it's only removed if it's at the ends.
 This means that these are all equivalent:
-::
+
+.. code-block:: openmwcfg
 
     data=some/dir
         data=some/dir
@@ -183,6 +218,9 @@ Tokens are used in the `Default paths`_.
     | Windows      | ``Documents\My Games\OpenMW\``                            |
     +--------------+-----------------------------------------------------------+
 
+.. note::
+    Flatpak sets ``$XDG_CONFIG_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/config``, so ``?userconfig?`` will mean ``$HOME/.var/app/org.openmw.OpenMW/config/openmw/`` if you use the Flatpak.
+
 :``?userdata?``: Platform-dependent:
 
     +--------------+--------------------------------------------------------------+
@@ -194,6 +232,9 @@ Tokens are used in the `Default paths`_.
     +--------------+--------------------------------------------------------------+
     | Windows      | ``Documents\My Games\OpenMW\``                               |
     +--------------+--------------------------------------------------------------+
+
+.. note::
+    Flatpak sets ``$XDG_DATA_HOME`` to ``$HOME/.var/app/$FLATPAK_ID/data``, so ``?userdata?`` will mean ``$HOME/.var/app/org.openmw.OpenMW/data/openmw/`` if you use the Flatpak.
 
 :``?global?``: Platform-dependent:
 
@@ -226,7 +267,10 @@ Navigate to the OpenMW installation directory, and open the ``openmw.cfg`` file 
 By default, this contains a warning at the top telling you that this is the local ``openmw.cfg`` and not to modify it.
 However, for this kind of install, it's okay to do so, so you can remove this warning.
 
-Change the start of the file from::
+Change the start of the file from:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     # This is the local openmw.cfg file. Do not modify!
     # Modifications should be done on the user openmw.cfg file instead
@@ -243,7 +287,10 @@ Change the start of the file from::
     fallback=LightAttenuation_ConstantValue,0.0
     fallback=LightAttenuation_UseLinear,1
 
-to::
+to:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     data-local=userdata/data
     user-data=userdata
@@ -274,7 +321,10 @@ Navigate to the OpenMW installation directory, and open the ``openmw.cfg`` file 
 By default, this contains a warning at the top telling you that this is the local ``openmw.cfg`` and not to modify it.
 However, you'll need to make a small change to create this kind of install.
 
-Change the start of the file from::
+Change the start of the file from:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     # This is the local openmw.cfg file. Do not modify!
     # Modifications should be done on the user openmw.cfg file instead
@@ -291,7 +341,10 @@ Change the start of the file from::
     fallback=LightAttenuation_ConstantValue,0.0
     fallback=LightAttenuation_UseLinear,1
 
-to::
+to:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     # This is the local openmw.cfg file. Do not modify!
     # Modifications should be done on the user openmw.cfg file instead
@@ -330,7 +383,10 @@ From scratch
 Start by installing OpenMW in the usual way.
 Don't bother with first-time setup (i.e. telling it the location of an existing *Morrowind* installation).
 
-In the default configuration directory (see `Configuration files and log files`_), create a file called ``openmw.cfg`` containing just::
+In the default configuration directory (see `Configuration files and log files`_), create a file called ``openmw.cfg`` containing just
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     # select the game profile
     config=Morrowind
@@ -340,7 +396,10 @@ This will put the basic setup required to play *Morrowind* into a new ``Morrowin
 
 Next, come up with a name for the subprofile you'll create for your mod list.
 If you're following a modding guide, they've probably already given it a name, e.g. *Total Overhaul*, so that's the example we'll use.
-Add a line to the ``Morrowind/openmw.cfg`` with the profile name, e.g.::
+Add a line to the ``Morrowind/openmw.cfg`` with the profile name like this:
+
+.. code-block:: openmwcfg
+    :caption: Morrowind/openmw.cfg
 
     # select the mod list profile
     config=Total Overhaul
@@ -356,7 +415,10 @@ The ones in the ``Morrowind`` directory are used for all profiles for *Morrowind
 The ones in the ``Morrowind/Total Overhaul`` directory are only used for the *Total Overhaul* profile, so you can set up that mod list and any settings it requires here, and they won't affect any other profiles you set up later.
 Making changes within the launcher will affect these files and leave all the others alone.
 
-If you want the *Total Overhaul* profile to keep its saved games etc. in a dedicated location instead of mixing them in with ones from another profile, you can add a ``user-data=…`` line to your ``Morrowind/Total Overhaul/openmw.cfg``, e.g.::
+If you want the *Total Overhaul* profile to keep its saved games etc. in a dedicated location instead of mixing them in with ones from another profile, you can add a ``user-data=…`` line to your ``Morrowind/Total Overhaul/openmw.cfg``, like this:
+
+.. code-block:: openmwcfg
+    :caption: Morrowind/Total Overhaul/openmw.cfg
 
     # put saved games in a saves directory next to this file
     user-data=.
@@ -377,12 +439,18 @@ You'll now have an empty directory e.g. at ``Documents\My Games\OpenMW\Original`
 Next, move all the files that were already in the default configuration directory to the profile directory you just made.
 Afterwards, the default configuration directory should only contain the profile directory you made.
 
-Create a new ``openmw.cfg`` file in the default configuration directory containing::
+Create a new ``openmw.cfg`` file in the default configuration directory containing:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     # select the profile
     config=Original
 
-In the ``openmw.cfg`` in the profile directory, add these lines::
+In the ``openmw.cfg`` in the profile directory, add these lines:
+
+.. code-block:: openmwcfg
+    :caption: openmw.cfg
 
     data-local=data
     user-data=.
@@ -402,9 +470,11 @@ Passing arguments on the command line lets you avoid this.
 
 The basic idea is that you need to pass ``--replace config`` to ignore the configuration directories that the engine would have loaded because they were specified in ``openmw.cfg`` files, and pass each one you want to use instead with ``--config <directory path here>``.
 
-E.g. if you've got a profile called *Morrowind* in your default configuration directory, and it's got a *Total Overhaul* subprofile, you could load it by running::
+E.g. if you've got a profile called *Morrowind* in your default configuration directory, and it's got a *Total Overhaul* subprofile, you could load it by running:
 
-    openmw --replace config --config ?userconfig?/Morrowind --config "?userconfig?/Morrowind/Total Overhaul"
+.. code-block:: console
+
+    $ openmw --replace config --config ?userconfig?/Morrowind --config "?userconfig?/Morrowind/Total Overhaul"
 
 You can put this command into a script or shortcut and use it to easily launch OpenMW with that profile.
 
@@ -422,15 +492,17 @@ On Windows, you can create a desktop shortcut to run this command with these ste
 * At the end of that field, add the arguments for the profile you want, e.g. ``--replace config --config ?userconfig?/Morrowind --config "?userconfig?/Morrowind/Total Overhaul"``.
 * Press *Apply* or *OK* to save the changes, and test the shortcut by double-clicking it.
 
-On most Linux distros, you can create a ``.desktop`` file like this::
+On most Linux distros, you can create a ``.desktop`` file like this:
 
-    [Desktop Entry]
-    Type=Application
-    Name=OpenMW - Total Overhaul
-    GenericName=Role Playing Game
-    Comment=OpenMW with the Total Overhaul profile
-    Keywords=Morrowind;Reimplementation Mods;esm;bsa;
-    TryExec=openmw
-    Exec=openmw --replace config --config ?userconfig?/Morrowind --config "?userconfig?/Morrowind/Total Overhaul" 
-    Icon=openmw
-    Categories=Game;RolePlaying;
+.. code-block:: desktop
+
+	[Desktop Entry]
+	Type=Application
+	Name=OpenMW - Total Overhaul
+	GenericName=Role Playing Game
+	Comment=OpenMW with the Total Overhaul profile
+	Keywords=Morrowind;Reimplementation Mods;esm;bsa;
+	TryExec=openmw
+	Exec=openmw --replace config --config ?userconfig?/Morrowind --config "?userconfig?/Morrowind/Total Overhaul" 
+	Icon=openmw
+	Categories=Game;RolePlaying;

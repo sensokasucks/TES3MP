@@ -154,7 +154,7 @@ namespace MWRender
             float mLoopStopTime = 0;
             float mStopTime = 0;
 
-            std::shared_ptr<float> mTime = std::make_shared<float>(0);
+            std::shared_ptr<float> mTime = std::make_shared<float>(0.0f);
             float mSpeedMult = 1;
 
             bool mPlaying = false;
@@ -167,7 +167,9 @@ namespace MWRender
 
             std::string mGroupname;
             std::string mStartKey;
+            std::string mStopKey;
 
+            float getCompletion() const;
             float getTime() const { return *mTime; }
             void setTime(float time) { *mTime = time; }
             bool blendMaskContains(size_t blendMask) const { return (mBlendMask & (1 << blendMask)); }
@@ -181,6 +183,7 @@ namespace MWRender
         AnimSourceList mAnimSources;
 
         std::unordered_set<std::string_view> mSupportedAnimations;
+        mutable std::vector<std::pair<std::string, MWWorld::MovementDirectionFlags>> mSupportedDirections;
 
         osg::ref_ptr<osg::Group> mInsert;
 
@@ -314,6 +317,8 @@ namespace MWRender
             const AnimBlendStateData& stateData, const osg::ref_ptr<const SceneUtil::AnimBlendRules>& blendRules,
             const AnimState& active);
 
+        void animationEnded(AnimState& state) const;
+
     public:
         Animation(
             const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem);
@@ -410,7 +415,7 @@ namespace MWRender
          * \return True if the animation is active, false otherwise.
          */
         bool getInfo(std::string_view groupname, float* complete = nullptr, float* speedmult = nullptr,
-            size_t* loopcount = nullptr) const;
+            uint32_t* loopcount = nullptr) const;
 
         /// Returns the group name of the animation currently active on that bone group.
         std::string_view getActiveGroup(BoneGroup boneGroup) const;
@@ -483,6 +488,7 @@ namespace MWRender
 
         virtual void setAccurateAiming(bool enabled) {}
         virtual bool canBeHarvested() const { return false; }
+        virtual void harvest(const MWWorld::Ptr& ptr) {}
 
         virtual void removeFromScene();
 
@@ -498,6 +504,7 @@ namespace MWRender
             bool animated, bool allowLight);
 
         bool canBeHarvested() const override;
+        void harvest(const MWWorld::Ptr& ptr) override;
     };
 
     class UpdateVfxCallback : public SceneUtil::NodeCallback<UpdateVfxCallback>

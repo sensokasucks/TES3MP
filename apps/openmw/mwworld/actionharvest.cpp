@@ -24,6 +24,8 @@
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
 
+#include "../mwrender/animation.hpp"
+
 #include "class.hpp"
 #include "containerstore.hpp"
 
@@ -146,8 +148,9 @@ namespace MWWorld
                 MWBase::Environment::get().getWindowManager()->messageBox(tooltip);
         }
 
-        // Update animation object
-        MWBase::Environment::get().getWorld()->disable(target);
-        MWBase::Environment::get().getWorld()->enable(target);
+        auto world = MWBase::Environment::get().getWorld();
+        MWRender::Animation* anim = world->getAnimation(target);
+        if (anim != nullptr)
+            anim->harvest(target);
     }
 }

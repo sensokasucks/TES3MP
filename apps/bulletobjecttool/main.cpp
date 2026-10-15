@@ -20,7 +20,7 @@
 #include <components/resource/niffilemanager.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/settings/settings.hpp>
-#include <components/to_utf8/to_utf8.hpp>
+#include <components/toutf8/toutf8.hpp>
 #include <components/version/version.hpp>
 #include <components/vfs/manager.hpp>
 #include <components/vfs/registerarchives.hpp>
@@ -155,7 +155,7 @@ namespace
 
         VFS::Manager vfs;
 
-        VFS::registerArchives(&vfs, fileCollections, archives, true);
+        VFS::registerArchives(&vfs, fileCollections, archives, true, &encoder.getStatelessEncoder());
 
         Settings::Manager::load(config);
 

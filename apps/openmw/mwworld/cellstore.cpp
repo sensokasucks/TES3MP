@@ -20,6 +20,7 @@
 #include <components/debug/debuglog.hpp>
 
 #include <components/esm/format.hpp>
+#include <components/esm3/actoridconverter.hpp>
 #include <components/esm3/cellref.hpp>
 #include <components/esm3/cellstate.hpp>
 #include <components/esm3/containerstate.hpp>
@@ -155,25 +156,6 @@ namespace
     }
 
     template <typename T>
-    MWWorld::Ptr searchViaActorId(MWWorld::CellRefList<T>& actorList, int actorId, MWWorld::CellStore* cell,
-        const std::map<MWWorld::LiveCellRefBase*, MWWorld::CellStore*>& toIgnore)
-    {
-        for (typename MWWorld::CellRefList<T>::List::iterator iter(actorList.mList.begin());
-             iter != actorList.mList.end(); ++iter)
-        {
-            MWWorld::Ptr actor(&*iter, cell);
-
-            if (toIgnore.find(&*iter) != toIgnore.end())
-                continue;
-
-            if (actor.getClass().getCreatureStats(actor).matchesActorId(actorId) && actor.getCellRef().getCount() > 0)
-                return actor;
-        }
-
-        return MWWorld::Ptr();
-    }
-
-    template <typename T>
     void writeReferenceCollection(ESM::ESMWriter& writer, const MWWorld::CellRefList<T>& collection)
     {
         // references
@@ -287,6 +269,14 @@ namespace
         {
             if constexpr (std::is_same_v<T, ESM::Creature> || std::is_same_v<T, ESM::NPC>)
                 MWWorld::convertEnchantmentSlots(state.mCreatureStats, state.mInventory);
+        }
+        if constexpr (std::is_same_v<T, ESM::Creature> || std::is_same_v<T, ESM::NPC>)
+        {
+            if (reader.mActorIdConverter && state.mHasCustomState)
+            {
+                MWBase::Environment::get().getWorldModel()->assignSaveFileRefNum(state.mRef);
+                reader.mActorIdConverter->mMappings.emplace(state.mCreatureStats.mActorId, state.mRef.mRefNum);
+            }
         }
 
         if (state.mRef.mRefNum.hasContentFile())
@@ -900,26 +890,6 @@ namespace MWWorld
         return searchVisitor.mFound;
     }
 
-    Ptr CellStore::searchViaActorId(int id)
-    {
-        if (Ptr ptr = ::searchViaActorId(get<ESM::NPC>(), id, this, mMovedToAnotherCell); !ptr.isEmpty())
-            return ptr;
-
-        if (Ptr ptr = ::searchViaActorId(get<ESM::Creature>(), id, this, mMovedToAnotherCell); !ptr.isEmpty())
-            return ptr;
-
-        for (const auto& [base, _] : mMovedHere)
-        {
-            MWWorld::Ptr actor(base, this);
-            if (!actor.getClass().isActor())
-                continue;
-            if (actor.getClass().getCreatureStats(actor).matchesActorId(id) && actor.getCellRef().getCount() > 0)
-                return actor;
-        }
-
-        return Ptr();
-    }
-
     class RefNumSearchVisitor
     {
         ESM::RefNum mRefNum;
@@ -1478,26 +1448,48 @@ namespace MWWorld
                 }
             }
 
-            for (CellRefList<ESM::Creature>::List::iterator it(get<ESM::Creature>().mList.begin());
-                 it != get<ESM::Creature>().mList.end(); ++it)
+            // Actors need to respawn here even if they've been moved to another cell
+            for (LiveCellRefBase& base : get<ESM::Creature>().mList)
             {
-                Ptr ptr = getCurrentPtr(&*it);
+                Ptr ptr = getCurrentPtr(&base);
                 clearCorpse(ptr, mStore);
                 ptr.getClass().respawn(ptr);
             }
-            for (CellRefList<ESM::NPC>::List::iterator it(get<ESM::NPC>().mList.begin());
-                 it != get<ESM::NPC>().mList.end(); ++it)
+            for (LiveCellRefBase& base : get<ESM::NPC>().mList)
             {
-                Ptr ptr = getCurrentPtr(&*it);
+                Ptr ptr = getCurrentPtr(&base);
                 clearCorpse(ptr, mStore);
                 ptr.getClass().respawn(ptr);
             }
-            forEachType<ESM::CreatureLevList>([](Ptr ptr) {
-                // no need to clearCorpse, handled as part of get<ESM::Creature>()
+            for (LiveCellRefBase& base : get<ESM::CreatureLevList>().mList)
+            {
+                Ptr ptr = getCurrentPtr(&base);
                 if (!ptr.mRef->isDeleted())
                     ptr.getClass().respawn(ptr);
-                return true;
-            });
+            }
+            for (const auto& [base, _] : mMovedHere)
+            {
+                switch (base->getType())
+                {
+                    case ESM::Creature::sRecordId:
+                    case ESM::NPC::sRecordId:
+                    case ESM::CreatureLevList::sRecordId:
+                    {
+                        MWWorld::Ptr ptr(base, this);
+                        if (ptr.mRef->isDeleted())
+                            continue;
+                        // Remove actors that have been dead a while, but don't belong here and didn't get hit by the
+                        // logic above
+                        if (ptr.getClass().isActor())
+                            clearCorpse(ptr, mStore);
+                        else // Respawn lists in their new position
+                            ptr.getClass().respawn(ptr);
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
         }
     }
 
@@ -1555,18 +1547,13 @@ namespace MWWorld
                 ptr.getBase(), static_cast<float>(MWMechanics::getEnchantmentCharge(*enchantment)));
     }
 
-    Ptr MWWorld::CellStore::getMovedActor(int actorId) const
+    CellStore* MWWorld::CellStore::getOriginCell(const Ptr& object) const
     {
-        for (const auto& [cellRef, cell] : mMovedToAnotherCell)
-        {
-            if (cellRef->mClass->isActor() && cellRef->mData.getCustomData())
-            {
-                Ptr actor(cellRef, cell);
-                if (actor.getClass().getCreatureStats(actor).getActorId() == actorId)
-                    return actor;
-            }
-        }
-        return {};
+        MovedRefTracker::const_iterator found = mMovedHere.find(object.getBase());
+        if (found != mMovedHere.end())
+            return found->second;
+
+        return object.getCell();
     }
 
     Ptr CellStore::getPtr(ESM::RefId id)

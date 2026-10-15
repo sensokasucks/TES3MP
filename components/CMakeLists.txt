@@ -61,6 +61,7 @@ add_component_dir (lua
     luastate scriptscontainer asyncpackage utilpackage serialization configuration l10n storage utf8
     shapes/box inputactions yamlloader scripttracker luastateptr
     )
+copy_resource_file("lua/util.lua" "${OPENMW_RESOURCES_ROOT}" "resources/lua_libs/util.lua")
 
 add_component_dir (l10n
     messagebundles manager
@@ -116,7 +117,7 @@ IF (BUILD_OPENMW OR BUILD_OPENCS)
 # End of tes3mp change
 
 add_component_dir (bsa
-    bsa_file compressedbsafile ba2gnrlfile ba2dx10file ba2file memorystream
+    bsafile compressedbsafile ba2gnrlfile ba2dx10file ba2file memorystream
     )
 
 add_component_dir (bullethelpers
@@ -133,7 +134,7 @@ add_component_dir (vfs
 
 add_component_dir (resource
     scenemanager keyframemanager imagemanager animblendrulesmanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem
-    resourcemanager stats animation foreachbulletobject errormarker cachestats bgsmfilemanager
+    resourcemanager stats animation foreachbulletobject errormarker selectionmarker cachestats bgsmfilemanager
     )
 
 add_component_dir (shader
@@ -141,7 +142,7 @@ add_component_dir (shader
     )
 
 add_component_dir (sceneutil
-    clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
+    clone attach visitor util statesetupdater stateupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue pathgridutil waterutil writescene serialize optimizer
     detourdebugdraw navmesh agentpath animblendrules shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
     screencapture depth color riggeometryosgaextension extradata unrefqueue lightcommon lightingmethod clearcolor
@@ -165,9 +166,9 @@ add_component_dir (nifbullet
 ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
 # End of tes3mp change
 
-add_component_dir (to_utf8
-    tables_gen
-    to_utf8
+add_component_dir (toutf8
+    tablesgen
+    toutf8
     )
 
 add_component_dir(esm attr common defs esmcommon records util luascripts format refid esmbridge esmterrain
@@ -183,7 +184,7 @@ add_component_dir(esm attr common defs esmcommon records util luascripts format 
     exteriorcelllocation
     )
 
-add_component_dir(fx pass technique lexer lexer_types parse_constants widgets stateupdater)
+add_component_dir(fx pass technique lexer lexertypes parseconstants widgets stateupdater)
 
 add_component_dir(std140 ubo)
 
@@ -198,7 +199,7 @@ add_component_dir (esm3
     weatherstate quickkeys fogstate spellstate activespells creaturelevliststate doorstate projectilestate debugprofile
     aisequence magiceffects custommarkerstate stolenitems transport animationstate controlsstate mappings readerscache
     infoorder timestamp formatversion landrecorddata selectiongroup dialoguecondition
-    refnum
+    refnum actoridconverter
     )
 
 # Start of tes3mp change
@@ -333,17 +334,20 @@ add_component_dir (debug
     debugging debuglog gldebug debugdraw writeflags
     )
 
-add_definitions(-DMYGUI_DONT_USE_OBSOLETE=ON)
 IF(NOT WIN32 AND NOT APPLE)
-    add_definitions(-DGLOBAL_DATA_PATH="${GLOBAL_DATA_PATH}")
-    add_definitions(-DGLOBAL_CONFIG_PATH="${GLOBAL_CONFIG_PATH}")
+    add_compile_definitions(GLOBAL_DATA_PATH="${GLOBAL_DATA_PATH}")
+    add_compile_definitions(GLOBAL_CONFIG_PATH="${GLOBAL_CONFIG_PATH}")
 ENDIF()
 
 add_component_dir (files
     linuxpath androidpath windowspath macospath fixedpath multidircollection collections configurationmanager
     constrainedfilestream memorystream hash configfileparser openfile constrainedfilestreambuf conversion
-    istreamptr streamwithbuffer
+    istreamptr streamwithbuffer utils
     )
+
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND NOT CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    set_source_files_properties(files/configfileparser.cpp PROPERTIES COMPILE_FLAGS -Wno-shadow)
+endif()
 
 add_component_dir (compiler
     context controlparser errorhandler exception exprparser extensions fileparser generator
@@ -389,7 +393,7 @@ add_component_dir (fontloader
 
 add_component_dir (sdlutil
     events
-    gl4es_init
+    gl4esinit
     imagetosurface
     sdlcursormanager
     sdlgraphicswindow
@@ -496,10 +500,10 @@ copy_resource_file("lua_ui/content.lua" "${OPENMW_RESOURCES_ROOT}" "resources/lu
 
 if(WIN32)
     add_component_dir (crashcatcher
-        windows_crashcatcher
-        windows_crashmonitor
-        windows_crashshm
+        windowscrashcatcher
         windowscrashdumppathhelpers
+        windowscrashmonitor
+        windowscrashshm
     )
 elseif(NOT ANDROID)
     add_component_dir (crashcatcher
@@ -512,6 +516,7 @@ add_component_dir(detournavigator
     areatype
     asyncnavmeshupdater
     bounds
+    cellgridbounds
     changetype
     collisionshapetype
     commulativeaabb
@@ -611,15 +616,15 @@ add_component_dir(platform
 
 if (WIN32)
     add_component_dir(platform
-        file.win32
+        filewin32
         )
 elseif (UNIX)
     add_component_dir(platform
-        file.posix
+        fileposix
         )
 else ()
     add_component_dir(platform
-        file.stdio
+        filestdio
         )
 endif()
 
@@ -678,9 +683,27 @@ endif()
 ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
 # End of tes3mp change
 
+if (MSVC)
+    # these TUs take a lot of memory for codegen
+    # in CI, they often go over the 8GB memory limit if another cl.exe is running at the same time
+    # this option (make sure you're not looking at the docs for the identically-named linker option) stops four codegen threads being spun off
+    # it hurts build time ~33% to enable this unnecessarily, though, so target it to the hungriest boys
+    set_source_files_properties(
+        detournavigator/tilecachedrecastmeshmanager.cpp
+        lua/utilpackage.cpp
+        PROPERTIES
+        COMPILE_OPTIONS /cgthreads1
+    )
+endif()
+
 include_directories(${BULLET_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
-find_package(SQLite3 REQUIRED)
+if (OPENMW_USE_SYSTEM_SQLITE3)
+    find_package(SQLite3 REQUIRED)
+    if(NOT TARGET SQLite3::SQLite3) # CMake < 4.3
+        add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+    endif()
+endif()
 
 add_library(components STATIC ${COMPONENT_FILES})
 # Start of tes3mp change (major)
@@ -690,6 +713,10 @@ IF (BUILD_OPENMW OR BUILD_OPENCS)
 
 if (ANDROID)
     set_property(TARGET components PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if (APPLE)
+    target_compile_definitions(components PUBLIC GL_SILENCE_DEPRECATION=1)
 endif()
 
 target_link_libraries(components
@@ -711,7 +738,6 @@ target_link_libraries(components
     ${OSG_LIBRARIES}
     ${OPENTHREADS_LIBRARIES}
 
-    Boost::system
     Boost::program_options
     Boost::iostreams
 
@@ -725,7 +751,7 @@ target_link_libraries(components
     RecastNavigation::Recast
 
     Base64
-    SQLite::SQLite3
+    SQLite3::SQLite3
     smhasher
     ${ICU_LIBRARIES}
     ZLIB::ZLIB
@@ -803,8 +829,10 @@ endif()
 # Make the variable accessible for other subdirectories
 set(COMPONENT_FILES ${COMPONENT_FILES} PARENT_SCOPE)
 
-target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)
-target_compile_definitions(components PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
+target_compile_definitions(components PUBLIC
+    BT_USE_DOUBLE_PRECISION
+    MYGUI_DONT_USE_OBSOLETE=ON
+)
 
 if(OSG_STATIC)
     unset(_osg_plugins_static_files)

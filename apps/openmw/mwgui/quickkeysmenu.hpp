@@ -5,6 +5,8 @@
 
 #include "components/esm3/quickkeys.hpp"
 
+#include "../mwworld/manualref.hpp"
+
 #include "itemselection.hpp"
 #include "spellmodel.hpp"
 #include "windowbase.hpp"
@@ -77,6 +79,7 @@ namespace MWGui
         };
 
         std::vector<keyData> mKey;
+        std::vector<MWWorld::ManualRef> mTemp;
         keyData* mSelected;
         keyData* mActivated;
 
@@ -92,6 +95,10 @@ namespace MWGui
         // Check if quick key is still valid
         inline void validate(int index);
         void unassign(keyData* key);
+        void assignItem(MWWorld::Ptr item);
+
+        bool onControllerButtonEvent(const SDL_ControllerButtonEvent& arg) override;
+        size_t mControllerFocus = 0;
     };
 
     class QuickKeysMenuAssign : public WindowModal
@@ -107,6 +114,9 @@ namespace MWGui
         MyGUI::Button* mCancelButton;
 
         QuickKeysMenu* mParent;
+
+        bool onControllerButtonEvent(const SDL_ControllerButtonEvent& arg) override;
+        size_t mControllerFocus = 0;
     };
 
     class MagicSelectionDialog : public WindowModal
@@ -117,6 +127,8 @@ namespace MWGui
         void onOpen() override;
         bool exit() override;
 
+        void setActiveControllerWindow(bool active) override;
+
     private:
         MyGUI::Button* mCancelButton;
         SpellView* mMagicList;
@@ -125,6 +137,8 @@ namespace MWGui
 
         void onCancelButtonClicked(MyGUI::Widget* sender);
         void onModelIndexSelected(SpellModel::ModelIndex index);
+
+        bool onControllerButtonEvent(const SDL_ControllerButtonEvent& arg) override;
     };
 }
 

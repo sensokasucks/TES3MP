@@ -83,7 +83,7 @@ namespace MWPhysics
         void updateAabbs();
         void updatePtrAabb(const std::shared_ptr<PtrHolder>& ptr);
         void updateStats(osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats);
-        std::tuple<int, float> calculateStepConfig(float timeAccum) const;
+        std::tuple<unsigned, float> calculateStepConfig(float timeAccum) const;
         void afterPreStep();
         void afterPostStep();
         void afterPostSim();
@@ -121,7 +121,7 @@ namespace MWPhysics
         LockingPolicy mLockingPolicy;
         unsigned mNumThreads;
         int mNumJobs;
-        int mRemainingSteps;
+        unsigned mRemainingSteps;
         int mLOSCacheExpiry;
         bool mAdvanceSimulation;
         std::atomic<int> mNextJob;
@@ -140,7 +140,7 @@ namespace MWPhysics
         unsigned int mFrameNumber;
         const osg::Timer* mTimer;
 
-        int mPrevStepCount;
+        unsigned mPrevStepCount;
         Misc::BudgetMeasurement mBudget;
         Misc::BudgetMeasurement mAsyncBudget;
         unsigned int mBudgetCursor;

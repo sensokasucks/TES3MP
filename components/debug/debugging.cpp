@@ -22,7 +22,7 @@
 #include <components/misc/strings/lower.hpp>
 
 #ifdef _WIN32
-#include <components/crashcatcher/windows_crashcatcher.hpp>
+#include <components/crashcatcher/windowscrashcatcher.hpp>
 #include <components/files/conversion.hpp>
 #include <components/misc/windows.hpp>
 
@@ -131,13 +131,13 @@ namespace Debug
                     prefix[0] = '[';
                     const auto now = std::chrono::system_clock::now();
                     const auto time = std::chrono::system_clock::to_time_t(now);
-                    tm time_info{};
+                    tm timeInfo{};
 #ifdef _WIN32
-                    (void)localtime_s(&time_info, &time);
+                    (void)localtime_s(&timeInfo, &time);
 #else
-                    (void)localtime_r(&time, &time_info);
+                    (void)localtime_r(&time, &timeInfo);
 #endif
-                    prefixSize = std::strftime(prefix + 1, sizeof(prefix) - 1, "%T", &time_info) + 1;
+                    prefixSize = std::strftime(prefix + 1, sizeof(prefix) - 1, "%T", &timeInfo) + 1;
                     char levelLetter = " EWIVD*"[int(level)];
                     const auto ms
                         = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -193,10 +193,16 @@ namespace Debug
         public:
             std::streamsize writeImpl(const char* str, std::streamsize size, Level debugLevel)
             {
-                // Make a copy for null termination
-                std::string tmp(str, static_cast<unsigned int>(size));
+                if (size > std::numeric_limits<int>::max())
+                    OutputDebugStringW(L"Next line truncated...");
+                auto wideSize = MultiByteToWideChar(CP_UTF8, 0, str,
+                    static_cast<int>(std::min<std::streamsize>(size, std::numeric_limits<int>::max())), nullptr, 0);
+                std::wstring wide(wideSize, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, str,
+                    static_cast<int>(std::min<std::streamsize>(size, std::numeric_limits<int>::max())), wide.data(),
+                    wideSize);
                 // Write string to Visual Studio Debug output
-                OutputDebugString(tmp.c_str());
+                OutputDebugStringW(wide.c_str());
                 return size;
             }
 
@@ -434,6 +440,7 @@ namespace Debug
     {
 #if defined _WIN32
         (void)attachParentConsole();
+        SetConsoleOutputCP(CP_UTF8);
 #endif
         rawStdout = std::make_unique<std::ostream>(std::cout.rdbuf());
         rawStderr = std::make_unique<std::ostream>(std::cerr.rdbuf());

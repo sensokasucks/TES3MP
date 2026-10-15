@@ -41,7 +41,7 @@ namespace mwmp
 
         static void enableMarkers(const ESM::Cell& cell);
 
-        static void clearHitAttemptActorId(int actorId);
+        static void clearHitAttemptActor(const ESM::RefNum& refNum);
 
     private:
 

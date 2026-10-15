@@ -27,11 +27,12 @@
 #include <osg/ClipControl>
 
 #include <sstream>
-#include <deque>
 #include <vector>
 
 #include "glextensions.hpp"
 #include "shadowsbin.hpp"
+
+// NOLINTBEGIN(readability-identifier-naming)
 
 namespace {
 
@@ -531,7 +532,8 @@ void MWShadowTechnique::LightData::setLightData(osg::RefMatrix* lm, const osg::L
 //
 MWShadowTechnique::ShadowData::ShadowData(MWShadowTechnique::ViewDependentData* vdd):
     _viewDependentData(vdd),
-    _textureUnit(0)
+    _textureUnit(0),
+    _sm_i(0)
 {
 
     const ShadowSettings* settings = vdd->getViewDependentShadowMap()->getShadowedScene()->getShadowSettings();
@@ -644,6 +646,9 @@ MWShadowTechnique::Frustum::Frustum(osgUtil::CullVisitor* cv, double minZNear, d
     {
         osg::Matrix::value_type zNear = osg::maximum<osg::Matrix::value_type>(cv->getCalculatedNearPlane(),minZNear);
         osg::Matrix::value_type zFar = osg::minimum<osg::Matrix::value_type>(cv->getCalculatedFarPlane(),maxZFar);
+        if (zFar < 0)
+            zFar = minZNear;
+        zNear = std::min(zNear, zFar);
 
         cv->clampProjectionMatrix(projectionMatrix, zNear, zFar);
 
@@ -1371,6 +1376,11 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
                 camera->getViewport()->x() = pos_x;
                 pos_x += static_cast<unsigned int>(camera->getViewport()->width()) + 40;
             }
+
+            if (_useFrontFaceCulling)
+                camera->setCullingMode(camera->getCullingMode() | osg::CullSettings::CLUSTER_CULLING);
+            else
+                camera->setCullingMode(camera->getCullingMode() & ~osg::CullSettings::CLUSTER_CULLING);
 
             // transform polytope in model coords into light spaces eye coords.
             osg::Matrixd invertModelView;
@@ -2745,6 +2755,18 @@ bool MWShadowTechnique::adjustPerspectiveShadowMapCameraSettings(osgUtil::Render
 
     convexHull.extendTowardsNegativeZ();
 
+    {
+        // extendTowardsNegativeZ is too numerically unstable to do this first
+        convexHull.clip(osg::Plane(-1.0,0.0,0.0,1.0));
+        convexHull.clip(osg::Plane(1.0,0.0,0.0,1.0));
+        convexHull.clip(osg::Plane(0.0,-1.0,0.0,1.0));
+        convexHull.clip(osg::Plane(0.0,1.0,0.0,1.0));
+        convexHullUnextended.clip(osg::Plane(-1.0,0.0,0.0,1.0));
+        convexHullUnextended.clip(osg::Plane(1.0,0.0,0.0,1.0));
+        convexHullUnextended.clip(osg::Plane(0.0,-1.0,0.0,1.0));
+        convexHullUnextended.clip(osg::Plane(0.0,1.0,0.0,1.0));
+    }
+
 #if 0
     convexHull.output(osg::notify(osg::NOTICE));
 
@@ -2761,7 +2783,7 @@ bool MWShadowTechnique::adjustPerspectiveShadowMapCameraSettings(osgUtil::Render
     }
 #endif
 
-#if 1
+#if 0
     if (renderStage)
     {
 #if 1
@@ -2983,7 +3005,7 @@ bool MWShadowTechnique::adjustPerspectiveShadowMapCameraSettings(osgUtil::Render
     OSG_NOTICE<<"convexHull max_z_ratio = "<<max_z_ratio<<std::endl;
 #endif
 
-    #if 1
+    #if 0
     if (renderStage)
     {
 #if 1
@@ -3036,6 +3058,31 @@ bool MWShadowTechnique::adjustPerspectiveShadowMapCameraSettings(osgUtil::Render
                                    0.0,  0.0, 1.0/best_z_ratio,  0.0,
                                    0.0,  b,   0.0,  0.0 );
     osg::Matrixd light_persp = light_p * lightView * lightPerspective;
+
+    if (convexHull.valid())
+    {
+        convexHull.transform(lightView * lightPerspective);
+        xMin = osg::maximum(-1.0, convexHull.min(0));
+        xMax = osg::minimum(1.0, convexHull.max(0));
+        yMin = osg::maximum(-1.0, convexHull.min(1));
+        yMax = osg::minimum(1.0, convexHull.max(1));
+
+        if (xMin != -1.0 || yMin != -1.0 || xMax != 1.0 || yMax != 1.0)
+        {
+            osg::Matrix m;
+            m.makeTranslate(osg::Vec3d(-0.5*(xMax+xMin),
+                                       -0.5*(yMax+yMin),
+                                       0.0));
+
+            m.postMultScale(osg::Vec3d(2.0/(xMax-xMin),
+                                       2.0/(yMax-yMin),
+                                       1.0));
+
+            convexHull.transform(m);
+            convexHullUnextended.transform(m);
+            light_persp.postMult(m);
+        }
+    }
 
 #if 0
     OSG_NOTICE<<"light_p = "<<light_p<<std::endl;
@@ -3340,10 +3387,10 @@ void SceneUtil::MWShadowTechnique::DebugHUD::setFrustumVertices(osg::ref_ptr<osg
 
 void SceneUtil::MWShadowTechnique::DebugHUD::addAnotherShadowMap()
 {
-    unsigned int shadowMapNumber = mDebugCameras.size();
+    size_t shadowMapNumber = mDebugCameras.size();
 
     mDebugCameras.push_back(new osg::Camera);
-    mDebugCameras[shadowMapNumber]->setViewport(200 * shadowMapNumber, 0, 200, 200);
+    mDebugCameras[shadowMapNumber]->setViewport(static_cast<int>(200 * shadowMapNumber), 0, 200, 200);
     mDebugCameras[shadowMapNumber]->setRenderOrder(osg::Camera::POST_RENDER);
     mDebugCameras[shadowMapNumber]->setClearColor(osg::Vec4(1.0, 1.0, 0.0, 1.0));
     mDebugCameras[shadowMapNumber]->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
@@ -3381,4 +3428,7 @@ osg::ref_ptr<osg::StateSet> SceneUtil::MWShadowTechnique::getOrCreateShadowsBinS
     }
     return _shadowsBinStateSet;
 }
+
+// NOLINTEND(readability-identifier-naming)
+
 // clang-format on

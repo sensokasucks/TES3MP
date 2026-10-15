@@ -162,13 +162,14 @@ namespace MWGui
             mReviewDialog->onFrame(duration);
     }
 
-    void CharacterCreation::spawnDialog(const char id)
+    void CharacterCreation::spawnDialog(const GuiMode id)
     {
         try
         {
             switch (id)
             {
                 case GM_Name:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mNameDialog));
                     mNameDialog = std::make_unique<TextInputDialog>();
                     mNameDialog->setTextLabel(
@@ -178,8 +179,9 @@ namespace MWGui
                     mNameDialog->eventDone += MyGUI::newDelegate(this, &CharacterCreation::onNameDialogDone);
                     mNameDialog->setVisible(true);
                     break;
-
+                }
                 case GM_Race:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mRaceDialog));
                     mRaceDialog = std::make_unique<RaceDialog>(mParent, mResourceSystem);
                     mRaceDialog->setNextButtonShow(mCreationStage >= CSE_RaceChosen);
@@ -190,8 +192,9 @@ namespace MWGui
                     if (mCreationStage < CSE_NameChosen)
                         mCreationStage = CSE_NameChosen;
                     break;
-
+                }
                 case GM_Class:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mClassChoiceDialog));
                     mClassChoiceDialog = std::make_unique<ClassChoiceDialog>();
                     mClassChoiceDialog->eventButtonSelected
@@ -200,8 +203,9 @@ namespace MWGui
                     if (mCreationStage < CSE_RaceChosen)
                         mCreationStage = CSE_RaceChosen;
                     break;
-
+                }
                 case GM_ClassPick:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mPickClassDialog));
                     mPickClassDialog = std::make_unique<PickClassDialog>();
                     mPickClassDialog->setNextButtonShow(mCreationStage >= CSE_ClassChosen);
@@ -212,8 +216,9 @@ namespace MWGui
                     if (mCreationStage < CSE_RaceChosen)
                         mCreationStage = CSE_RaceChosen;
                     break;
-
+                }
                 case GM_Birth:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mBirthSignDialog));
                     mBirthSignDialog = std::make_unique<BirthDialog>();
                     mBirthSignDialog->setNextButtonShow(mCreationStage >= CSE_BirthSignChosen);
@@ -224,8 +229,9 @@ namespace MWGui
                     if (mCreationStage < CSE_ClassChosen)
                         mCreationStage = CSE_ClassChosen;
                     break;
-
+                }
                 case GM_ClassCreate:
+                {
                     if (mCreateClassDialog == nullptr)
                     {
                         mCreateClassDialog = std::make_unique<CreateClassDialog>();
@@ -239,7 +245,9 @@ namespace MWGui
                     if (mCreationStage < CSE_RaceChosen)
                         mCreationStage = CSE_RaceChosen;
                     break;
+                }
                 case GM_ClassGenerate:
+                {
                     mGenerateClassStep = 0;
                     mGenerateClass = ESM::RefId();
                     mGenerateClassSpecializations[0] = 0;
@@ -249,7 +257,9 @@ namespace MWGui
                     if (mCreationStage < CSE_RaceChosen)
                         mCreationStage = CSE_RaceChosen;
                     break;
+                }
                 case GM_Review:
+                {
                     MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mReviewDialog));
                     mReviewDialog = std::make_unique<ReviewDialog>();
 
@@ -290,6 +300,11 @@ namespace MWGui
                     if (mCreationStage < CSE_BirthSignChosen)
                         mCreationStage = CSE_BirthSignChosen;
                     break;
+                }
+                default:
+                {
+                    Log(Debug::Error) << "Unexpected GuiMode in CharacterCreation::spawnDialog: " << id;
+                }
             }
         }
         catch (std::exception& e)
@@ -388,13 +403,13 @@ namespace MWGui
         MWBase::Environment::get().getWindowManager()->pushGuiMode(GM_Class);
     }
 
-    void CharacterCreation::onClassChoice(int _index)
+    void CharacterCreation::onClassChoice(int index)
     {
         MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mClassChoiceDialog));
 
         MWBase::Environment::get().getWindowManager()->popGuiMode();
 
-        switch (_index)
+        switch (index)
         {
             case ClassChoiceDialog::Class_Generate:
                 MWBase::Environment::get().getWindowManager()->pushGuiMode(GM_ClassGenerate);
@@ -613,20 +628,20 @@ namespace MWGui
         */
     }
 
-    void CharacterCreation::onClassQuestionChosen(int _index)
+    void CharacterCreation::onClassQuestionChosen(int index)
     {
         MWBase::Environment::get().getSoundManager()->stopSay();
 
         MWBase::Environment::get().getWindowManager()->removeDialog(std::move(mGenerateClassQuestionDialog));
 
-        if (_index < 0 || _index >= 3)
+        if (index < 0 || index >= 3)
         {
             MWBase::Environment::get().getWindowManager()->popGuiMode();
             MWBase::Environment::get().getWindowManager()->pushGuiMode(GM_Class);
             return;
         }
 
-        ESM::Class::Specialization specialization = mGenerateClassResponses[_index];
+        ESM::Class::Specialization specialization = mGenerateClassResponses[index];
         if (specialization == ESM::Class::Combat)
             ++mGenerateClassSpecializations[0];
         else if (specialization == ESM::Class::Magic)

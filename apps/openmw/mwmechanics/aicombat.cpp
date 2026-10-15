@@ -1,12 +1,5 @@
 #include "aicombat.hpp"
 
-#include <components/misc/coordinateconverter.hpp>
-#include <components/misc/rng.hpp>
-
-#include <components/esm3/aisequence.hpp>
-
-#include <components/misc/mathutil.hpp>
-
 #include <components/detournavigator/navigatorutils.hpp>
 
 /*
@@ -23,6 +16,11 @@
 /*
     End of tes3mp addition
 */
+#include <components/esm3/aisequence.hpp>
+#include <components/misc/coordinateconverter.hpp>
+#include <components/misc/mathutil.hpp>
+#include <components/misc/pathgridutils.hpp>
+#include <components/misc/rng.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 #include "../mwphysics/raycasting.hpp"
@@ -53,18 +51,24 @@ namespace
 
     osg::Vec3f AimDirToMovingTarget(const MWWorld::Ptr& actor, const MWWorld::Ptr& target,
         const osg::Vec3f& vLastTargetPos, float duration, int weapType, float strength);
+
+    bool hitAttemptMatchesTarget(const MWWorld::Ptr& actor, const MWWorld::Ptr& target)
+    {
+        ESM::RefNum hitNum = actor.getClass().getCreatureStats(actor).getHitAttemptActor();
+        return hitNum.isSet() && target.getCellRef().getRefNum() == hitNum;
+    }
 }
 
 namespace MWMechanics
 {
     AiCombat::AiCombat(const MWWorld::Ptr& actor)
     {
-        mTargetActorId = actor.getClass().getCreatureStats(actor).getActorId();
+        mTargetActor = actor.getCellRef().getRefNum();
     }
 
     AiCombat::AiCombat(const ESM::AiSequence::AiCombat* combat)
     {
-        mTargetActorId = combat->mTargetActorId;
+        mTargetActor = combat->mTargetActor;
     }
 
     void AiCombat::init() {}
@@ -119,25 +123,29 @@ namespace MWMechanics
     bool AiCombat::execute(
         const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration)
     {
-        // get or create temporary storage
+        // Get or create temporary storage
         AiCombatStorage& storage = state.get<AiCombatStorage>();
 
-        // General description
+        // No combat for dead creatures
         if (actor.getClass().getCreatureStats(actor).isDead())
             return true;
 
-        MWWorld::Ptr target = MWBase::Environment::get().getWorld()->searchPtrViaActorId(mTargetActorId);
-        if (target.isEmpty())
-            return true;
+        const MWWorld::Ptr target = getTarget(); // The target to follow
 
-        if (!target.getCellRef().getCount()
-            || !target.getRefData().isEnabled() // Really we should be checking whether the target is currently
-                                                // registered with the MechanicsManager
-            || target.getClass().getCreatureStats(target).isDead())
+        // Stop if the target doesn't exist
+        if (target.isEmpty() || !target.getCellRef().getCount() || !target.getRefData().isEnabled()
+            || target.getClass().getCreatureStats(target).isDead() || !target.getRefData().getBaseNode())
             return true;
 
         if (actor == target) // This should never happen.
             return true;
+
+        // No actions for totally static creatures
+        if (!actor.getClass().isMobile(actor))
+        {
+            storage.mFleeState = AiCombatStorage::FleeState_Idle;
+            return false;
+        }
 
         if (!storage.isFleeing())
         {
@@ -150,9 +158,9 @@ namespace MWMechanics
                 const osg::Vec3f destination = storage.mUseCustomDestination
                     ? storage.mCustomDestination
                     : target.getRefData().getPosition().asVec3();
-                const bool is_target_reached = pathTo(actor, destination, duration,
+                const bool isTargetReached = pathTo(actor, destination, duration,
                     characterController.getSupportedMovementDirections(), targetReachedTolerance);
-                if (is_target_reached)
+                if (isTargetReached)
                     storage.mReadyToAttack = true;
             }
 
@@ -221,11 +229,16 @@ namespace MWMechanics
         */
 
 
+        const MWWorld::Class& actorClass = actor.getClass();
+        MWMechanics::CreatureStats& stats = actorClass.getCreatureStats(actor);
+        if (stats.isParalyzed() || stats.getKnockedDown())
+            return false;
+
         bool forceFlee = false;
         if (!canFight(actor, target))
         {
             storage.stopAttack();
-            actor.getClass().getCreatureStats(actor).setAttackingOrSpell(false);
+            stats.setAttackingOrSpell(false);
 
             /*
                 Start of tes3mp addition
@@ -252,18 +265,13 @@ namespace MWMechanics
                 = (std::find(playerFollowersAndEscorters.begin(), playerFollowersAndEscorters.end(), target)
                     != playerFollowersAndEscorters.end());
             if ((target == MWMechanics::getPlayer() || targetSidesWithPlayer)
-                && ((actor.getClass().getCreatureStats(actor).getHitAttemptActorId()
-                        == target.getClass().getCreatureStats(target).getActorId())
-                    || (target.getClass().getCreatureStats(target).getHitAttemptActorId()
-                        == actor.getClass().getCreatureStats(actor).getActorId())))
+                && (hitAttemptMatchesTarget(actor, target) || hitAttemptMatchesTarget(target, actor)))
                 forceFlee = true;
             else // Otherwise end combat
                 return true;
         }
 
-        const MWWorld::Class& actorClass = actor.getClass();
-        actorClass.getCreatureStats(actor).setMovementFlag(CreatureStats::Flag_Run, true);
-
+        stats.setMovementFlag(CreatureStats::Flag_Run, true);
         float& actionCooldown = storage.mActionCooldown;
         std::unique_ptr<Action>& currentAction = storage.mCurrentAction;
 
@@ -363,8 +371,8 @@ namespace MWMechanics
             const DetourNavigator::AreaCosts areaCosts = getAreaCosts(actor, navigatorFlags);
             const ESM::Pathgrid* pathgrid = world->getStore().get<ESM::Pathgrid>().search(actor.getCell()->getCell()->getEsm3());
             const auto& pathGridGraph = getPathGridGraph(pathgrid);
-            mPathFinder.buildPath(actor, vActorPos, vTargetPos, actor.getCell(), pathGridGraph, agentBounds,
-                navigatorFlags, areaCosts, storage.mAttackRange, PathType::Full);
+            mPathFinder.buildPath(actor, vActorPos, vTargetPos, pathGridGraph, agentBounds, navigatorFlags, areaCosts,
+                storage.mAttackRange, PathType::Full);
 
             if (!mPathFinder.isPathConstructed())
             {
@@ -377,8 +385,8 @@ namespace MWMechanics
                 if (hit.has_value() && (*hit - vTargetPos).length() <= rangeAttack)
                 {
                     // If the point is close enough, try to find a path to that point.
-                    mPathFinder.buildPath(actor, vActorPos, *hit, actor.getCell(), pathGridGraph, agentBounds,
-                        navigatorFlags, areaCosts, storage.mAttackRange, PathType::Full);
+                    mPathFinder.buildPath(actor, vActorPos, *hit, pathGridGraph, agentBounds, navigatorFlags, areaCosts,
+                        storage.mAttackRange, PathType::Full);
                     if (mPathFinder.isPathConstructed())
                     {
                         // If path to that point is found use it as custom destination.
@@ -391,7 +399,7 @@ namespace MWMechanics
                 {
                     storage.mUseCustomDestination = false;
                     storage.stopAttack();
-                    actor.getClass().getCreatureStats(actor).setAttackingOrSpell(false);
+                    stats.setAttackingOrSpell(false);
                     currentAction = std::make_unique<ActionFlee>();
                     actionCooldown = currentAction->getActionCooldown();
                     storage.startFleeing();
@@ -410,11 +418,11 @@ namespace MWMechanics
     void MWMechanics::AiCombat::updateLOS(
         const MWWorld::Ptr& actor, const MWWorld::Ptr& target, float duration, MWMechanics::AiCombatStorage& storage)
     {
-        static const float LOS_UPDATE_DURATION = 0.5f;
+        const float losUpdateDuration = 0.5f;
         if (storage.mUpdateLOSTimer <= 0.f)
         {
             storage.mLOS = MWBase::Environment::get().getWorld()->getLOS(actor, target);
-            storage.mUpdateLOSTimer = LOS_UPDATE_DURATION;
+            storage.mUpdateLOSTimer = losUpdateDuration;
         }
         else
             storage.mUpdateLOSTimer -= duration;
@@ -423,7 +431,7 @@ namespace MWMechanics
     void MWMechanics::AiCombat::updateFleeing(const MWWorld::Ptr& actor, const MWWorld::Ptr& target, float duration,
         MWWorld::MovementDirectionFlags supportedMovementDirections, AiCombatStorage& storage)
     {
-        static const float BLIND_RUN_DURATION = 1.0f;
+        const float blindRunDuration = 1.0f;
 
         updateLOS(actor, target, duration, storage);
 
@@ -454,13 +462,13 @@ namespace MWMechanics
                         osg::Vec3f localPos = actor.getRefData().getPosition().asVec3();
                         coords.toLocal(localPos);
 
-                        int closestPointIndex = PathFinder::getClosestPoint(pathgrid, localPos);
-                        for (int i = 0; i < static_cast<int>(pathgrid->mPoints.size()); i++)
+                        const std::size_t closestPointIndex = Misc::getClosestPoint(*pathgrid, localPos);
+                        for (std::size_t i = 0; i < pathgrid->mPoints.size(); i++)
                         {
                             if (i != closestPointIndex
                                 && getPathGridGraph(pathgrid).isPointConnected(closestPointIndex, i))
                             {
-                                points.push_back(pathgrid->mPoints[static_cast<size_t>(i)]);
+                                points.push_back(pathgrid->mPoints[i]);
                             }
                         }
 
@@ -489,12 +497,12 @@ namespace MWMechanics
             case AiCombatStorage::FleeState_RunBlindly:
             {
                 // timer to prevent twitchy movement that can be observed in vanilla MW
-                if (storage.mFleeBlindRunTimer < BLIND_RUN_DURATION)
+                if (storage.mFleeBlindRunTimer < blindRunDuration)
                 {
                     storage.mFleeBlindRunTimer += duration;
 
                     storage.mMovement.mRotation[0] = -actor.getRefData().getPosition().rot[0];
-                    storage.mMovement.mRotation[2] = osg::PI
+                    storage.mMovement.mRotation[2] = osg::PIf
                         + getZAngleToDir(
                             target.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3());
                     storage.mMovement.mPosition[1] = 1;
@@ -516,7 +524,8 @@ namespace MWMechanics
                 float dist
                     = (actor.getRefData().getPosition().asVec3() - target.getRefData().getPosition().asVec3()).length();
                 if ((dist > fFleeDistance && !storage.mLOS)
-                    || pathTo(actor, PathFinder::makeOsgVec3(storage.mFleeDest), duration, supportedMovementDirections))
+                    || pathTo(
+                        actor, Misc::Convert::makeOsgVec3f(storage.mFleeDest), duration, supportedMovementDirections))
                 {
                     state = AiCombatStorage::FleeState_Idle;
                 }
@@ -547,24 +556,15 @@ namespace MWMechanics
         actorMovementSettings.mRotation[axis] = 0;
         bool isRangedCombat = false;
         storage.mCurrentAction->getCombatRange(isRangedCombat);
-        float eps = isRangedCombat ? osg::DegreesToRadians(0.5) : osg::DegreesToRadians(3.f);
+        float eps = isRangedCombat ? osg::DegreesToRadians(0.5f) : osg::DegreesToRadians(3.f);
         float targetAngleRadians = storage.mMovement.mRotation[axis];
         storage.mRotateMove = !smoothTurn(actor, targetAngleRadians, axis, eps);
-    }
-
-    MWWorld::Ptr AiCombat::getTarget() const
-    {
-        if (mCachedTarget.isEmpty() || mCachedTarget.mRef->isDeleted() || !mCachedTarget.getRefData().isEnabled())
-        {
-            mCachedTarget = MWBase::Environment::get().getWorld()->searchPtrViaActorId(mTargetActorId);
-        }
-        return mCachedTarget;
     }
 
     void AiCombat::writeState(ESM::AiSequence::AiSequence& sequence) const
     {
         auto combat = std::make_unique<ESM::AiSequence::AiCombat>();
-        combat->mTargetActorId = mTargetActorId;
+        combat->mTargetActor = mTargetActor;
 
         ESM::AiSequence::AiPackageContainer package;
         package.mType = ESM::AiSequence::Ai_Combat;
@@ -628,7 +628,7 @@ namespace MWMechanics
         else if (actor.getClass().isBipedal(actor) && !isDistantCombat)
         {
             float moveDuration = 0;
-            float angleToTarget
+            double angleToTarget
                 = Misc::normalizeAngle(mMovement.mRotation[2] - actor.getRefData().getPosition().rot[2]);
             // Apply a big side step if enemy tries to get around and come from behind.
             // Otherwise apply a random side step (kind of dodging) with some probability
@@ -768,7 +768,7 @@ namespace MWMechanics
                         MWBase::Environment::get().getDialogueManager()->say(actor, ESM::RefId::stringRefId("attack"));
                     }
                 }
-                mAttackCooldown = std::min(baseDelay + 0.01 * Misc::Rng::roll0to99(prng), baseDelay + 0.9);
+                mAttackCooldown = std::min(baseDelay + 0.01f * Misc::Rng::roll0to99(prng), baseDelay + 0.9f);
             }
             else
                 mAttackCooldown -= AI_REACTION_TIME;
@@ -888,7 +888,7 @@ namespace
         float velDir = vTargetMoveDir * vDirToTargetNormalized;
 
         // time to collision between target and projectile
-        float t_collision;
+        float tCollision;
 
         float projVelDirSquared = projSpeed * projSpeed - velPerp * velPerp;
         if (projVelDirSquared > 0)
@@ -899,12 +899,12 @@ namespace
             float projDistDiff = vDirToTarget * vTargetMoveDirNormalized; // dot product
             projDistDiff = std::sqrt(distToTarget * distToTarget - projDistDiff * projDistDiff);
 
-            t_collision = projDistDiff / (std::sqrt(projVelDirSquared) - velDir);
+            tCollision = projDistDiff / (std::sqrt(projVelDirSquared) - velDir);
         }
         else
-            t_collision = 0; // speed of projectile is not enough to reach moving target
+            tCollision = 0; // speed of projectile is not enough to reach moving target
 
-        return vDirToTarget + vTargetMoveDir * t_collision;
+        return vDirToTarget + vTargetMoveDir * tCollision;
     }
 
 }

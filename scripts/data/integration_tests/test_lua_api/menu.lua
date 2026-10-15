@@ -19,6 +19,7 @@ testing.registerMenuTest('save and load', function()
             'template.omwgame',
             'landracer.omwaddon',
             'the_hub.omwaddon',
+            'mwscript.omwaddon',
             'test_lua_api.omwscripts',
         },
         creationTime = matchers.isAny(),
@@ -60,6 +61,7 @@ local function registerGlobalTest(name, description)
    end)
 end
 
+registerGlobalTest('crash in lua coroutine when accessing type (#8757)')
 registerGlobalTest('timers')
 registerGlobalTest('teleport')
 registerGlobalTest('getGMST')
@@ -72,7 +74,9 @@ registerGlobalTest('memory limit')
 registerGlobalTest('vfs')
 registerGlobalTest('commit crime')
 registerGlobalTest('record model property')
-registerGlobalTest('nan', 'world.setGameTimeScale should not accept nan')
+registerGlobalTest('nan float', 'world.setGameTimeScale should not accept nan')
+registerGlobalTest('nan vector', 'weather.stormDirection should not accept a vector with a nan component')
+registerGlobalTest('load script generated static')
 
 registerGlobalTest('player yaw rotation', 'rotating player with controls.yawChange should change rotation')
 registerGlobalTest('player pitch rotation', 'rotating player with controls.pitchChange should change rotation')
@@ -81,11 +85,13 @@ registerGlobalTest('player rotation', 'rotating player should not lead to nan ro
 registerGlobalTest('player forward running')
 registerGlobalTest('player diagonal walking')
 registerGlobalTest('findPath')
+registerGlobalTest('findPath with checkpoints')
 registerGlobalTest('findRandomPointAroundCircle')
 registerGlobalTest('castNavigationRay')
 registerGlobalTest('findNearestNavMeshPosition')
 registerGlobalTest('player memory limit')
 registerGlobalTest('player weapon attack', 'player with equipped weapon on attack should damage health of other actors')
+registerGlobalTest('mwscript magic interactions')
 
 return {
     engineHandlers = {

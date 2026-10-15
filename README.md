@@ -6,7 +6,7 @@ Copyright (c) 2016-2022, David Cernat & Stanislav Zhukov
 
 TES3MP is a project adding multiplayer functionality to [OpenMW](https://github.com/OpenMW/openmw), an open-source game engine that supports playing "The Elder Scrolls III: Morrowind" by Bethesda Softworks.
 
-* Version: 0.49.0
+* Version: 0.51.0
 * License: GPLv3 (see [LICENSE](https://gitlab.com/OpenMW/openmw/-/raw/master/LICENSE) for more information)
 * Website: https://www.openmw.org
 * IRC: #openmw on irc.libera.chat
@@ -19,7 +19,7 @@ Font Licenses:
 Project status
 --------------
 
-The main quests in Morrowind, Tribunal and Bloodmoon are all completable. Some issues with side quests are to be expected (but rare). Check the [bug tracker](https://gitlab.com/OpenMW/openmw/-/issues/?milestone_title=openmw-1.0) for a list of issues we need to resolve before the "1.0" release. Even before the "1.0" release however, OpenMW boasts some new [features](https://wiki.openmw.org/index.php?title=Features), such as improved graphics and user interfaces.
+The main quests in Morrowind, Tribunal and Bloodmoon are all completable. Some issues with side quests are to be expected (but rare). Check the [bug tracker](https://gitlab.com/OpenMW/openmw/-/issues/?milestone_title=openmw-1.0) for a list of issues we need to resolve before the "1.0" release. Even before the "1.0" release, however, OpenMW boasts some new [features](https://wiki.openmw.org/index.php?title=Features), such as improved graphics and user interfaces.
 
 As of version 0.8.1, TES3MP is fully playable, providing very extensive player, NPC, world and quest synchronization, as well as state saving and loading, all of which are highly customizable via [serverside Lua scripts](https://github.com/TES3MP/CoreScripts).
 
@@ -41,6 +41,14 @@ For code contributions, it's best to start out with modestly sized fixes and fea
 
     Syntax: openmw <options>
     Allowed options:
+      --config arg                          additional config directories
+      --replace arg                         settings where the values from the
+                                            current source should replace those
+                                            from lower-priority sources instead of
+                                            being appended
+      --user-data arg                       set user data directory (used for
+                                            saves, screenshots, etc)
+      --resources arg (=resources)          set resources directory
       --help                                print help message
       --version                             print version information and quit
       --data arg (=data)                    set data directories (later directories
@@ -50,12 +58,12 @@ For code contributions, it's best to start out with modestly sized fixes and fea
       --fallback-archive arg (=fallback-archive)
                                             set fallback BSA archives (later
                                             archives have higher priority)
-      --resources arg (=resources)          set resources directory
       --start arg                           set initial cell
       --content arg                         content file(s): esm/esp, or
-                                            omwgame/omwaddon
+                                            omwgame/omwaddon/omwscripts
+      --groundcover arg                     groundcover content file(s): esm/esp,
+                                            or omwgame/omwaddon
       --no-sound [=arg(=1)] (=0)            disable all sounds
-      --script-verbose [=arg(=1)] (=0)      verbose script output
       --script-all [=arg(=1)] (=0)          compile all scripts (excluding dialogue
                                             scripts) at startup
       --script-all-dialogue [=arg(=1)] (=0) compile all dialogue scripts at startup
@@ -66,8 +74,8 @@ For code contributions, it's best to start out with modestly sized fixes and fea
                                             startup
       --script-warn [=arg(=1)] (=1)         handling of warnings when compiling
                                             scripts
-                                            0 - ignore warning
-                                            1 - show warning but consider script as
+                                            0 - ignore warnings
+                                            1 - show warnings but consider script as
                                             correctly compiled anyway
                                             2 - treat warnings as errors
       --load-savegame arg                   load a save game file on game startup

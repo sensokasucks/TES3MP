@@ -659,13 +659,34 @@ void CSVDoc::View::addSubView(const CSMWorld::UniversalId& id, const std::string
     //
     mScrollbarOnly = windows["mainwindow-scrollbar"].toString() == "Scrollbar Only";
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    updateWidth(windows["grow-limit"].isTrue(), minWidth);
-#else
     updateWidth(true, minWidth);
-#endif
 
     mSubViewWindow.addDockWidget(Qt::TopDockWidgetArea, view);
+
+    // Horizontal orientation doesn't respect layout direction, so we need to move the new view
+    if (windows["subview-open-direction"].toString() == "Open Left" && mSubViews.size() > 1)
+    {
+        // Get list of top-area dock widget subviews sorted by coordinates
+        QList<SubView*> orderedTopViews;
+        for (const auto& windowView : mSubViews)
+            if (windowView != view && mSubViewWindow.dockWidgetArea(windowView) == Qt::TopDockWidgetArea)
+                orderedTopViews.append(windowView);
+        if (!orderedTopViews.isEmpty())
+        {
+            std::sort(orderedTopViews.begin(), orderedTopViews.end(), [](auto* a, auto* b) {
+                if (a->x() != b->x())
+                    return a->x() < b->x();
+                else if (a->y() != b->y())
+                    return a->y() < b->y();
+                return a->getUniversalId() < b->getUniversalId();
+            });
+
+            // Split twice to make the new view the leftmost.
+            // If the leftmost view is nested, the new view will be added above it.
+            mSubViewWindow.splitDockWidget(orderedTopViews[0], view, Qt::Orientation::Horizontal);
+            mSubViewWindow.splitDockWidget(view, orderedTopViews[0], Qt::Orientation::Horizontal);
+        }
+    }
 
     updateSubViewIndices();
 
@@ -710,7 +731,11 @@ void CSVDoc::View::moveScrollBarToEnd(int min, int max)
 {
     if (mScroll)
     {
-        mScroll->horizontalScrollBar()->setValue(max);
+        CSMPrefs::Category& windows = CSMPrefs::State::get()["Windows"];
+        if (windows["subview-open-direction"].toString() == "Open Left")
+            mScroll->horizontalScrollBar()->setValue(min);
+        else
+            mScroll->horizontalScrollBar()->setValue(max);
 
         QObject::disconnect(mScroll->horizontalScrollBar(), &QScrollBar::rangeChanged, this, &View::moveScrollBarToEnd);
     }
@@ -1126,7 +1151,8 @@ void CSVDoc::View::updateWidth(bool isGrowLimit, int minSubViewWidth)
         if (newWidth + frameWidth <= rect.width())
         {
             resize(newWidth, height());
-            // WARNING: below code assumes that new subviews are added to the right
+            // WARNING: below code assumes that the frame geometry expands to the right.
+            // This doesn't conflict with subview-open-direction.
             if (x() > rect.width() - (newWidth + frameWidth))
                 move(rect.width() - (newWidth + frameWidth), y()); // shift left to stay within the screen
         }

@@ -42,10 +42,13 @@
 #include "../mwmechanics/setbaseaisetting.hpp"
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/soundmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
+
+#include "../mwlua/localscripts.hpp"
 
 #include "../mwworld/actionopen.hpp"
 #include "../mwworld/actiontalk.hpp"
@@ -146,7 +149,8 @@ namespace MWClass
 
             // creature stats
             for (size_t i = 0; i < ref->mBase->mData.mAttributes.size(); ++i)
-                data->mCreatureStats.setAttribute(ESM::Attribute::indexToRefId(i), ref->mBase->mData.mAttributes[i]);
+                data->mCreatureStats.setAttribute(ESM::Attribute::indexToRefId(static_cast<int>(i)),
+                    static_cast<float>(ref->mBase->mData.mAttributes[i]));
             data->mCreatureStats.setHealth(static_cast<float>(ref->mBase->mData.mHealth));
             data->mCreatureStats.setMagicka(static_cast<float>(ref->mBase->mData.mMana));
             data->mCreatureStats.setFatigue(static_cast<float>(ref->mBase->mData.mFatigue));
@@ -330,7 +334,6 @@ namespace MWClass
 
         if (!MWMechanics::isInMeleeReach(ptr, victim, MWMechanics::getMeleeWeaponReach(ptr, weapon)))
             return;
-
         /*
             Start of tes3mp addition
 
@@ -341,10 +344,11 @@ namespace MWClass
             End of tes3mp addition
         */
 
+
         if (!success)
         {
-            victim.getClass().onHit(
-                victim, 0.0f, false, MWWorld::Ptr(), ptr, osg::Vec3f(), false, MWMechanics::DamageSourceType::Melee);
+            MWBase::Environment::get().getLuaManager()->onHit(ptr, victim, weapon, MWWorld::Ptr(), type, attackStrength,
+                0.0f, false, hitPosition, false, MWMechanics::DamageSourceType::Melee);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
 
             /*
@@ -439,13 +443,12 @@ namespace MWClass
 
         MWMechanics::diseaseContact(victim, ptr);
 
-        victim.getClass().onHit(
-            victim, damage, healthdmg, weapon, ptr, hitPosition, true, MWMechanics::DamageSourceType::Melee);
+        MWBase::Environment::get().getLuaManager()->onHit(ptr, victim, weapon, MWWorld::Ptr(), type, attackStrength,
+            damage, healthdmg, hitPosition, true, MWMechanics::DamageSourceType::Melee);
     }
 
-    void Creature::onHit(const MWWorld::Ptr& ptr, float damage, bool ishealth, const MWWorld::Ptr& object,
-        const MWWorld::Ptr& attacker, const osg::Vec3f& hitPosition, bool successful,
-        const MWMechanics::DamageSourceType sourceType) const
+    void Creature::onHit(const MWWorld::Ptr& ptr, const std::map<std::string, float>& damages, ESM::RefId object,
+        const MWWorld::Ptr& attacker, bool successful, const MWMechanics::DamageSourceType sourceType) const
     {
         MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
 
@@ -457,16 +460,12 @@ namespace MWClass
         {
             stats.setAttacked(true);
 
-            // No retaliation for totally static creatures (they have no movement or attacks anyway)
-            if (isMobile(ptr))
-            {
-                bool complain = sourceType == MWMechanics::DamageSourceType::Melee;
-                bool supportFriendlyFire = sourceType != MWMechanics::DamageSourceType::Ranged;
-                if (supportFriendlyFire && MWMechanics::friendlyHit(attacker, ptr, complain))
-                    setOnPcHitMe = false;
-                else
-                    setOnPcHitMe = MWBase::Environment::get().getMechanicsManager()->actorAttacked(ptr, attacker);
-            }
+            bool complain = sourceType == MWMechanics::DamageSourceType::Melee;
+            bool supportFriendlyFire = sourceType != MWMechanics::DamageSourceType::Ranged;
+            if (supportFriendlyFire && MWMechanics::friendlyHit(attacker, ptr, complain))
+                setOnPcHitMe = false;
+            else
+                setOnPcHitMe = MWBase::Environment::get().getMechanicsManager()->actorAttacked(ptr, attacker);
         }
 
         // Attacker and target store each other as hitattemptactor if they have no one stored yet
@@ -485,28 +484,30 @@ namespace MWClass
             */
 
             // First handle the attacked actor
-            if ((stats.getHitAttemptActorId() == -1)
-                && (statsAttacker.getAiSequence().isInCombat(ptr) 
-                    || attacker == MWMechanics::getPlayer()
+            /*
+                Start of tes3mp change (minor)
+
+                Also treat dedicated players as valid hit attempt actors, but never team members
+            */
+            if (!stats.getHitAttemptActor().isSet()
+                && (statsAttacker.getAiSequence().isInCombat(ptr) || attacker == MWMechanics::getPlayer()
                     || mwmp::PlayerList::isDedicatedPlayer(attacker))
                 && !MechanicsHelper::isTeamMember(attacker, ptr))
-                stats.setHitAttemptActorId(statsAttacker.getActorId());
+                stats.setHitAttemptActor(attacker.getCellRef().getRefNum());
 
             // Next handle the attacking actor
-            if ((statsAttacker.getHitAttemptActorId() == -1)
-                && (statsAttacker.getAiSequence().isInCombat(ptr) 
-                    || attacker == MWMechanics::getPlayer()
+            if (!statsAttacker.getHitAttemptActor().isSet()
+                && (statsAttacker.getAiSequence().isInCombat(ptr) || attacker == MWMechanics::getPlayer()
                     || mwmp::PlayerList::isDedicatedPlayer(attacker))
                 && !MechanicsHelper::isTeamMember(ptr, attacker))
-                statsAttacker.setHitAttemptActorId(stats.getActorId());
-
+                statsAttacker.setHitAttemptActor(ptr.getCellRef().getRefNum());
             /*
                 End of tes3mp change (minor)
             */
         }
 
-        if (!object.isEmpty())
-            stats.setLastHitAttemptObject(object.getCellRef().getRefId());
+        if (!object.empty())
+            stats.setLastHitAttemptObject(object);
 
         if (setOnPcHitMe && !attacker.isEmpty() && attacker == MWMechanics::getPlayer())
         {
@@ -519,19 +520,44 @@ namespace MWClass
         if (!successful)
         {
             // Missed
-            if (!attacker.isEmpty() && attacker == MWMechanics::getPlayer())
-                MWBase::Environment::get().getSoundManager()->playSound3D(
-                    ptr, ESM::RefId::stringRefId("miss"), 1.0f, 1.0f);
             return;
         }
 
-        if (!object.isEmpty())
-            stats.setLastHitObject(object.getCellRef().getRefId());
+        if (!object.empty())
+            stats.setLastHitObject(object);
 
-        if (damage < 0.001f)
-            damage = 0;
+        bool hasDamage = false;
+        bool hasHealthDamage = false;
+        float healthDamage = 0.f;
+        for (auto& [stat, damage] : damages)
+        {
+            if (damage < 0.001f)
+                continue;
+            hasDamage = true;
 
-        if (damage > 0.f)
+            if (stat == "health")
+            {
+                hasHealthDamage = true;
+                healthDamage = damage;
+                MWMechanics::DynamicStat<float> health(getCreatureStats(ptr).getHealth());
+                health.setCurrent(health.getCurrent() - damage);
+                stats.setHealth(health);
+            }
+            else if (stat == "fatigue")
+            {
+                MWMechanics::DynamicStat<float> fatigue(getCreatureStats(ptr).getFatigue());
+                fatigue.setCurrent(fatigue.getCurrent() - damage, true);
+                stats.setFatigue(fatigue);
+            }
+            else if (stat == "magicka")
+            {
+                MWMechanics::DynamicStat<float> magicka(getCreatureStats(ptr).getMagicka());
+                magicka.setCurrent(magicka.getCurrent() - damage);
+                stats.setMagicka(magicka);
+            }
+        }
+
+        if (hasDamage)
         {
             if (!attacker.isEmpty())
             {
@@ -561,7 +587,7 @@ namespace MWClass
                         stats.setKnockedDown(true);
                 }
 
-                if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99(prng))
+                if (hasHealthDamage && agilityTerm <= healthDamage && knockdownTerm <= Misc::Rng::roll0to99(prng))
                     stats.setKnockedDown(true);
                 else
                 {
@@ -574,30 +600,6 @@ namespace MWClass
                 /*
                     End of tes3mp change (major)
                 */
-            }
-
-            if (ishealth)
-            {
-                damage *= damage / (damage + getArmorRating(ptr));
-                damage = std::max(1.f, damage);
-                if (!attacker.isEmpty())
-                {
-                    damage = scaleDamage(damage, attacker, ptr);
-                    MWBase::Environment::get().getWorld()->spawnBloodEffect(ptr, hitPosition);
-                }
-
-                MWBase::Environment::get().getSoundManager()->playSound3D(
-                    ptr, ESM::RefId::stringRefId("Health Damage"), 1.0f, 1.0f);
-
-                MWMechanics::DynamicStat<float> health(stats.getHealth());
-                health.setCurrent(health.getCurrent() - damage);
-                stats.setHealth(health);
-            }
-            else
-            {
-                MWMechanics::DynamicStat<float> fatigue(stats.getFatigue());
-                fatigue.setCurrent(fatigue.getCurrent() - damage, true);
-                stats.setFatigue(fatigue);
             }
         }
 
@@ -720,10 +722,11 @@ namespace MWClass
 
         const MWBase::World* world = MWBase::Environment::get().getWorld();
         const MWMechanics::MagicEffects& mageffects = stats.getMagicEffects();
+        const float normalizedEncumbrance = getNormalizedEncumbrance(ptr);
 
         float moveSpeed;
 
-        if (getEncumbrance(ptr) > getCapacity(ptr))
+        if (normalizedEncumbrance > 1.0f)
             moveSpeed = 0.0f;
         else if (canFly(ptr)
             || (mageffects.getOrDefault(ESM::MagicEffect::Levitate).getMagnitude() > 0 && world->isLevitationEnabled()))
@@ -733,7 +736,6 @@ namespace MWClass
                     + mageffects.getOrDefault(ESM::MagicEffect::Levitate).getMagnitude());
             flySpeed = gmst.fMinFlySpeed->mValue.getFloat()
                 + flySpeed * (gmst.fMaxFlySpeed->mValue.getFloat() - gmst.fMinFlySpeed->mValue.getFloat());
-            const float normalizedEncumbrance = getNormalizedEncumbrance(ptr);
             flySpeed *= 1.0f - gmst.fEncumberedMoveEffect->mValue.getFloat() * normalizedEncumbrance;
             flySpeed = std::max(0.0f, flySpeed);
             moveSpeed = flySpeed;
@@ -781,7 +783,7 @@ namespace MWClass
         return info;
     }
 
-    float Creature::getArmorRating(const MWWorld::Ptr& ptr) const
+    float Creature::getArmorRating(const MWWorld::Ptr& ptr, bool useLuaInterfaceIfAvailable) const
     {
         // Equipment armor rating is deliberately ignored.
         return getCreatureStats(ptr).getMagicEffects().getOrDefault(ESM::MagicEffect::Shield).getMagnitude();
@@ -945,19 +947,14 @@ namespace MWClass
         switch (skillRecord->mData.mSpecialization)
         {
             case ESM::Class::Combat:
-                return ref->mBase->mData.mCombat;
+                return static_cast<float>(ref->mBase->mData.mCombat);
             case ESM::Class::Magic:
-                return ref->mBase->mData.mMagic;
+                return static_cast<float>(ref->mBase->mData.mMagic);
             case ESM::Class::Stealth:
-                return ref->mBase->mData.mStealth;
+                return static_cast<float>(ref->mBase->mData.mStealth);
             default:
                 throw std::runtime_error("invalid specialisation");
         }
-    }
-
-    int Creature::getBloodTexture(const MWWorld::ConstPtr& ptr) const
-    {
-        return ptr.get<ESM::Creature>()->mBase->mBloodType;
     }
 
     void Creature::readAdditionalState(const MWWorld::Ptr& ptr, const ESM::ObjectState& state) const
@@ -1058,7 +1055,8 @@ namespace MWClass
                 ptr.getRefData().setCustomData(nullptr);
 
                 // Reset to original position
-                MWBase::Environment::get().getWorld()->moveObject(ptr, ptr.getCellRef().getPosition().asVec3());
+                MWBase::Environment::get().getWorld()->moveObject(
+                    ptr, ptr.getCell()->getOriginCell(ptr), ptr.getCellRef().getPosition().asVec3());
                 MWBase::Environment::get().getWorld()->rotateObject(
                     ptr, ptr.getCellRef().getPosition().asRotationVec3(), MWBase::RotationFlag_none);
             }
@@ -1079,7 +1077,7 @@ namespace MWClass
 
     void Creature::setBaseAISetting(const ESM::RefId& id, MWMechanics::AiSetting setting, int value) const
     {
-        MWMechanics::setBaseAISetting<ESM::Creature>(id, setting, value);
+        MWMechanics::setBaseAISetting<ESM::Creature>(id, setting, static_cast<unsigned char>(value));
     }
 
     void Creature::modifyBaseInventory(const ESM::RefId& actorId, const ESM::RefId& itemId, int amount) const

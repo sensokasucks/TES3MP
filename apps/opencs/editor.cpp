@@ -34,7 +34,7 @@
 #include <components/misc/rng.hpp>
 #include <components/nifosg/nifloader.hpp>
 #include <components/settings/settings.hpp>
-#include <components/to_utf8/to_utf8.hpp>
+#include <components/toutf8/toutf8.hpp>
 
 #include "view/doc/viewmanager.hpp"
 
@@ -166,7 +166,7 @@ std::pair<Files::PathContainer, std::vector<std::string>> CS::Editor::readConfig
     if (!local.empty())
     {
         std::filesystem::create_directories(local);
-        dataLocal.push_back(local);
+        dataLocal.push_back(std::move(local));
     }
     mCfgMgr.filterOutNonExistingPaths(dataDirs);
     mCfgMgr.filterOutNonExistingPaths(dataLocal);

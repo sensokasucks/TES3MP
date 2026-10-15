@@ -147,16 +147,15 @@ void PlayerList::enableMarkers(const ESM::Cell& cell)
 
     This resets the combat target for a DedicatedPlayer's followers in Actors::update()
 */
-void PlayerList::clearHitAttemptActorId(int actorId)
+void PlayerList::clearHitAttemptActor(const ESM::RefNum& refNum)
 {
-    for (auto &playerEntry : playerList)
+    for (auto &p : players)
     {
-        if (playerEntry.second == nullptr || playerEntry.second->getPtr().mRef == nullptr)
-            continue;
+        if (p.second == nullptr || p.second->getPtr().isEmpty()) continue;
 
-        MWMechanics::CreatureStats &playerCreatureStats = playerEntry.second->getPtr().getClass().getCreatureStats(playerEntry.second->getPtr());
+        MWMechanics::CreatureStats &playerCreatureStats = p.second->getPtr().getClass().getCreatureStats(p.second->getPtr());
 
-        if (playerCreatureStats.getHitAttemptActorId() == actorId)
-            playerCreatureStats.setHitAttemptActorId(-1);
+        if (playerCreatureStats.getHitAttemptActor() == refNum)
+            playerCreatureStats.setHitAttemptActor({});
     }
 }

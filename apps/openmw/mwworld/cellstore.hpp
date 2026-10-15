@@ -255,9 +255,6 @@ namespace MWWorld
         /// containers.
         /// @note Does not trigger CellStore hasState flag.
 
-        Ptr searchViaActorId(int id);
-        ///< Will return an empty Ptr if cell is not loaded.
-
         float getWaterLevel() const;
 
         bool movedHere(const MWWorld::Ptr& ptr) const;
@@ -408,7 +405,7 @@ namespace MWWorld
         void respawn();
         ///< Check mLastRespawn and respawn references if necessary. This is a no-op if the cell is not loaded.
 
-        Ptr getMovedActor(int actorId) const;
+        CellStore* getOriginCell(const Ptr& object) const;
 
         Ptr getPtr(ESM::RefId id);
 

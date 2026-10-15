@@ -7,6 +7,13 @@ local vfs = require('openmw.vfs')
 local world = require('openmw.world')
 local I = require('openmw.interfaces')
 
+testing.registerGlobalTest('crash in lua coroutine when accessing type (#8757)', function()
+    local co = coroutine.wrap(function()
+        testing.expectEqual(tostring(world.players[1].type), 'Player')
+    end)
+    co()
+end)
+
 testing.registerGlobalTest('timers', function()
     testing.expectAlmostEqual(core.getGameTimeScale(), 30, 'incorrect getGameTimeScale() result')
     testing.expectAlmostEqual(core.getSimulationTimeScale(), 1, 'incorrect getSimulationTimeScale result')
@@ -82,7 +89,7 @@ testing.registerGlobalTest('getGMST', function()
 end)
 
 testing.registerGlobalTest('MWScript', function()
-    local variableStoreCount = 18
+    local variableStoreCount = 19
     local variableStore = world.mwscript.getGlobalVariables(player)
     testing.expectEqual(variableStoreCount, #variableStore)
 
@@ -137,6 +144,12 @@ testing.registerGlobalTest('record stores', function()
 
     testRecordStore(core.sound, "sound")
     testRecordStore(core.factions, "factions")
+    testRecordStore(core.regions, "regions")
+    testRecordStore(core.dialogue.greeting, "dialogue greeting")
+    testRecordStore(core.dialogue.topic, "dialogue topic")
+    testRecordStore(core.dialogue.journal, "dialogue journal")
+    testRecordStore(core.dialogue.persuasion, "dialogue persuasion")
+    testRecordStore(core.dialogue.voice, "dialogue voice")
 
     testRecordStore(types.NPC.classes, "classes")
     testRecordStore(types.NPC.races, "races")
@@ -315,6 +328,7 @@ registerPlayerTest('player rotation')
 registerPlayerTest('player forward running')
 registerPlayerTest('player diagonal walking')
 registerPlayerTest('findPath')
+registerPlayerTest('findPath with checkpoints')
 registerPlayerTest('findRandomPointAroundCircle')
 registerPlayerTest('castNavigationRay')
 registerPlayerTest('findNearestNavMeshPosition')
@@ -344,11 +358,38 @@ testing.registerGlobalTest('load while teleporting - teleport', function()
     landracer:teleport(player.cell, player.position)
 end)
 
-testing.registerGlobalTest('nan', function()
+testing.registerGlobalTest('nan float', function()
     local nan = 0.0 / 0.0
     local ok, err = pcall(function() world.setGameTimeScale(nan) end)
     testing.expectEqual(ok, false)
     testing.expectEqual(err, 'Value must be a finite number')
+end)
+
+testing.registerGlobalTest('nan vector', function()
+    local nan = 0.0 / 0.0
+    local ok, err = pcall(function() core.weather.records[1].stormDirection = util.vector3(nan, nan, nan) end)
+    testing.expectEqual(ok, false)
+    testing.expectEqual(err, 'Vector must contain finite numbers')
+end)
+
+testing.registerGlobalTest('mwscript magic interactions', function()
+    local player = world.players[1]
+    local script = world.mwscript.getGlobalScript('OpenMW_Tests', player)
+    testing.expectEqual(script == nil, false, 'Expected mwscript OpenMW_Tests to be active')
+    script.variables.state = 1
+    local globals = world.mwscript.getGlobalVariables(player);
+    globals.OpenMW_Tests_Failed = 0
+    while script.variables.state ~= 0 and globals.OpenMW_Tests_Failed == 0 and script.isRunning do
+        coroutine.yield()
+    end
+    testing.expectEqual(script.isRunning, true, 'OpenMW_Tests should not crash')
+    testing.expectEqual(globals.OpenMW_Tests_Failed, 0, 'OpenMW_Tests should run without issue')
+end)
+
+testing.registerGlobalTest('load script generated static', function()
+    local record = types.Static.records.OMW_Generated_Static
+    testing.expectNotEqual(record, nil, 'OMW_Generated_Static should have been generated')
+    testing.expectEqual(record.model, 'meshes/generatedonload.nif')
 end)
 
 return {

@@ -15,6 +15,41 @@
 namespace LuaUtil
 {
     class ScriptTracker;
+    class ScriptsContainer;
+    using ScriptsContainerLifetime = std::shared_ptr<ScriptsContainer*>;
+
+    // Immutable ScriptsContainerLifetime
+    class ScriptsContainerWeakPtr
+    {
+        ScriptsContainerLifetime mWeakPtr;
+
+    public:
+        ScriptsContainerWeakPtr(const ScriptsContainerWeakPtr&) = default;
+        ScriptsContainerWeakPtr(ScriptsContainerWeakPtr&&) = default;
+
+        explicit ScriptsContainerWeakPtr(ScriptsContainerLifetime ptr)
+            : mWeakPtr(std::move(ptr))
+        {
+        }
+
+        ScriptsContainer* operator*() const noexcept
+        {
+            if (auto ptr = mWeakPtr.get())
+                return *ptr;
+            // this shouldn't happen unless you use it after a move or try to be funny by constructing from nullptr
+            return nullptr;
+        }
+    };
+
+    inline auto operator<=>(const ScriptsContainerWeakPtr& lhs, const ScriptsContainerWeakPtr& rhs)
+    {
+        return *lhs <=> *rhs;
+    }
+
+    inline auto operator<=>(const ScriptsContainerWeakPtr& lhs, ScriptsContainer* rhs)
+    {
+        return *lhs <=> rhs;
+    }
 
     // ScriptsContainer is a base class for all scripts containers (LocalScripts,
     // GlobalScripts, PlayerScripts, etc). Each script runs in a separate sandbox.
@@ -164,7 +199,32 @@ namespace LuaUtil
 
         virtual bool isActive() const { return false; }
 
+        ScriptsContainerWeakPtr getWeakPointer() const;
+
     protected:
+        // Call a function on an interface.
+        template <typename T, typename... Args>
+        std::optional<T> callInterface(std::string_view interfaceName, std::string_view identifier, const Args&... args)
+        {
+            std::optional<T> res = std::nullopt;
+            mLua.protectedCall([&](LuaUtil::LuaView& view) {
+                LoadedData& data = ensureLoaded();
+                auto interface = data.mPublicInterfaces.get<sol::optional<sol::table>>(interfaceName);
+                if (interface)
+                {
+                    auto o = interface->get_or<sol::object>(identifier, sol::nil);
+                    if (o.is<sol::function>())
+                    {
+                        sol::object luaRes = o.as<sol::function>().call(args...);
+                        if (luaRes.is<T>())
+                            res = luaRes.as<T>();
+                    }
+                }
+            });
+
+            return res;
+        }
+
         struct Handler
         {
             int mScriptId;
@@ -248,7 +308,7 @@ namespace LuaUtil
         // Returns script by id (throws an exception if doesn't exist)
         Script& getScript(int scriptId);
 
-        void printError(int scriptId, std::string_view msg, const std::exception& e);
+        void printError(int scriptId, std::string_view msg, const std::exception& e) const;
 
         const VFS::Path::Normalized& scriptPath(int scriptId) const
         {
@@ -263,6 +323,7 @@ namespace LuaUtil
         static void removeHandler(std::vector<Handler>& list, int scriptId);
         void insertInterface(int scriptId, const Script& script);
         void removeInterface(int scriptId, const Script& script);
+        void save(LuaView&, ESM::LuaScripts&);
 
         ScriptIdsWithInitializationData mAutoStartScripts;
         const UserdataSerializer* mSerializer = nullptr;
@@ -294,8 +355,7 @@ namespace LuaUtil
         int64_t mTemporaryCallbackCounter = 0;
 
         std::map<int, int64_t> mRemovedScriptsMemoryUsage;
-        using WeakPtr = std::shared_ptr<ScriptsContainer*>;
-        WeakPtr mThis; // used by LuaState to track ownership of memory allocations
+        ScriptsContainerLifetime mThis; // used by LuaState to track ownership of memory allocations
 
         ScriptTracker* mTracker;
         bool mRequiredLoading = false;

@@ -17,6 +17,7 @@
 */
 
 #include <components/esm/defs.hpp>
+#include <components/esm3/actoridconverter.hpp>
 #include <components/esm3/esmreader.hpp>
 #include <components/esm3/esmwriter.hpp>
 #include <components/esm3/loadbsgn.hpp>
@@ -80,9 +81,9 @@ namespace MWWorld
         MWMechanics::NpcStats& stats = getPlayer().getClass().getNpcStats(getPlayer());
 
         for (size_t i = 0; i < mSaveSkills.size(); ++i)
-            mSaveSkills[i] = stats.getSkill(ESM::Skill::indexToRefId(i)).getModified();
+            mSaveSkills[i] = stats.getSkill(ESM::Skill::indexToRefId(static_cast<int>(i))).getModified();
         for (size_t i = 0; i < mSaveAttributes.size(); ++i)
-            mSaveAttributes[i] = stats.getAttribute(ESM::Attribute::indexToRefId(i)).getModified();
+            mSaveAttributes[i] = stats.getAttribute(ESM::Attribute::indexToRefId(static_cast<int>(i))).getModified();
     }
 
     void Player::restoreStats()
@@ -95,13 +96,13 @@ namespace MWWorld
         creatureStats.setHealth(health.getBase() / gmst.find("fWereWolfHealth")->mValue.getFloat());
         for (size_t i = 0; i < mSaveSkills.size(); ++i)
         {
-            auto& skill = npcStats.getSkill(ESM::Skill::indexToRefId(i));
+            auto& skill = npcStats.getSkill(ESM::Skill::indexToRefId(static_cast<int>(i)));
             skill.restore(skill.getDamage());
             skill.setModifier(mSaveSkills[i] - skill.getBase());
         }
         for (size_t i = 0; i < mSaveAttributes.size(); ++i)
         {
-            auto id = ESM::Attribute::indexToRefId(i);
+            auto id = ESM::Attribute::indexToRefId(static_cast<int>(i));
             auto attribute = npcStats.getAttribute(id);
             attribute.restore(attribute.getDamage());
             attribute.setModifier(mSaveAttributes[i] - attribute.getBase());
@@ -120,7 +121,8 @@ namespace MWWorld
         for (const auto& attribute : store->get<ESM::Attribute>())
         {
             MWMechanics::AttributeValue value = npcStats.getAttribute(attribute.mId);
-            value.setModifier(attribute.mWerewolfValue - value.getModified());
+            value.setBase(value.getBase(), true);
+            value.setModifier(attribute.mWerewolfValue - value.getBase());
             npcStats.setAttribute(attribute.mId, value);
         }
 
@@ -131,7 +133,8 @@ namespace MWWorld
                 continue;
 
             MWMechanics::SkillValue& value = npcStats.getSkill(skill.mId);
-            value.setModifier(skill.mWerewolfValue - value.getModified());
+            value.setBase(value.getBase(), true);
+            value.setModifier(skill.mWerewolfValue - value.getBase());
         }
     }
 
@@ -205,7 +208,7 @@ namespace MWWorld
         if (playerStats.isParalyzed() || playerStats.getKnockedDown() || playerStats.isDead())
             return;
 
-        MWWorld::Ptr toActivate = MWBase::Environment::get().getWorld()->getFacedObject();
+        MWWorld::Ptr toActivate = MWBase::Environment::get().getWorld()->getFocusObject();
 
         if (toActivate.isEmpty())
             return;
@@ -378,6 +381,10 @@ namespace MWWorld
 
             MWBase::Environment::get().getWorldModel()->deregisterLiveCellRef(mPlayer);
             mPlayer.load(player.mObject);
+            MWBase::Environment::get().getWorldModel()->registerPtr(getPlayer());
+            if (reader.mActorIdConverter)
+                reader.mActorIdConverter->mMappings.emplace(
+                    player.mObject.mCreatureStats.mActorId, mPlayer.mRef.getRefNum());
 
             for (size_t i = 0; i < mSaveAttributes.size(); ++i)
                 mSaveAttributes[i] = player.mSaveAttributes[i];

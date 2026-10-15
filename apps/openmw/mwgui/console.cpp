@@ -46,6 +46,14 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
 
+namespace
+{
+    bool isWhitespace(MyGUI::UString::code_point c)
+    {
+        return c == ' ' || c == '\t';
+    }
+}
+
 namespace MWGui
 {
     class ConsoleInterpreterContext : public MWScript::InterpreterContext
@@ -319,12 +327,7 @@ namespace MWGui
         resetReference();
     }
 
-    bool isWhitespace(char c)
-    {
-        return c == ' ' || c == '\t';
-    }
-
-    void Console::commandBoxKeyPress(MyGUI::Widget* _sender, MyGUI::KeyCode key, MyGUI::Char _char)
+    void Console::commandBoxKeyPress(MyGUI::Widget* /*sender*/, MyGUI::KeyCode key, MyGUI::Char /*value*/)
     {
         if (MyGUI::InputManager::getInstance().isControlPressed())
         {
@@ -412,7 +415,7 @@ namespace MWGui
         }
     }
 
-    void Console::acceptCommand(MyGUI::EditBox* _sender)
+    void Console::acceptCommand(MyGUI::EditBox* /*sender*/)
     {
         const std::string& cm = mCommandLine->getOnlyText();
         if (cm.empty())
@@ -439,7 +442,7 @@ namespace MWGui
         execute(cm);
     }
 
-    void Console::toggleCaseSensitiveSearch(MyGUI::Widget* _sender)
+    void Console::toggleCaseSensitiveSearch(MyGUI::Widget* /*sender*/)
     {
         mCaseSensitiveSearch = !mCaseSensitiveSearch;
 
@@ -451,7 +454,7 @@ namespace MWGui
         mCaseSensitiveToggleButton->setTextColour(mCaseSensitiveSearch ? textColours.link : textColours.normal);
     }
 
-    void Console::toggleRegExSearch(MyGUI::Widget* _sender)
+    void Console::toggleRegExSearch(MyGUI::Widget* /*sender*/)
     {
         mRegExSearch = !mRegExSearch;
 
@@ -470,7 +473,7 @@ namespace MWGui
         mCaseSensitiveToggleButton->setEnabled(!mRegExSearch);
     }
 
-    void Console::acceptSearchTerm(MyGUI::EditBox* _sender)
+    void Console::acceptSearchTerm(MyGUI::EditBox* /*sender*/)
     {
         const std::string& searchTerm = mSearchTerm->getOnlyText();
 
@@ -497,12 +500,12 @@ namespace MWGui
         Reverse
     };
 
-    void Console::findNextOccurrence(MyGUI::Widget* _sender)
+    void Console::findNextOccurrence(MyGUI::Widget* /*sender*/)
     {
         findOccurrence(SearchDirection::Forward);
     }
 
-    void Console::findPreviousOccurrence(MyGUI::Widget* _sender)
+    void Console::findPreviousOccurrence(MyGUI::Widget* /*sender*/)
     {
         findOccurrence(SearchDirection::Reverse);
     }
@@ -678,7 +681,7 @@ namespace MWGui
     {
         std::string output = input;
         std::string tmp = input;
-        bool has_front_quote = false;
+        bool hasFrontQuote = false;
 
         /* Does the input string contain things that don't have to be completed? If yes erase them. */
 
@@ -703,7 +706,7 @@ namespace MWGui
             if (numquotes % 2)
             {
                 tmp.erase(0, tmp.rfind('"') + 1);
-                has_front_quote = true;
+                hasFrontQuote = true;
             }
             else
             {
@@ -716,7 +719,7 @@ namespace MWGui
                 {
                     tmp.clear();
                 }
-                has_front_quote = false;
+                hasFrontQuote = false;
             }
         }
         /* No quotation marks. Are there spaces?*/
@@ -741,7 +744,7 @@ namespace MWGui
 
         /* Is there still something in the input string? If not just display all commands and return the unchanged
          * input. */
-        if (tmp.length() == 0)
+        if (tmp.empty())
         {
             matches = mNames;
             return input;
@@ -750,7 +753,7 @@ namespace MWGui
         /* Iterate through the vector. */
         for (std::string& name : mNames)
         {
-            bool string_different = false;
+            bool stringDifferent = false;
 
             /* Is the string shorter than the input string? If yes skip it. */
             if (name.length() < tmp.length())
@@ -761,12 +764,12 @@ namespace MWGui
             {
                 if (Misc::StringUtils::toLower(*iter) != Misc::StringUtils::toLower(*iter2))
                 {
-                    string_different = true;
+                    stringDifferent = true;
                     break;
                 }
             }
 
-            if (string_different)
+            if (stringDifferent)
                 continue;
 
             /* The beginning of the string matches the input string, save it for the next test. */
@@ -785,11 +788,11 @@ namespace MWGui
             /* Adding quotation marks when the input string started with a quotation mark or has spaces in it*/
             if ((matches.front().find(' ') != std::string::npos))
             {
-                if (!has_front_quote)
+                if (!hasFrontQuote)
                     output += '"';
                 return output.append(matches.front() + std::string("\" "));
             }
-            else if (has_front_quote)
+            else if (hasFrontQuote)
             {
                 return output.append(matches.front() + std::string("\" "));
             }
@@ -800,10 +803,9 @@ namespace MWGui
         }
 
         /* Check if all matching strings match further than input. If yes complete to this match. */
-        int i = tmp.length();
+        size_t i = tmp.length();
 
-        for (std::string::iterator iter = matches.front().begin() + tmp.length(); iter < matches.front().end();
-             ++iter, ++i)
+        for (auto iter = matches.front().begin() + tmp.length(); iter < matches.front().end(); ++iter, ++i)
         {
             for (std::string& match : matches)
             {
