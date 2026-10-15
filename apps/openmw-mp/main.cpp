@@ -132,7 +132,6 @@ boost::program_options::variables_map launchOptions(int argc, char *argv[], File
     cfgMgr.addCommonOptions(desc);
 
     desc.add_options()
-            ("resources", bpo::value<Files::MaybeQuotedPath>()->default_value(Files::MaybeQuotedPath(), "resources"), "set resources directory")
             ("no-logs", bpo::value<bool>()->implicit_value(true)->default_value(false),
              "Do not write logs. Useful for daemonizing.");
 
