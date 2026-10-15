@@ -614,5 +614,7 @@ MWWorld::CellStore *Cell::getCellStore()
 
 std::string Cell::getShortDescription()
 {
-    return std::string(store->getCell()->getDescription());
+    // Must match the ESM::Cell::getShortDescription() keys used by CellController; MWWorld::Cell's
+    // description includes the region name for exteriors in OpenMW 0.51
+    return store->getCell()->getEsm3().getShortDescription();
 }
