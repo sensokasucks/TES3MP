@@ -100,47 +100,45 @@ jobs:
 
     - name: Configure TES3MP
       shell: bash
-      env:
-        RAKNET_ROOT: ${{ github.workspace }}/deps/CrabNet
-      run: >
-        mkdir -p build &&
-        cmake
-        -S .
-        -B ${{ github.workspace }}/build
-        -G Ninja
-        -D CMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
-        -D CMAKE_TOOLCHAIN_FILE='${{ github.workspace }}/deps/vcpkg-x64-windows-${{ env.MSVC }}-${{ env.VCPKG_TAG }}/scripts/buildsystems/vcpkg.cmake'
-        -D CMAKE_PREFIX_PATH='${{ github.workspace }}/deps/Qt/${{ env.QT_VER }}/msvc2019_64'
-        -D LuaJit_INCLUDE_DIR='${{ github.workspace }}/deps/vcpkg-x64-windows-${{ env.MSVC }}-${{ env.VCPKG_TAG }}/installed/x64-windows/include/luajit'
-        -D LuaJit_LIBRARY='${{ github.workspace }}/deps/vcpkg-x64-windows-${{ env.MSVC }}-${{ env.VCPKG_TAG }}/installed/x64-windows/lib/lua51.lib'
-        -D RakNet_INCLUDES='${{ github.workspace }}/deps/CrabNet/include'
-        -D RakNet_LIBRARY_RELEASE='${{ github.workspace }}/deps/CrabNet/lib/RakNetLibStatic.lib'
-        -D RakNet_LIBRARY_DEBUG='${{ github.workspace }}/deps/CrabNet/lib/RakNetLibStaticd.lib'
-        -D BUILD_OPENMW=ON
-        -D BUILD_OPENMW_MP=ON
-        -D BUILD_BROWSER=ON
-        -D BUILD_LAUNCHER=ON
-        -D BUILD_WIZARD=ON
-        -D BUILD_MWINIIMPORTER=ON
-        -D BUILD_ESSIMPORTER=ON
-        -D BUILD_BSATOOL=ON
-        -D BUILD_ESMTOOL=ON
-        -D BUILD_NIFTEST=OFF
-        -D BUILD_NAVMESHTOOL=ON
-        -D BUILD_BULLETOBJECTTOOL=ON
-        -D BUILD_OPENCS=OFF
-        -D BUILD_BENCHMARKS=OFF
-        -D BUILD_COMPONENTS_TESTS=OFF
-        -D BUILD_OPENMW_TESTS=OFF
-        -D BUILD_OPENCS_TESTS=OFF
-        -D OPENMW_USE_SYSTEM_SQLITE3=OFF
-        -D OPENMW_USE_SYSTEM_YAML_CPP=OFF
-        -D OPENMW_LTO_BUILD=OFF
-        2>&1 | tee build/configure.log; exit ${PIPESTATUS[0]}
+      run: |
+        WS=$(cygpath -m "$GITHUB_WORKSPACE")
+        VCPKG="$WS/deps/vcpkg-x64-windows-${MSVC}-${VCPKG_TAG}"
+        export RAKNET_ROOT="$WS/deps/CrabNet"
+        mkdir -p build
+        cmake -S . -B "$WS/build" -G Ninja \
+          -D CMAKE_BUILD_TYPE="$BUILD_TYPE" \
+          -D CMAKE_TOOLCHAIN_FILE="$VCPKG/scripts/buildsystems/vcpkg.cmake" \
+          -D CMAKE_PREFIX_PATH="$WS/deps/Qt/${QT_VER}/msvc2019_64" \
+          -D LuaJit_INCLUDE_DIR="$VCPKG/installed/x64-windows/include/luajit" \
+          -D LuaJit_LIBRARY="$VCPKG/installed/x64-windows/lib/lua51.lib" \
+          -D RakNet_INCLUDES="$WS/deps/CrabNet/include" \
+          -D RakNet_LIBRARY_RELEASE="$WS/deps/CrabNet/lib/RakNetLibStatic.lib" \
+          -D RakNet_LIBRARY_DEBUG="$WS/deps/CrabNet/lib/RakNetLibStaticd.lib" \
+          -D BUILD_OPENMW=ON \
+          -D BUILD_OPENMW_MP=ON \
+          -D BUILD_BROWSER=ON \
+          -D BUILD_LAUNCHER=ON \
+          -D BUILD_WIZARD=ON \
+          -D BUILD_MWINIIMPORTER=ON \
+          -D BUILD_ESSIMPORTER=ON \
+          -D BUILD_BSATOOL=ON \
+          -D BUILD_ESMTOOL=ON \
+          -D BUILD_NIFTEST=OFF \
+          -D BUILD_NAVMESHTOOL=ON \
+          -D BUILD_BULLETOBJECTTOOL=ON \
+          -D BUILD_OPENCS=OFF \
+          -D BUILD_BENCHMARKS=OFF \
+          -D BUILD_COMPONENTS_TESTS=OFF \
+          -D BUILD_OPENMW_TESTS=OFF \
+          -D BUILD_OPENCS_TESTS=OFF \
+          -D OPENMW_USE_SYSTEM_SQLITE3=OFF \
+          -D OPENMW_USE_SYSTEM_YAML_CPP=OFF \
+          -D OPENMW_LTO_BUILD=OFF \
+          2>&1 | tee build/configure.log; exit ${PIPESTATUS[0]}
 
     - name: Build TES3MP
       shell: bash
-      run: cmake --build ${{ github.workspace }}/build 2>&1 | tee build/build.log; exit ${PIPESTATUS[0]}
+      run: cmake --build build 2>&1 | tee build/build.log; exit ${PIPESTATUS[0]}
 
     - name: Post error excerpt as a commit comment
       if: failure()
