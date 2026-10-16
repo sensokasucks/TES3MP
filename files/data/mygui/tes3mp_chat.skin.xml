@@ -12,6 +12,15 @@
         <BasisSkin type="EditText" offset="0 0 10 10" align="Stretch"/>
     </Resource>
 
+    <!-- Command suggestions -->
+
+    <Resource type="ResourceSkin" name="TES3MP_SuggestionText" size="10 10">
+        <Property key="FontName" value="Russo"/>
+        <Property key="TextAlign" value="Left Top"/>
+        <Property key="TextColour" value="1 1 1"/>
+        <BasisSkin type="EditText" offset="0 0 10 10" align="Stretch"/>
+    </Resource>
+
     <Resource type="ResourceSkin" name="TES3MP_ChatMsg" size="29 28">
         <Child type="Widget" skin="MW_Box" offset="0 0 29 26" align="Bottom Stretch"/>
         <Child type="TextBox" skin="TES3MP_EditClient" offset="4 2 19 22" align="Bottom Stretch" name="Client"/>

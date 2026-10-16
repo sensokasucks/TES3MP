@@ -6,7 +6,11 @@
 #define CHATAPI \
     {"SendMessage",       SCRIPT_FUNCTION(ChatFunctions::SendMessage)},\
     {"CleanChatForPid",   SCRIPT_FUNCTION(ChatFunctions::CleanChatForPid)},\
-    {"CleanChat",         SCRIPT_FUNCTION(ChatFunctions::CleanChat)}
+    {"CleanChat",         SCRIPT_FUNCTION(ChatFunctions::CleanChat)},\
+    \
+    {"ClearChatCommands", SCRIPT_FUNCTION(ChatFunctions::ClearChatCommands)},\
+    {"AddChatCommand",    SCRIPT_FUNCTION(ChatFunctions::AddChatCommand)},\
+    {"SendChatCommands",  SCRIPT_FUNCTION(ChatFunctions::SendChatCommands)}
 
 class ChatFunctions
 {
@@ -39,6 +43,36 @@ public:
     * \return void
     */
     static void CleanChat();
+
+    /**
+    * \brief Clear the list of chat commands stored for a player, so a new one can be built
+    *        with AddChatCommand().
+    *
+    * \param pid The player ID.
+    * \return void
+    */
+    static void ClearChatCommands(unsigned short pid) noexcept;
+
+    /**
+    * \brief Add a command to the list of chat commands stored for a player. The client uses
+    *        this list to suggest and autocomplete commands as the player types in chat.
+    *
+    * \param pid The player ID.
+    * \param name The command name without the leading slash, such as "msg".
+    * \param usage How the command is used, such as "/msg <pid> <text>".
+    * \param description A short explanation of what the command does.
+    * \return void
+    */
+    static void AddChatCommand(unsigned short pid, const char *name, const char *usage, const char *description) noexcept;
+
+    /**
+    * \brief Send the list of chat commands stored for a player to that player, replacing
+    *        the list their client had before.
+    *
+    * \param pid The player ID.
+    * \return void
+    */
+    static void SendChatCommands(unsigned short pid) noexcept;
 };
 
 #endif //OPENMW_CHATAPI_HPP

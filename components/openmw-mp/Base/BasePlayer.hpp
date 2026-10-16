@@ -140,6 +140,13 @@ namespace mwmp
         SELECTED_SPELL
     };
 
+    struct ChatCommand
+    {
+        std::string name;
+        std::string usage;
+        std::string description;
+    };
+
     class BasePlayer
     {
     public:
@@ -252,6 +259,7 @@ namespace mwmp
         Cast cast;
         std::string birthsign;
         std::string chatMessage;
+        std::vector<ChatCommand> chatCommands;
         CharGenState charGenState;
         std::map<std::string, std::string> gameSettings;
         std::map<std::string, std::string> vrSettings;

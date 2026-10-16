@@ -38,6 +38,7 @@ namespace mwmp
         void setupChat();
 
         void printChatMessage(std::string &msg);
+        void setChatCommands(const std::vector<ChatCommand> &commands);
         void setChatVisible(bool chatVisible);
 
         void showMessageBox(const BasePlayer::GUIMessageBox &guiMessageBox);
@@ -69,6 +70,7 @@ namespace mwmp
 
     private:
         GUIChat *mChat;
+        std::vector<ChatCommand> mChatCommands;
         int keySay;
         int keyChatMode;
 

@@ -22,5 +22,18 @@
         <UserString key="AcceptTab" value="true"/>
     </Widget>
 
+    <!-- Command suggestions, shown above the command line while typing a /command -->
+    <Widget type="Widget" skin="HUD_Box" position="0 238 384 100" align="HStretch Bottom" name="box_Suggestions">
+        <Property key="Visible" value="false"/>
+        <Property key="NeedMouse" value="false"/>
+        <Widget type="EditBox" skin="TES3MP_SuggestionText" position="6 4 372 92" align="Stretch" name="list_Suggestions">
+            <Property key="MultiLine" value="true"/>
+            <Property key="ReadOnly" value="true"/>
+            <Property key="WordWrap" value="false"/>
+            <Property key="NeedMouse" value="false"/>
+            <Property key="NeedKey" value="false"/>
+        </Widget>
+    </Widget>
+
   </Widget>
 </MyGUI>

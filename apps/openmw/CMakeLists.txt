@@ -135,7 +135,7 @@ add_openmw_dir (mwmp/processors/actor ProcessorActorAI ProcessorActorAnimFlags P
     ProcessorActorTest
     )
 
-add_openmw_dir (mwmp/processors/player ProcessorChatMessage ProcessorGUIMessageBox ProcessorUserDisconnected
+add_openmw_dir (mwmp/processors/player ProcessorChatMessage ProcessorChatCommands ProcessorGUIMessageBox ProcessorUserDisconnected
     ProcessorUserMyID ProcessorGameSettings ProcessorPlayerAlly ProcessorPlayerAnimFlags ProcessorPlayerAnimPlay
     ProcessorPlayerAttack ProcessorPlayerAttribute ProcessorPlayerBaseInfo ProcessorPlayerBehavior ProcessorPlayerBook
     ProcessorPlayerBounty ProcessorPlayerCast ProcessorPlayerCellChange ProcessorPlayerCellState ProcessorPlayerCharClass
