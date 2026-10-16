@@ -49,3 +49,35 @@ void ChatFunctions::CleanChat()
         packet->Send(false);
     }
 }
+
+void ChatFunctions::ClearChatCommands(unsigned short pid) noexcept
+{
+    Player *player;
+    GET_PLAYER(pid, player,);
+
+    player->chatCommands.clear();
+}
+
+void ChatFunctions::AddChatCommand(unsigned short pid, const char *name, const char *usage, const char *description) noexcept
+{
+    Player *player;
+    GET_PLAYER(pid, player,);
+
+    mwmp::ChatCommand command;
+    command.name = name;
+    command.usage = usage;
+    command.description = description;
+
+    player->chatCommands.push_back(std::move(command));
+}
+
+void ChatFunctions::SendChatCommands(unsigned short pid) noexcept
+{
+    Player *player;
+    GET_PLAYER(pid, player,);
+
+    mwmp::PlayerPacket *packet = mwmp::Networking::get().getPlayerPacketController()->GetPacket(ID_CHAT_COMMANDS);
+    packet->setPlayer(player);
+
+    packet->Send(false);
+}

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "apps/openmw/mwgui/windowbase.hpp"
+#include <components/openmw-mp/Base/BasePlayer.hpp>
 
 namespace mwmp
 {
@@ -66,6 +67,9 @@ namespace mwmp
 
         void send(const std::string &str);
 
+        // Set the chat commands the server says this player can use, for autocompletion
+        void setCommands(const std::vector<ChatCommand> &commands);
+
     protected:
 
     private:
@@ -75,6 +79,30 @@ namespace mwmp
                       MyGUI::Char _char);
 
         void acceptCommand(MyGUI::EditBox* _sender);
+
+        void textChanged(MyGUI::EditBox* _sender);
+
+        // Command suggestions
+        void updateSuggestions();
+        void showSuggestions();
+        void hideSuggestions();
+        void completeSuggestion(bool backwards);
+        // Returns false if the text is not a command being typed, otherwise fills in the
+        // typed command name and whether an argument has been started after it
+        bool parseCommandLine(std::string &name, bool &hasArguments);
+
+        MyGUI::Widget* mSuggestionBox;
+        MyGUI::EditBox* mSuggestionList;
+
+        std::vector<ChatCommand> mCommands;
+        // Indexes into mCommands for the commands currently suggested
+        std::vector<size_t> mMatches;
+        bool mArgumentMode = false;
+        int mSelected = 0;
+        // Whether suggestions follow what's being typed (false after recalling history)
+        bool mSuggestionsActive = false;
+        // Whether Tab has filled in a suggestion, so further Tabs cycle through the same list
+        bool mCycling = false;
 
         void setEditState(bool state);
 

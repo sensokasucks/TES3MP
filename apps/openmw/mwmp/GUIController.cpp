@@ -55,6 +55,7 @@ void mwmp::GUIController::cleanUp()
     if (mChat != nullptr)
         delete mChat;
     mChat = nullptr;
+    mChatCommands.clear();
 }
 
 void mwmp::GUIController::refreshGuiMode(MWGui::GuiMode guiMode)
@@ -91,12 +92,21 @@ void mwmp::GUIController::setupChat()
 
     mChat = new GUIChat(chatX, chatY, chatW, chatH);
     mChat->setDelay(chatDelay);
+    mChat->setCommands(mChatCommands);
 }
 
 void mwmp::GUIController::printChatMessage(std::string &msg)
 {
     if (mChat != nullptr)
         mChat->print(msg);
+}
+
+void mwmp::GUIController::setChatCommands(const std::vector<ChatCommand> &commands)
+{
+    mChatCommands = commands;
+
+    if (mChat != nullptr)
+        mChat->setCommands(commands);
 }
 
 

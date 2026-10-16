@@ -1,5 +1,8 @@
 #include "GUIChat.hpp"
 
+#include <algorithm>
+#include <cctype>
+
 #include <MyGUI_EditBox.h>
 #include "apps/openmw/mwbase/environment.hpp"
 #include "apps/openmw/mwgui/windowmanagerimp.hpp"
@@ -23,12 +26,16 @@ namespace mwmp
 
         getWidget(mCommandLine, "edit_Command");
         getWidget(mHistory, "list_History");
+        getWidget(mSuggestionBox, "box_Suggestions");
+        getWidget(mSuggestionList, "list_Suggestions");
 
         // Set up the command line box
         mCommandLine->eventEditSelectAccept +=
                 newDelegate(this, &GUIChat::acceptCommand);
         mCommandLine->eventKeyButtonPressed +=
                 newDelegate(this, &GUIChat::keyPress);
+        mCommandLine->eventEditTextChange +=
+                newDelegate(this, &GUIChat::textChanged);
 
         setTitle("Chat");
 
@@ -109,6 +116,7 @@ namespace mwmp
     {
         mHistory->setFontName(fntName);
         mCommandLine->setFontName(fntName);
+        mSuggestionList->setFontName(fntName);
     }
 
     void GUIChat::print(const std::string &msg, const std::string &color)
@@ -188,6 +196,12 @@ namespace mwmp
     {
         editState = state;
         mCommandLine->setVisible(editState);
+
+        if (!editState)
+        {
+            mSuggestionsActive = false;
+            hideSuggestions();
+        }
         MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(editState ? mCommandLine : nullptr);
     }
 
@@ -210,6 +224,25 @@ namespace mwmp
 
     void GUIChat::keyPress(MyGUI::Widget *_sender, MyGUI::KeyCode key, MyGUI::Char _char)
     {
+        bool suggesting = mSuggestionBox->getVisible() && !mMatches.empty();
+
+        // Tab fills in the selected command, and further Tabs cycle through the suggestions
+        if (key == MyGUI::KeyCode::Tab)
+        {
+            if (suggesting && !mArgumentMode)
+                completeSuggestion(MyGUI::InputManager::getInstance().isShiftPressed());
+            return;
+        }
+
+        // While command names are being suggested, the arrows pick one instead of browsing history
+        if (suggesting && !mArgumentMode && (key == MyGUI::KeyCode::ArrowUp || key == MyGUI::KeyCode::ArrowDown))
+        {
+            int count = static_cast<int>(mMatches.size());
+            mSelected = (mSelected + (key == MyGUI::KeyCode::ArrowUp ? count - 1 : 1)) % count;
+            showSuggestions();
+            return;
+        }
+
         if (mCommandHistory.empty()) return;
 
         // Traverse history with up and down arrows
@@ -223,6 +256,8 @@ namespace mwmp
             {
                 --mCurrent;
                 mCommandLine->setCaption(*mCurrent);
+                mSuggestionsActive = false;
+                hideSuggestions();
             }
         }
         else if (key == MyGUI::KeyCode::ArrowDown)
@@ -236,9 +271,217 @@ namespace mwmp
                 else
                     // Restore the edit string
                     mCommandLine->setCaption(mEditString);
+
+                mSuggestionsActive = false;
+                hideSuggestions();
             }
         }
 
+    }
+
+    void GUIChat::textChanged(MyGUI::EditBox *_sender)
+    {
+        mSuggestionsActive = true;
+        mCycling = false;
+        updateSuggestions();
+    }
+
+    void GUIChat::setCommands(const std::vector<ChatCommand> &commands)
+    {
+        mCommands = commands;
+        mMatches.clear();
+        mCycling = false;
+
+        if (editState && mSuggestionsActive)
+            updateSuggestions();
+        else
+            hideSuggestions();
+    }
+
+    static std::string toLower(std::string str)
+    {
+        std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+        return str;
+    }
+
+    // MyGUI treats # as the start of a colour code, so a literal one has to be doubled
+    static std::string escapeColourCodes(const std::string &str)
+    {
+        std::string result;
+        result.reserve(str.size());
+
+        for (char c : str)
+        {
+            result += c;
+            if (c == '#')
+                result += '#';
+        }
+
+        return result;
+    }
+
+    bool GUIChat::parseCommandLine(std::string &name, bool &hasArguments)
+    {
+        const std::string &text = mCommandLine->getOnlyText();
+
+        if (text.empty() || text[0] != '/')
+            return false;
+
+        size_t space = text.find(' ');
+        hasArguments = space != std::string::npos;
+        name = toLower(text.substr(1, hasArguments ? space - 1 : std::string::npos));
+        return true;
+    }
+
+    void GUIChat::updateSuggestions()
+    {
+        mMatches.clear();
+        mSelected = 0;
+
+        std::string name;
+        bool hasArguments;
+
+        if (!mSuggestionsActive || mCommands.empty() || !parseCommandLine(name, hasArguments))
+        {
+            hideSuggestions();
+            return;
+        }
+
+        mArgumentMode = hasArguments;
+
+        if (hasArguments)
+        {
+            // Once the command name is finished, show how that command is used
+            for (size_t i = 0; i < mCommands.size(); ++i)
+            {
+                if (toLower(mCommands[i].name) == name)
+                    mMatches.push_back(i);
+            }
+        }
+        else
+        {
+            // Commands starting with what was typed come first, then ones containing it,
+            // each shown once even when a command has several usages
+            std::vector<size_t> prefixMatches, otherMatches;
+            std::vector<std::string> seen;
+
+            for (size_t i = 0; i < mCommands.size(); ++i)
+            {
+                std::string commandName = toLower(mCommands[i].name);
+
+                if (std::find(seen.begin(), seen.end(), commandName) != seen.end())
+                    continue;
+
+                size_t position = commandName.find(name);
+
+                if (position == 0)
+                    prefixMatches.push_back(i);
+                else if (position != std::string::npos)
+                    otherMatches.push_back(i);
+                else
+                    continue;
+
+                seen.push_back(commandName);
+            }
+
+            auto byName = [this](size_t a, size_t b) { return toLower(mCommands[a].name) < toLower(mCommands[b].name); };
+            std::sort(prefixMatches.begin(), prefixMatches.end(), byName);
+            std::sort(otherMatches.begin(), otherMatches.end(), byName);
+
+            mMatches = prefixMatches;
+            mMatches.insert(mMatches.end(), otherMatches.begin(), otherMatches.end());
+        }
+
+        if (mMatches.empty())
+            hideSuggestions();
+        else
+            showSuggestions();
+    }
+
+    void GUIChat::showSuggestions()
+    {
+        static const int maxLines = 8;
+        static const size_t maxDescriptionLength = 70;
+
+        int count = static_cast<int>(mMatches.size());
+        int first = 0;
+
+        // Scroll the list so the selected command stays visible
+        if (count > maxLines)
+            first = std::clamp(mSelected - maxLines / 2, 0, count - maxLines);
+
+        int last = std::min(count, first + maxLines);
+
+        std::string text;
+
+        if (first > 0)
+            text += "#808080  ...\n";
+
+        for (int i = first; i < last; ++i)
+        {
+            const ChatCommand &command = mCommands[mMatches[i]];
+            bool selected = !mArgumentMode && i == mSelected;
+
+            std::string usage = command.usage.empty() ? "/" + command.name : command.usage;
+            std::string description = command.description;
+
+            if (description.size() > maxDescriptionLength)
+                description = description.substr(0, maxDescriptionLength - 3) + "...";
+
+            text += selected ? "#FFD700> " : "#FFFFFF  ";
+            text += escapeColourCodes(usage);
+
+            if (!description.empty())
+                text += "#A0A0A0  " + escapeColourCodes(description);
+
+            if (i + 1 < last || last < count)
+                text += "\n";
+        }
+
+        if (last < count)
+            text += "#808080  ... " + std::to_string(count - last) + " more";
+
+        mSuggestionList->setCaption(text);
+
+        // Fit the box to its lines and sit it right above the command line
+        int height = mSuggestionList->getTextSize().height + 10;
+        int width = mCommandLine->getWidth();
+        mSuggestionBox->setCoord(mCommandLine->getLeft(), mCommandLine->getTop() - height, width, height);
+        mSuggestionList->setCoord(6, 4, width - 12, height - 8);
+        mSuggestionBox->setVisible(true);
+    }
+
+    void GUIChat::hideSuggestions()
+    {
+        mSuggestionBox->setVisible(false);
+    }
+
+    void GUIChat::completeSuggestion(bool backwards)
+    {
+        int count = static_cast<int>(mMatches.size());
+
+        if (mCycling)
+            mSelected = (mSelected + (backwards ? count - 1 : 1)) % count;
+
+        mCycling = true;
+
+        // setCaption doesn't fire eventEditTextChange, so the suggestion list stays as it is
+        std::string completed = "/" + mCommands[mMatches[mSelected]].name;
+
+        // With one possible command, finish it and move on to its arguments
+        if (count == 1)
+        {
+            completed += " ";
+            mCycling = false;
+        }
+
+        mCommandLine->setCaption(completed);
+        mCommandLine->setTextCursor(completed.size());
+
+        if (count == 1)
+            updateSuggestions();
+        else
+            showSuggestions();
     }
 
     void GUIChat::update(float dt)
