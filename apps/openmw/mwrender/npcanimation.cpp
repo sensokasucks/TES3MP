@@ -12,8 +12,10 @@
 #include <components/misc/rng.hpp>
 
 #include <components/misc/resourcehelpers.hpp>
+#include <components/misc/strings/algorithm.hpp>
 
 #include <components/esm3/loadbody.hpp>
+#include <components/esm3/loadcrea.hpp>
 #include <components/esm3/loadmgef.hpp>
 #include <components/esm3/loadrace.hpp>
 #include <components/resource/resourcesystem.hpp>
@@ -309,6 +311,44 @@ namespace MWRender
         }
     }
 
+    /*
+        Start of tes3mp addition
+    */
+    void NpcAnimation::setDisguise(const ESM::Creature* creature)
+    {
+        std::string model;
+        bool animated = false;
+        bool bipedal = false;
+
+        if (creature && !creature->mModel.empty())
+        {
+            const VFS::Path::Normalized mesh
+                = Misc::ResourceHelpers::correctMeshPath(VFS::Path::Normalized(creature->mModel));
+            const VFS::Path::Normalized actorModel
+                = Misc::ResourceHelpers::correctActorModelPath(mesh, mResourceSystem->getVFS());
+            model = actorModel.value();
+            animated = !(actorModel == mesh && Misc::StringUtils::ciEndsWith(model, ".nif"));
+            bipedal = (creature->mFlags & ESM::Creature::Bipedal) != 0;
+        }
+
+        if (model == mDisguiseModel)
+            return;
+
+        mDisguiseModel = model;
+        mDisguiseAnimated = animated;
+        mDisguiseBipedal = bipedal;
+
+        if (mViewMode == VM_Normal)
+        {
+            mAmmunition.reset();
+            rebuild();
+            setRenderBin();
+        }
+    }
+    /*
+        End of tes3mp addition
+    */
+
     /// @brief A RenderBin callback to clear the depth buffer before rendering.
     /// Switches depth attachments to a proxy renderbuffer, reattaches original depth then redraws first person root.
     /// This gives a complete depth buffer which can be used for postprocessing, buffer resolves as if depth was never
@@ -465,6 +505,29 @@ namespace MWRender
         mHeadModel.clear();
         mHairModel.clear();
 
+        /*
+            Start of tes3mp addition
+
+            When disguised as a creature, use the creature's model and animations instead of the NPC body,
+            the same way CreatureWeaponAnimation sets them up
+        */
+        if (isDisguised())
+        {
+            setObjectRoot(mDisguiseModel, true, false, true);
+
+            if (mDisguiseBipedal)
+                addAnimSource(Settings::models().mXbaseanim.get().value(), mDisguiseModel);
+
+            if (mDisguiseAnimated)
+                addAnimSource(mDisguiseModel, mDisguiseModel);
+
+            mWeaponAnimationTime->updateStartTime();
+            return;
+        }
+        /*
+            End of tes3mp addition
+        */
+
         const ESM::RefId headName = isWerewolf ? ESM::RefId::stringRefId("WerewolfHead") : mNpc->mHead;
         const ESM::RefId hairName = isWerewolf ? ESM::RefId::stringRefId("WerewolfHair") : mNpc->mHair;
 
@@ -575,6 +638,17 @@ namespace MWRender
             rebuild();
             return;
         }
+
+        /*
+            Start of tes3mp addition
+
+            A creature disguise has no body parts or visible equipment
+        */
+        if (isDisguised())
+            return;
+        /*
+            End of tes3mp addition
+        */
 
         static const struct
         {

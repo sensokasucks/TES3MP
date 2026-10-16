@@ -49,6 +49,7 @@
 #include <components/esm/attr.hpp>
 #include <components/esm3/loadskil.hpp>
 #include "../mwworld/globals.hpp"
+#include "../mwrender/npcanimation.hpp"
 
 using namespace mwmp;
 
@@ -1416,8 +1417,21 @@ void LocalPlayer::setShapeshift()
 {
     MWWorld::Ptr ptrPlayer = getPlayerPtr();
 
-    MWBase::Environment::get().getWorld()->scaleObject(ptrPlayer, scale);
+    MWBase::World* world = MWBase::Environment::get().getWorld();
+
+    world->scaleObject(ptrPlayer, scale);
     MWBase::Environment::get().getMechanicsManager()->setWerewolf(ptrPlayer, isWerewolf);
+
+    // Show a creature disguise to the player wearing it, not just to other players
+    const ESM::Creature* disguise = nullptr;
+    if (!creatureRefId.empty())
+        disguise = world->getStore().get<ESM::Creature>().search(ESM::RefId::stringRefId(creatureRefId));
+
+    if (auto* anim = dynamic_cast<MWRender::NpcAnimation*>(world->getAnimation(ptrPlayer)))
+    {
+        LOG_APPEND(TimedLog::LOG_INFO, "- LocalPlayer disguise is %s", disguise ? creatureRefId.c_str() : "none");
+        anim->setDisguise(disguise);
+    }
 }
 
 void LocalPlayer::setMarkLocation()

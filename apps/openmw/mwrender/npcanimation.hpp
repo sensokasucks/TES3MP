@@ -15,6 +15,7 @@ namespace ESM
 {
     struct NPC;
     struct BodyPart;
+    struct Creature;
 }
 
 namespace MWSound
@@ -54,6 +55,18 @@ namespace MWRender
         VFS::Path::Normalized mHeadModel;
         VFS::Path::Normalized mHairModel;
         ViewMode mViewMode;
+
+        /*
+            Start of tes3mp addition
+        */
+        std::string mDisguiseModel;
+        bool mDisguiseAnimated = false;
+        bool mDisguiseBipedal = false;
+        bool isDisguised() const { return mViewMode == VM_Normal && !mDisguiseModel.empty(); }
+        /*
+            End of tes3mp addition
+        */
+
         bool mShowWeapons;
         bool mShowCarriedLeft;
 
@@ -157,6 +170,18 @@ namespace MWRender
         void showWeapon(bool show) override { showWeapons(show); }
 
         void setViewMode(ViewMode viewMode);
+
+        /*
+            Start of tes3mp addition
+
+            Render this NPC (used for the local player) as a creature's model in third person view,
+            so a player disguised with a creature refId sees their own disguise. Pass nullptr to
+            go back to the regular NPC body.
+        */
+        void setDisguise(const ESM::Creature* creature);
+        /*
+            End of tes3mp addition
+        */
 
         void updateParts();
 
