@@ -41,6 +41,7 @@ mwmp::GUIController::GUIController(): mInputBox(0), mListBox(0)
     mChat = nullptr;
     keySay = SDL_SCANCODE_Y;
     keyChatMode = SDL_SCANCODE_F2;
+    keyMenu = SDL_SCANCODE_F7;
 }
 
 mwmp::GUIController::~GUIController()
@@ -77,6 +78,16 @@ void mwmp::GUIController::setupChat()
 
     keySay = SDL_GetScancodeFromName(Settings::Manager::getString("keySay", "Chat").c_str());
     keyChatMode = SDL_GetScancodeFromName(Settings::Manager::getString("keyChatMode", "Chat").c_str());
+
+    // Older tes3mp-client-default.cfg files have no keyMenu, so keep the F7 default then
+    try
+    {
+        keyMenu = SDL_GetScancodeFromName(Settings::Manager::getString("keyMenu", "Chat").c_str());
+    }
+    catch (const std::exception&)
+    {
+        keyMenu = SDL_SCANCODE_F7;
+    }
 
     mChat = new GUIChat(chatX, chatY, chatW, chatH);
     mChat->setDelay(chatDelay);
@@ -208,6 +219,12 @@ bool mwmp::GUIController::pressedKey(int key)
     else if (key == keySay)
     {
         mChat->pressedSay();
+        return true;
+    }
+    else if (key == keyMenu && key != SDL_SCANCODE_UNKNOWN && !mChat->editState)
+    {
+        // Opens the server's /menu, the same as typing it in chat
+        mChat->send("/menu");
         return true;
     }
     return false;

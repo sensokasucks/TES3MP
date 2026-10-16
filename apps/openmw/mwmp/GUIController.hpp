@@ -71,6 +71,7 @@ namespace mwmp
         GUIChat *mChat;
         int keySay;
         int keyChatMode;
+        int keyMenu;
 
         long id;
         TextInputDialog *mInputBox;
