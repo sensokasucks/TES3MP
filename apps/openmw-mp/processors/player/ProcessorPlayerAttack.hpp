@@ -2,6 +2,7 @@
 #define OPENMW_PROCESSORPLAYERATTACK_HPP
 
 #include "../PlayerProcessor.hpp"
+#include "Script/Functions/Hooks.hpp"
 
 namespace mwmp
 {
@@ -22,6 +23,11 @@ namespace mwmp
             {
                 player.sendToLoaded(&packet);
             }
+
+            Hooks::markActive(player);
+
+            if (player.attack.isHit)
+                Script::Call<Script::CallbackIdentity("OnPlayerAttack")>(player.getId());
         }
     };
 }

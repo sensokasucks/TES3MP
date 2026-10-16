@@ -2,6 +2,7 @@
 #define OPENMW_PROCESSORPLAYERCHATMSG_HPP
 
 #include "../PlayerProcessor.hpp"
+#include "Script/Functions/Hooks.hpp"
 
 namespace mwmp
 {
@@ -16,6 +17,8 @@ namespace mwmp
         void Do(PlayerPacket &packet, Player &player) override
         {
             DEBUG_PRINTF(strPacketID.c_str());
+
+            Hooks::markActive(player);
 
             Script::Call<Script::CallbackIdentity("OnPlayerSendMessage")>(player.getId(), player.chatMessage.c_str());
         }

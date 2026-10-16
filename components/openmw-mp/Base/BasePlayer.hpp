@@ -260,6 +260,7 @@ namespace mwmp
         std::string birthsign;
         std::string chatMessage;
         std::vector<ChatCommand> chatCommands;
+        std::string menu; // Name of the open menu, empty when none is open
         CharGenState charGenState;
         std::map<std::string, std::string> gameSettings;
         std::map<std::string, std::string> vrSettings;

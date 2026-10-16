@@ -2,6 +2,7 @@
 #define OPENMW_PROCESSORPLAYERPOSITION_HPP
 
 #include "../PlayerProcessor.hpp"
+#include "Script/Functions/Hooks.hpp"
 
 namespace mwmp
 {
@@ -16,6 +17,8 @@ namespace mwmp
         void Do(PlayerPacket &packet, Player &player) override
         {
             player.sendToLoaded(&packet);
+
+            Hooks::markActive(player);
         }
     };
 }

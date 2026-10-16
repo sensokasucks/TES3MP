@@ -2,6 +2,7 @@
 #define OPENMW_PROCESSORPLAYERCAST_HPP
 
 #include "../PlayerProcessor.hpp"
+#include "Script/Functions/Hooks.hpp"
 
 namespace mwmp
 {
@@ -22,6 +23,12 @@ namespace mwmp
             {
                 player.sendToLoaded(&packet);
             }
+
+            Hooks::markActive(player);
+
+            // Spell casts are sent once when pressed and again with their result
+            if (player.cast.type == mwmp::Cast::ITEM || !player.cast.pressed)
+                Script::Call<Script::CallbackIdentity("OnPlayerCast")>(player.getId());
         }
     };
 }

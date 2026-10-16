@@ -126,6 +126,64 @@ void LocalPlayer::update()
         updateLevel();
         updateBounty();
         updateReputation();
+        updateMenu();
+    }
+}
+
+static const char *getMenuName(MWGui::GuiMode mode)
+{
+    switch (mode)
+    {
+        case MWGui::GM_None: return "";
+        case MWGui::GM_Inventory: return "inventory";
+        case MWGui::GM_Container: return "container";
+        case MWGui::GM_Companion: return "companion";
+        case MWGui::GM_MainMenu: return "mainmenu";
+        case MWGui::GM_Journal: return "journal";
+        case MWGui::GM_Scroll: return "scroll";
+        case MWGui::GM_Book: return "book";
+        case MWGui::GM_Alchemy: return "alchemy";
+        case MWGui::GM_Repair: return "repair";
+        case MWGui::GM_Dialogue: return "dialogue";
+        case MWGui::GM_Barter: return "barter";
+        case MWGui::GM_Rest: return "rest";
+        case MWGui::GM_SpellBuying: return "spellbuying";
+        case MWGui::GM_Travel: return "travel";
+        case MWGui::GM_SpellCreation: return "spellcreation";
+        case MWGui::GM_Enchanting: return "enchanting";
+        case MWGui::GM_Recharge: return "recharge";
+        case MWGui::GM_Training: return "training";
+        case MWGui::GM_MerchantRepair: return "merchantrepair";
+        case MWGui::GM_Levelup: return "levelup";
+        case MWGui::GM_Name:
+        case MWGui::GM_Race:
+        case MWGui::GM_Birth:
+        case MWGui::GM_Class:
+        case MWGui::GM_ClassGenerate:
+        case MWGui::GM_ClassPick:
+        case MWGui::GM_ClassCreate:
+        case MWGui::GM_Review: return "chargen";
+        case MWGui::GM_Loading:
+        case MWGui::GM_LoadingWallpaper: return "loading";
+        case MWGui::GM_Jail: return "jail";
+        case MWGui::GM_QuickKeysMenu: return "quickkeys";
+    }
+
+    return "other";
+}
+
+void LocalPlayer::updateMenu()
+{
+    MWBase::WindowManager *windowManager = MWBase::Environment::get().getWindowManager();
+
+    std::string newMenu = windowManager->isConsoleMode() ? "console" : getMenuName(windowManager->getMode());
+
+    if (newMenu != menu)
+    {
+        menu = newMenu;
+
+        getNetworking()->getPlayerPacket(ID_PLAYER_MENU)->setPlayer(this);
+        getNetworking()->getPlayerPacket(ID_PLAYER_MENU)->Send();
     }
 }
 

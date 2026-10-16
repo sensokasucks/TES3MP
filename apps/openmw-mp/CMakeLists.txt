@@ -58,7 +58,7 @@ set(SERVER
 
     Script/Functions/Books.cpp Script/Functions/Cells.cpp Script/Functions/CharClass.cpp
     Script/Functions/Chat.cpp Script/Functions/Dialogue.cpp Script/Functions/Factions.cpp
-    Script/Functions/GUI.cpp Script/Functions/Items.cpp Script/Functions/Mechanics.cpp
+    Script/Functions/GUI.cpp Script/Functions/Hooks.cpp Script/Functions/Items.cpp Script/Functions/Mechanics.cpp
     Script/Functions/Positions.cpp Script/Functions/Quests.cpp Script/Functions/RecordsDynamic.cpp
     Script/Functions/Server.cpp Script/Functions/Settings.cpp Script/Functions/Shapeshift.cpp
     Script/Functions/Spells.cpp Script/Functions/Stats.cpp Script/Functions/Timer.cpp
@@ -104,7 +104,7 @@ set(PROCESSORS_PLAYER
         processors/player/ProcessorPlayerItemUse.hpp processors/player/ProcessorPlayerJournal.hpp
         processors/player/ProcessorPlayerPlaceholder.hpp processors/player/ProcessorPlayerLevel.hpp
         processors/player/ProcessorPlayerMiscellaneous.hpp processors/player/ProcessorPlayerPosition.hpp
-        processors/player/ProcessorPlayerQuickKeys.hpp processors/player/ProcessorPlayerRest.hpp
+        processors/player/ProcessorPlayerQuickKeys.hpp processors/player/ProcessorPlayerRest.hpp processors/player/ProcessorPlayerMenu.hpp
         processors/player/ProcessorPlayerResurrect.hpp processors/player/ProcessorPlayerShapeshift.hpp
         processors/player/ProcessorPlayerSkill.hpp processors/player/ProcessorPlayerSpeech.hpp
         processors/player/ProcessorPlayerSpellbook.hpp processors/player/ProcessorPlayerSpellsActive.hpp

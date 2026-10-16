@@ -9,6 +9,7 @@
 #include <Script/Functions/Dialogue.hpp>
 #include <Script/Functions/Factions.hpp>
 #include <Script/Functions/GUI.hpp>
+#include <Script/Functions/Hooks.hpp>
 #include <Script/Functions/Items.hpp>
 #include <Script/Functions/Mechanics.hpp>
 #include <Script/Functions/Miscellaneous.hpp>
@@ -138,6 +139,7 @@ public:
             DIALOGUEAPI,
             FACTIONAPI,
             GUIAPI,
+            HOOKSAPI,
             ITEMAPI,
             MECHANICSAPI,
             MISCELLANEOUSAPI,
@@ -221,7 +223,11 @@ public:
             {"OnClientScriptLocal",      Callback<unsigned short, const char*>()},
             {"OnClientScriptGlobal",     Callback<unsigned short>()},
             {"OnMpNumIncrement",         Callback<int>()},
-            {"OnRequestDataFileList",    Callback<>()}
+            {"OnRequestDataFileList",    Callback<>()},
+            {"OnPlayerAttack",           Callback<unsigned short>()},
+            {"OnPlayerCast",             Callback<unsigned short>()},
+            {"OnPlayerHealthThreshold",  Callback<unsigned short, double, bool>()},
+            {"OnPlayerMenu",             Callback<unsigned short, const char*>()}
     };
 };
 

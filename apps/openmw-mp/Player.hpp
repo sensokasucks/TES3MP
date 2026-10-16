@@ -70,6 +70,9 @@ public:
 
     void forEachLoaded(std::function<void(Player *pl, Player *other)> func);
 
+    std::chrono::steady_clock::time_point lastActivity = std::chrono::steady_clock::now();
+    double lastHealthRatio = -1;
+
 private:
     CellController::TContainer cells;
     int loadState;

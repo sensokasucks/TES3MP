@@ -2,6 +2,7 @@
 #define OPENMW_PROCESSORPLAYERSTATS_DYNAMIC_HPP
 
 #include "../PlayerProcessor.hpp"
+#include "Script/Functions/Hooks.hpp"
 
 namespace mwmp
 {
@@ -18,6 +19,8 @@ namespace mwmp
             DEBUG_PRINTF(strPacketID.c_str());
 
             player.sendToLoaded(&packet);
+
+            Hooks::checkHealthThresholds(player);
         }
     };
 }

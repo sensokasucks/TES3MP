@@ -40,6 +40,7 @@ namespace mwmp
         void updateLevel(bool forceUpdate = false);
         void updateBounty(bool forceUpdate = false);
         void updateReputation(bool forceUpdate = false);
+        void updateMenu();
         void updatePosition(bool forceUpdate = false);
         void updateCell(bool forceUpdate = false);
         void updateEquipment(bool forceUpdate = false);
