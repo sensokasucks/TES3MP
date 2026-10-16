@@ -133,7 +133,14 @@ namespace mwmp
                 str = refId.serializeText();
             bool res = RW(str, write, compress);
             if (!write)
+            {
                 refId = res ? ESM::RefId::deserializeText(str) : ESM::RefId();
+
+                // deserializeText() only returns string ids that already exist in this process, and the
+                // server loads no ESM data, so race, head, hair, region and other ids all arrived empty there
+                if (res && refId.empty() && !str.empty())
+                    refId = ESM::RefId::stringRefId(str);
+            }
             return res;
         }
 
