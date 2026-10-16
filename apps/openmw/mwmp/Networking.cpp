@@ -45,6 +45,26 @@
 
 using namespace mwmp;
 
+static bool isLuaScriptList(const std::string &filename)
+{
+    return Misc::StringUtils::ciEqual(Misc::getFileExtension(filename), "omwscripts");
+}
+
+// When the server's list names no Lua mods, it ignores ours, so leave them out of what we show
+static PacketPreInit::PluginContainer withoutIgnoredLuaMods(const PacketPreInit::PluginContainer &checksums,
+    const PacketPreInit::PluginContainer &checksumsResponse)
+{
+    for (const auto &entry : checksumsResponse)
+        if (isLuaScriptList(entry.first))
+            return checksums;
+
+    PacketPreInit::PluginContainer result;
+    for (const auto &entry : checksums)
+        if (!isLuaScriptList(entry.first))
+            result.push_back(entry);
+    return result;
+}
+
 std::string listDiscrepancies(PacketPreInit::PluginContainer checksums, PacketPreInit::PluginContainer checksumsResponse)
 {
     std::ostringstream sstr;
@@ -363,9 +383,10 @@ void Networking::preInit(std::vector<std::string> &content, Files::Collections &
     {
         const std::string_view extension = Misc::getFileExtension(*it);
 
-        // OpenMW 0.51 always loads builtin.omwscripts first; Lua script lists are not data files
-        // the server's plugin list knows about, so leave them out of the checksums
-        if (Misc::StringUtils::ciEqual(extension, "omwscripts"))
+        // OpenMW 0.51 always loads builtin.omwscripts first; it ships with the client, so the
+        // version check already covers it. Other .omwscripts files (Lua mods) are sent like plugins;
+        // servers whose required list names no .omwscripts files ignore them
+        if (Misc::StringUtils::ciEqual(*it, "builtin.omwscripts"))
             continue;
 
         // OpenMW 0.51 file collections are keyed by the extension without its leading dot
@@ -425,10 +446,11 @@ void Networking::preInit(std::vector<std::string> &content, Files::Collections &
 
     if (!checksumsResponse.empty()) // something wrong
     {
-        std::string errmsg = listDiscrepancies(checksums, checksumsResponse);
+        PacketPreInit::PluginContainer shownChecksums = withoutIgnoredLuaMods(checksums, checksumsResponse);
+        std::string errmsg = listDiscrepancies(shownChecksums, checksumsResponse);
 
-        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, listDiscrepancies(checksums, checksumsResponse).c_str());
-        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, listComparison(checksums, checksumsResponse, true).c_str());
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, errmsg.c_str());
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, listComparison(shownChecksums, checksumsResponse, true).c_str());
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "tes3mp", errmsg.c_str(), 0);
         connected = false;
     }

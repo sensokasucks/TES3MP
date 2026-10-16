@@ -3,7 +3,10 @@
 #include <RakPeer.h>
 #include <Kbhit.h>
 
+#include <components/misc/pathhelpers.hpp>
 #include <components/misc/strings/algorithm.hpp>
+
+#include <algorithm>
 #include <components/openmw-mp/NetworkMessages.hpp>
 #include <components/openmw-mp/TimedLog.hpp>
 #include <components/openmw-mp/Version.hpp>
@@ -252,6 +255,19 @@ bool Networking::preInit(RakNet::Packet *packet, RakNet::BitStream &bsIn)
         peer->CloseConnection(packet->systemAddress, false); // close connection without notification
         return false;
     }
+
+    // Clients send their Lua mods (.omwscripts) too; they are only checked when the server's
+    // required list names at least one
+    auto isLuaScriptList = [](const std::string &filename) {
+        return Misc::StringUtils::ciEqual(Misc::getFileExtension(filename), "omwscripts");
+    };
+
+    bool serverListsLuaMods = std::any_of(samples.begin(), samples.end(),
+        [&](const auto &sample) { return isLuaScriptList(sample.first); });
+
+    if (!serverListsLuaMods)
+        dataFiles.erase(std::remove_if(dataFiles.begin(), dataFiles.end(),
+            [&](const auto &dataFile) { return isLuaScriptList(dataFile.first); }), dataFiles.end());
 
     auto dataFile = dataFiles.begin();
     if (samples.size() == dataFiles.size())
