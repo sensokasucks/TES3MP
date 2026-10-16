@@ -261,6 +261,8 @@ namespace mwmp
         std::string chatMessage;
         std::vector<ChatCommand> chatCommands;
         std::string menu; // Name of the open menu, empty when none is open
+        std::string luaEventName;
+        std::string luaEventPayload;
         CharGenState charGenState;
         std::map<std::string, std::string> gameSettings;
         std::map<std::string, std::string> vrSettings;

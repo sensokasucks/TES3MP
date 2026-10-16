@@ -6,6 +6,7 @@
 #include "PlayerProcessor.hpp"
 #include "player/ProcessorChatMessage.hpp"
 #include "player/ProcessorChatCommands.hpp"
+#include "player/ProcessorPlayerLuaEvent.hpp"
 #include "player/ProcessorGUIMessageBox.hpp"
 #include "player/ProcessorUserDisconnected.hpp"
 #include "player/ProcessorGameSettings.hpp"
@@ -114,6 +115,7 @@ void ProcessorInitializer()
 
     PlayerProcessor::AddProcessor(new ProcessorChatMessage());
     PlayerProcessor::AddProcessor(new ProcessorChatCommands());
+    PlayerProcessor::AddProcessor(new ProcessorPlayerLuaEvent());
     PlayerProcessor::AddProcessor(new ProcessorGUIMessageBox());
     PlayerProcessor::AddProcessor(new ProcessorUserDisconnected());
     PlayerProcessor::AddProcessor(new ProcessorGameSettings());

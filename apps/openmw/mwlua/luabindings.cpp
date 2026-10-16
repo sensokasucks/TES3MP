@@ -17,6 +17,7 @@
 #include "localscripts.hpp"
 #include "markupbindings.hpp"
 #include "menuscripts.hpp"
+#include "multiplayerbindings.hpp"
 #include "nearbybindings.hpp"
 #include "objectbindings.hpp"
 #include "postprocessingbindings.hpp"
@@ -73,6 +74,7 @@ namespace MWLua
             { "openmw.camera", initCameraPackage(context.sol()) },
             { "openmw.debug", initDebugPackage(context) },
             { "openmw.input", initInputPackage(context) },
+            { "openmw.multiplayer", initMultiplayerPackage(context) },
             { "openmw.postprocessing", initPostprocessingPackage(context) },
             { "openmw.ui", initUserInterfacePackage(context) },
         };

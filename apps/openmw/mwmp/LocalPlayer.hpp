@@ -41,6 +41,7 @@ namespace mwmp
         void updateBounty(bool forceUpdate = false);
         void updateReputation(bool forceUpdate = false);
         void updateMenu();
+        void sendLuaEvents();
         void updatePosition(bool forceUpdate = false);
         void updateCell(bool forceUpdate = false);
         void updateEquipment(bool forceUpdate = false);

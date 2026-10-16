@@ -72,6 +72,8 @@ public:
 
     std::chrono::steady_clock::time_point lastActivity = std::chrono::steady_clock::now();
     double lastHealthRatio = -1;
+    std::chrono::steady_clock::time_point luaEventWindowStart;
+    int luaEventCount = 0;
 
 private:
     CellController::TContainer cells;

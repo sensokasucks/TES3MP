@@ -227,7 +227,8 @@ public:
             {"OnPlayerAttack",           Callback<unsigned short>()},
             {"OnPlayerCast",             Callback<unsigned short>()},
             {"OnPlayerHealthThreshold",  Callback<unsigned short, double, bool>()},
-            {"OnPlayerMenu",             Callback<unsigned short, const char*>()}
+            {"OnPlayerMenu",             Callback<unsigned short, const char*>()},
+            {"OnPlayerLuaEvent",         Callback<unsigned short, const char*, const char*>()}
     };
 };
 

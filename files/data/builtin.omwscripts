@@ -29,6 +29,9 @@ NPC,CREATURE,PLAYER: scripts/omw/combat/interface.lua
 # User interface
 PLAYER: scripts/omw/ui.lua
 
+# TES3MP: client Lua <-> server Lua events
+PLAYER: scripts/tes3mp/multiplayer.lua
+
 # Lua console
 MENU: scripts/omw/console/menu.lua
 PLAYER: scripts/omw/console/player.lua

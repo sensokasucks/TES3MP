@@ -43,6 +43,7 @@
 #include "PlayerList.hpp"
 #include "CellController.hpp"
 #include "GUIController.hpp"
+#include "LuaChannel.hpp"
 #include "MechanicsHelper.hpp"
 #include <components/settings/values.hpp>
 #include <components/esm/util.hpp>
@@ -127,6 +128,20 @@ void LocalPlayer::update()
         updateBounty();
         updateReputation();
         updateMenu();
+    }
+
+    sendLuaEvents();
+}
+
+void LocalPlayer::sendLuaEvents()
+{
+    for (auto& event : LuaChannel::takeOutgoing())
+    {
+        luaEventName = std::move(event.name);
+        luaEventPayload = std::move(event.payload);
+
+        getNetworking()->getPlayerPacket(ID_PLAYER_LUA_EVENT)->setPlayer(this);
+        getNetworking()->getPlayerPacket(ID_PLAYER_LUA_EVENT)->Send();
     }
 }
 

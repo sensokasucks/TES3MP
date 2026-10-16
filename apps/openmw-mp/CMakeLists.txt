@@ -104,7 +104,7 @@ set(PROCESSORS_PLAYER
         processors/player/ProcessorPlayerItemUse.hpp processors/player/ProcessorPlayerJournal.hpp
         processors/player/ProcessorPlayerPlaceholder.hpp processors/player/ProcessorPlayerLevel.hpp
         processors/player/ProcessorPlayerMiscellaneous.hpp processors/player/ProcessorPlayerPosition.hpp
-        processors/player/ProcessorPlayerQuickKeys.hpp processors/player/ProcessorPlayerRest.hpp processors/player/ProcessorPlayerMenu.hpp
+        processors/player/ProcessorPlayerQuickKeys.hpp processors/player/ProcessorPlayerRest.hpp processors/player/ProcessorPlayerMenu.hpp processors/player/ProcessorPlayerLuaEvent.hpp
         processors/player/ProcessorPlayerResurrect.hpp processors/player/ProcessorPlayerShapeshift.hpp
         processors/player/ProcessorPlayerSkill.hpp processors/player/ProcessorPlayerSpeech.hpp
         processors/player/ProcessorPlayerSpellbook.hpp processors/player/ProcessorPlayerSpellsActive.hpp

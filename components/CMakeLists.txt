@@ -449,7 +449,7 @@ add_component_dir (openmw-mp/Packets/System
 add_component_dir (openmw-mp/Packets/Player
         PlayerPacket
 
-        PacketChatMessage PacketChatCommands PacketGUIBoxes PacketPlayerMenu PacketGameSettings
+        PacketChatMessage PacketChatCommands PacketGUIBoxes PacketPlayerMenu PacketPlayerLuaEvent PacketGameSettings
 
         PacketPlayerBaseInfo PacketPlayerCharGen PacketPlayerAlly PacketPlayerAnimFlags PacketPlayerAnimPlay
         PacketPlayerAttack PacketPlayerAttribute PacketPlayerBehavior PacketPlayerBook PacketPlayerBounty

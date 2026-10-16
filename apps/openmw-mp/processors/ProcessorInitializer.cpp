@@ -34,6 +34,7 @@
 #include "player/ProcessorPlayerReputation.hpp"
 #include "player/ProcessorPlayerRest.hpp"
 #include "player/ProcessorPlayerMenu.hpp"
+#include "player/ProcessorPlayerLuaEvent.hpp"
 #include "player/ProcessorPlayerResurrect.hpp"
 #include "player/ProcessorPlayerShapeshift.hpp"
 #include "player/ProcessorPlayerSkill.hpp"
@@ -122,6 +123,7 @@ void ProcessorInitializer()
     PlayerProcessor::AddProcessor(new ProcessorPlayerReputation());
     PlayerProcessor::AddProcessor(new ProcessorPlayerRest());
     PlayerProcessor::AddProcessor(new ProcessorPlayerMenu());
+    PlayerProcessor::AddProcessor(new ProcessorPlayerLuaEvent());
     PlayerProcessor::AddProcessor(new ProcessorPlayerResurrect());
     PlayerProcessor::AddProcessor(new ProcessorPlayerShapeshift());
     PlayerProcessor::AddProcessor(new ProcessorPlayerSkill());

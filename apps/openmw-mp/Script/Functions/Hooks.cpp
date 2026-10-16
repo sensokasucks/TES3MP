@@ -2,6 +2,10 @@
 
 #include <apps/openmw-mp/Script/ScriptFunctions.hpp>
 #include <apps/openmw-mp/Script/Script.hpp>
+#include <apps/openmw-mp/Networking.hpp>
+
+#include <components/openmw-mp/NetworkMessages.hpp>
+#include <components/openmw-mp/Packets/Player/PacketPlayerLuaEvent.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -249,6 +253,32 @@ double HookFunctions::GetPlayerIdleTime(unsigned short pid) noexcept
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - player->lastActivity).count();
 }
 
+bool HookFunctions::SendLuaEvent(unsigned short pid, const char *name, const char *payload) noexcept
+{
+    Player *player;
+    GET_PLAYER(pid, player, false);
+
+    std::string eventName = name != nullptr ? name : "";
+    std::string eventPayload = payload != nullptr ? payload : "";
+
+    if (eventName.empty() || eventName.size() > mwmp::PacketPlayerLuaEvent::maxNameLength
+        || eventPayload.size() > mwmp::PacketPlayerLuaEvent::maxPayloadLength)
+    {
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_WARN, "SendLuaEvent: event \"%s\" has an empty or too long name, or a payload over %zu bytes",
+            eventName.c_str(), mwmp::PacketPlayerLuaEvent::maxPayloadLength);
+        return false;
+    }
+
+    player->luaEventName = std::move(eventName);
+    player->luaEventPayload = std::move(eventPayload);
+
+    mwmp::PlayerPacket *packet = mwmp::Networking::get().getPlayerPacketController()->GetPacket(ID_PLAYER_LUA_EVENT);
+    packet->setPlayer(player);
+    packet->Send(false);
+
+    return true;
+}
+
 void Hooks::markActive(Player &player)
 {
     player.lastActivity = std::chrono::steady_clock::now();
@@ -276,4 +306,27 @@ void Hooks::checkHealthThresholds(Player &player)
         else if (previous < threshold && ratio >= threshold)
             Script::Call<Script::CallbackIdentity("OnPlayerHealthThreshold")>(player.getId(), threshold, false);
     }
+}
+
+bool Hooks::allowLuaEvent(Player &player)
+{
+    static const int maxEventsPerSecond = 30;
+
+    auto now = std::chrono::steady_clock::now();
+
+    if (now - player.luaEventWindowStart >= std::chrono::seconds(1))
+    {
+        player.luaEventWindowStart = now;
+        player.luaEventCount = 0;
+    }
+
+    if (++player.luaEventCount > maxEventsPerSecond)
+    {
+        if (player.luaEventCount == maxEventsPerSecond + 1)
+            LOG_MESSAGE_SIMPLE(TimedLog::LOG_WARN, "Player %d is sending too many Lua events; dropping them for now",
+                player.getId());
+        return false;
+    }
+
+    return true;
 }

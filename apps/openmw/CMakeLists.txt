@@ -63,7 +63,7 @@ add_openmw_dir (mwlua
     context menuscripts globalscripts localscripts playerscripts luabindings objectbindings cellbindings coremwscriptbindings
     mwscriptbindings camerabindings vfsbindings uibindings soundbindings inputbindings nearbybindings dialoguebindings
     postprocessingbindings stats recordstore debugbindings corebindings worldbindings worker landbindings magicbindings factionbindings
-    classbindings itemdata inputprocessor animationbindings birthsignbindings racebindings markupbindings weatherbindings regionbindings
+    classbindings itemdata multiplayerbindings inputprocessor animationbindings birthsignbindings racebindings markupbindings weatherbindings regionbindings
     types/types types/door types/item types/actor types/container types/lockable types/weapon types/npc
     types/creature types/player types/activator types/book types/lockpick types/probe types/apparatus
     types/potion types/ingredient types/misc types/repair types/armor types/light types/static
@@ -116,7 +116,7 @@ add_openmw_dir (mwbase
     inputmanager windowmanager statemanager luamanager
     )
 add_openmw_dir (mwmp Main Networking LocalSystem LocalPlayer DedicatedPlayer PlayerList LocalActor DedicatedActor ActorList
-    ObjectList Worldstate Cell CellController GUIController MechanicsHelper RecordHelper ScriptController
+    ObjectList Worldstate Cell CellController GUIController MechanicsHelper RecordHelper ScriptController LuaChannel
     )
 
 add_openmw_dir (mwmp/GUI GUIChat GUILogin PlayerMarkerCollection GUIDialogList TextInputDialog
@@ -135,7 +135,7 @@ add_openmw_dir (mwmp/processors/actor ProcessorActorAI ProcessorActorAnimFlags P
     ProcessorActorTest
     )
 
-add_openmw_dir (mwmp/processors/player ProcessorChatMessage ProcessorChatCommands ProcessorGUIMessageBox ProcessorUserDisconnected
+add_openmw_dir (mwmp/processors/player ProcessorChatMessage ProcessorChatCommands ProcessorPlayerLuaEvent ProcessorGUIMessageBox ProcessorUserDisconnected
     ProcessorUserMyID ProcessorGameSettings ProcessorPlayerAlly ProcessorPlayerAnimFlags ProcessorPlayerAnimPlay
     ProcessorPlayerAttack ProcessorPlayerAttribute ProcessorPlayerBaseInfo ProcessorPlayerBehavior ProcessorPlayerBook
     ProcessorPlayerBounty ProcessorPlayerCast ProcessorPlayerCellChange ProcessorPlayerCellState ProcessorPlayerCharClass

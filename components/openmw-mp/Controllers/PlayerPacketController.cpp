@@ -2,6 +2,7 @@
 #include "../Packets/Player/PacketChatMessage.hpp"
 #include "../Packets/Player/PacketChatCommands.hpp"
 #include "../Packets/Player/PacketPlayerMenu.hpp"
+#include "../Packets/Player/PacketPlayerLuaEvent.hpp"
 #include "../Packets/Player/PacketPlayerCharGen.hpp"
 #include "../Packets/Player/PacketGUIBoxes.hpp"
 #include "../Packets/Player/PacketLoaded.hpp"
@@ -60,6 +61,7 @@ mwmp::PlayerPacketController::PlayerPacketController(RakNet::RakPeerInterface *p
     AddPacket<PacketChatMessage>(&packets, peer);
     AddPacket<PacketChatCommands>(&packets, peer);
     AddPacket<PacketPlayerMenu>(&packets, peer);
+    AddPacket<PacketPlayerLuaEvent>(&packets, peer);
     AddPacket<PacketGUIBoxes>(&packets, peer);
     AddPacket<PacketLoaded>(&packets, peer);
     AddPacket<PacketGameSettings>(&packets, peer);

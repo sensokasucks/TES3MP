@@ -35,7 +35,9 @@ class Player;
     \
     {"GetPlayerMenu",              SCRIPT_FUNCTION(HookFunctions::GetPlayerMenu)},\
     {"IsPlayerInMenu",             SCRIPT_FUNCTION(HookFunctions::IsPlayerInMenu)},\
-    {"GetPlayerIdleTime",          SCRIPT_FUNCTION(HookFunctions::GetPlayerIdleTime)}
+    {"GetPlayerIdleTime",          SCRIPT_FUNCTION(HookFunctions::GetPlayerIdleTime)},\
+    \
+    {"SendLuaEvent",               SCRIPT_FUNCTION(HookFunctions::SendLuaEvent)}
 
 class HookFunctions
 {
@@ -263,6 +265,19 @@ public:
     * \return Seconds since the player's last activity.
     */
     static double GetPlayerIdleTime(unsigned short pid) noexcept;
+
+    /**
+    * \brief Send a named event to the player's client Lua scripts.
+    *
+    * Client scripts receive it as the local event "MP_<name>" on the player, with the payload decoded
+    * from JSON when the built-in Multiplayer script is active.
+    *
+    * \param pid The player ID.
+    * \param name The event name (1 to 64 characters).
+    * \param payload The payload, JSON by convention (at most 16384 bytes).
+    * \return Whether the event was sent.
+    */
+    static bool SendLuaEvent(unsigned short pid, const char *name, const char *payload) noexcept;
 };
 
 namespace Hooks
@@ -270,6 +285,7 @@ namespace Hooks
     // Called from packet processors
     void markActive(Player &player);
     void checkHealthThresholds(Player &player);
+    bool allowLuaEvent(Player &player);
 }
 
 #endif //OPENMW_HOOKSAPI_HPP
