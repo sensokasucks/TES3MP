@@ -1,0 +1,180 @@
+name: TES3MP Linux build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'port/**'
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: 2G
+
+jobs:
+  Linux:
+    name: tes3mp-linux
+
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install dependencies
+      # Plain Ubuntu packages only: MyGUI is built from source, so the (often flaky) OpenMW PPAs are not needed
+      run: |
+        mkdir -p build
+        {
+          for i in 1 2 3; do sudo apt-get -qq update && break; sleep 15; done
+          for i in 1 2 3; do
+            sudo apt-get -qq install -y --no-install-recommends \
+              build-essential cmake ccache git pkg-config ninja-build patchelf \
+              libboost-program-options-dev libboost-system-dev libboost-iostreams-dev libboost-filesystem-dev \
+              libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+              libsdl2-dev libopenal-dev libunshield-dev libtinyxml-dev libbullet-dev liblz4-dev libpng-dev \
+              libjpeg-dev libluajit-5.1-dev librecast-dev libsqlite3-dev libicu-dev libyaml-cpp-dev \
+              libopenscenegraph-dev libcollada-dom-dev libfreetype-dev libgl-dev \
+            && break
+            sleep 30
+          done
+          dpkg -s ninja-build patchelf libopenscenegraph-dev libfreetype-dev > /dev/null
+        } 2>&1 | tail -n 200 > build/deps.log; exit ${PIPESTATUS[0]}
+
+    - name: Cache ccache
+      uses: actions/cache@v5
+      with:
+        path: ${{ github.workspace }}/.ccache
+        key: ccache-linux-${{ github.ref_name }}-${{ github.sha }}
+        restore-keys: |
+          ccache-linux-${{ github.ref_name }}-
+          ccache-linux-
+
+    - name: Checkout CrabNet
+      uses: actions/checkout@v6
+      with:
+        repository: TES3MP/CrabNet
+        path: deps/CrabNet-src
+
+    - name: Checkout CoreScripts
+      uses: actions/checkout@v6
+      with:
+        repository: TES3MP/CoreScripts
+        ref: '0.8.1'
+        path: deps/CoreScripts
+
+    - name: Build and install CrabNet
+      # GCC 13 no longer pulls in <cstdint> through <string>, which CrabNet relies on
+      run: |
+        mkdir -p build
+        {
+          cmake -S deps/CrabNet-src -B deps/CrabNet-build -G Ninja \
+            -D CMAKE_BUILD_TYPE=Release \
+            -D CMAKE_CXX_FLAGS="-include cstdint" \
+            -D CMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -D CRABNET_ENABLE_DLL=OFF \
+            -D CRABNET_ENABLE_SAMPLES=OFF \
+            -D CRABNET_ENABLE_STATIC=ON \
+            -D CMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/deps/CrabNet" \
+          && cmake --build deps/CrabNet-build \
+          && cmake --install deps/CrabNet-build
+        } 2>&1 | tee build/crabnet.log; exit ${PIPESTATUS[0]}
+
+    - name: Configure TES3MP
+      run: |
+        CRABNET_LIB=$(find "$GITHUB_WORKSPACE/deps/CrabNet" -name 'libRakNetLibStatic.a' | head -n 1)
+        cmake -S . -B build -G Ninja \
+          -D CMAKE_BUILD_TYPE="$BUILD_TYPE" \
+          -D CMAKE_C_COMPILER_LAUNCHER=ccache \
+          -D CMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -D RakNet_INCLUDES="$GITHUB_WORKSPACE/deps/CrabNet/include" \
+          -D RakNet_LIBRARY_RELEASE="$CRABNET_LIB" \
+          -D RakNet_LIBRARY_DEBUG="$CRABNET_LIB" \
+          -D BUILD_OPENMW=ON \
+          -D BUILD_OPENMW_MP=ON \
+          -D BUILD_BROWSER=OFF \
+          -D BUILD_LAUNCHER=OFF \
+          -D BUILD_WIZARD=OFF \
+          -D BUILD_MWINIIMPORTER=ON \
+          -D BUILD_ESSIMPORTER=ON \
+          -D BUILD_BSATOOL=ON \
+          -D BUILD_ESMTOOL=ON \
+          -D BUILD_NIFTEST=OFF \
+          -D BUILD_NAVMESHTOOL=ON \
+          -D BUILD_BULLETOBJECTTOOL=ON \
+          -D BUILD_OPENCS=OFF \
+          -D BUILD_BENCHMARKS=OFF \
+          -D BUILD_COMPONENTS_TESTS=OFF \
+          -D BUILD_OPENMW_TESTS=OFF \
+          -D BUILD_OPENCS_TESTS=OFF \
+          -D OPENMW_LTO_BUILD=OFF \
+          -D OPENMW_USE_SYSTEM_MYGUI=OFF \
+          -D MYGUI_STATIC=ON \
+          2>&1 | tee build/configure.log; exit ${PIPESTATUS[0]}
+
+    - name: Build TES3MP
+      run: |
+        cmake --build build -- -k 0 2>&1 | tee build/build.log; exit ${PIPESTATUS[0]}
+
+    - name: Package tarball
+      run: |
+        PKG=tes3mp-linux-x86_64-${GITHUB_SHA::7}
+        echo "PKG=$PKG" >> $GITHUB_ENV
+        DEBUG_OUT="dist/$PKG-debug" CI/package_linux_tarball.sh build "dist/$PKG" deps/CoreScripts 2>&1 | tee build/package.log
+        printf "Ref ${{ github.ref }}\nCommit ${{ github.sha }}\nRun ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n" > "dist/$PKG/CI-ID.txt"
+        tar -C dist -czf "dist/$PKG.tar.gz" "$PKG"
+        tar -C dist -czf "dist/$PKG-debug.tar.gz" "$PKG-debug"
+        ls -l dist
+
+    - name: Smoke test in a clean Ubuntu container
+      # The server must run on a bare system; the client only needs what a desktop already has (GL, X11/Wayland, sound)
+      run: |
+        docker run --rm -v "$PWD/dist:/dist:ro" -v "$PWD/CI:/ci:ro" ubuntu:24.04 bash /ci/smoke_test_linux_tarball.sh "/dist/$PKG.tar.gz" \
+          2>&1 | tee build/smoke.log; exit ${PIPESTATUS[0]}
+
+    - name: Post error excerpt as a commit comment
+      if: failure()
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set +e +o pipefail
+        {
+          echo "Linux build failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo
+          echo '```'
+          for f in build/deps.log build/crabnet.log build/configure.log build/build.log build/package.log build/smoke.log; do
+            if [ -f "$f" ]; then
+              echo "== $f =="
+              grep -n -E "CMake Error|error:|undefined reference|fatal error|FAILED:|Could NOT|not found|NOTFOUND|No such file" "$f" | head -300
+              echo "-- tail --"
+              tail -n 30 "$f"
+            fi
+          done
+          echo '```'
+        } | head -c 60000 > excerpt.txt
+        jq -Rs '{body: .}' excerpt.txt | gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" --input - > /dev/null
+
+    - name: Store TES3MP build
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ env.PKG }}
+        path: dist/${{ env.PKG }}.tar.gz
+        compression-level: 0
+
+    - name: Store debug symbols
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ env.PKG }}-debug
+        path: dist/${{ env.PKG }}-debug.tar.gz
+        compression-level: 0
+
+    - name: Store logs
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: tes3mp-linux-logs-${{ github.sha }}
+        path: |
+          build/*.log
+          build/CMakeCache.txt
