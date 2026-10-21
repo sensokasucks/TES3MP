@@ -4,6 +4,7 @@
 #   <out>/tes3mp.sh, tes3mp-server.sh   launchers (set LD_LIBRARY_PATH so OSG finds its plugins, cd to the tree)
 #   <out>/lib/                          bundled shared libraries + osgPlugins-<ver>
 #   <out>/server/                       CoreScripts (if given)
+# MyGUI is linked statically (Ubuntu ships 3.4.2, OpenMW needs 3.4.3).
 # Libraries that belong to the target system (glibc, GL/GPU drivers, X11/Wayland, audio servers) are not bundled.
 #
 # usage: package_linux_tarball.sh BUILD_DIR OUT_DIR [CORESCRIPTS_DIR]

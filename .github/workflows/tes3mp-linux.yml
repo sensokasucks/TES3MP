@@ -95,6 +95,8 @@ jobs:
           -D BUILD_OPENMW_TESTS=OFF \
           -D BUILD_OPENCS_TESTS=OFF \
           -D OPENMW_LTO_BUILD=OFF \
+          -D OPENMW_USE_SYSTEM_MYGUI=OFF \
+          -D MYGUI_STATIC=ON \
           2>&1 | tee build/configure.log; exit ${PIPESTATUS[0]}
 
     - name: Build TES3MP
@@ -131,7 +133,7 @@ jobs:
               echo "== $f =="
               grep -n -E "CMake Error|error:|undefined reference|fatal error|FAILED:|Could NOT|not found|NOTFOUND|No such file" "$f" | head -300
               echo "-- tail --"
-              tail -n 60 "$f"
+              tail -n 30 "$f"
             fi
           done
           echo '```'
