@@ -45,7 +45,7 @@ done
 
 # Libraries expected on every desktop/server distro, or that must come from the target system (drivers)
 EXCLUDE='^(ld-linux.*|linux-vdso.*|libc|libm|libdl|libpthread|librt|libresolv|libutil|libanl|libnsl|libstdc\+\+|libgcc_s|libz'\
-'|libGL|libGLX|libGLdispatch|libEGL|libOpenGL|libGLESv[0-9]|libgbm|libdrm.*|libva.*|libvdpau|libnvidia.*|libcuda|libOpenCL'\
+'|libGL|libGLX|libGLdispatch|libEGL|libOpenGL|libGLESv[0-9]|libgbm|libdrm.*|libva.*|libvdpau|libnvidia.*|libcuda'\
 '|libX11|libX11-xcb|libXext|libXau|libXdmcp|libXrender|libXrandr|libXi|libXfixes|libXcursor|libXinerama|libXxf86vm|libXss|libxcb.*|libxkbcommon.*'\
 '|libwayland-.*|libdecor-.*|libasound|libpulse.*|libjack|libpipewire-.*|libdbus-1|libsystemd|libudev|libfontconfig|libexpat'\
 '|libgmp|libgnutls|libp11-kit|libtasn1|libhogweed|libnettle|libidn2|libunistring|libffi|libselinux|libpcre2-8|libcap|libgcrypt|libgpg-error)\.so'

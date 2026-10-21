@@ -32,7 +32,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get -qq update
 apt-get -qq install -y --no-install-recommends libgl1 libegl1 libx11-6 libx11-xcb1 libxext6 libxrender1 libxrandr2 \
-  libxi6 libxfixes3 libxcursor1 libxinerama1 libxss1 libxxf86vm1 libxkbcommon0 libwayland-client0 libwayland-cursor0 \
+  libxi6 libxfixes3 libxcursor1 libxinerama1 libxss1 libxxf86vm1 libxkbcommon0 libxcb-render0 libxcb-shm0 libxcb-shape0 libxcb-xfixes0 libwayland-client0 libwayland-cursor0 \
   libwayland-egl1 libdecor-0-0 libasound2t64 libpulse0 libfontconfig1 libdrm2 libgbm1 libva2 libva-drm2 libva-x11-2 \
   libvdpau1 > /dev/null
 
