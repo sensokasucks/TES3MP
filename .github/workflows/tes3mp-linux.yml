@@ -24,11 +24,23 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Install dependencies
+      # Plain Ubuntu packages only: MyGUI is built from source, so the (often flaky) OpenMW PPAs are not needed
       run: |
         mkdir -p build
         {
-          sudo CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic openmw-deps-static \
-          && sudo apt-get -qq install -y --no-install-recommends ninja-build patchelf
+          for i in 1 2 3; do sudo apt-get -qq update && break; sleep 15; done
+          for i in 1 2 3; do
+            sudo apt-get -qq install -y --no-install-recommends \
+              build-essential cmake ccache git pkg-config ninja-build patchelf \
+              libboost-program-options-dev libboost-system-dev libboost-iostreams-dev libboost-filesystem-dev \
+              libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
+              libsdl2-dev libopenal-dev libunshield-dev libtinyxml-dev libbullet-dev liblz4-dev libpng-dev \
+              libjpeg-dev libluajit-5.1-dev librecast-dev libsqlite3-dev libicu-dev libyaml-cpp-dev \
+              libopenscenegraph-dev libcollada-dom-dev libfreetype6-dev libgl-dev \
+            && break
+            sleep 30
+          done
+          dpkg -s ninja-build patchelf libopenscenegraph-dev libfreetype6-dev > /dev/null
         } 2>&1 | tail -n 200 > build/deps.log; exit ${PIPESTATUS[0]}
 
     - name: Cache ccache
