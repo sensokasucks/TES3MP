@@ -82,6 +82,17 @@ for p in "$OUT/lib/$OSG_PLUGIN_NAME"/*.so; do
   patchelf --set-rpath '$ORIGIN/..' "$p"
 done
 strip --strip-debug "$OUT"/lib/*.so* "$OUT/lib/$OSG_PLUGIN_NAME"/*.so || true
+# Debug info for the binaries goes to a separate archive (like the Windows pdb artifact)
+if [ -n "${DEBUG_OUT:-}" ]; then
+  mkdir -p "$DEBUG_OUT"
+fi
+for b in "${BINARIES[@]}"; do
+  if [ -f "$OUT/$b" ]; then
+    [ -n "${DEBUG_OUT:-}" ] && objcopy --only-keep-debug "$OUT/$b" "$DEBUG_OUT/$b.debug"
+    strip --strip-debug "$OUT/$b"
+  fi
+done
+du -sh "$OUT" "$OUT"/lib
 
 for b in tes3mp tes3mp-server; do
   cat > "$OUT/$b.sh" <<EOF

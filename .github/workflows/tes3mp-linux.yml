@@ -122,9 +122,10 @@ jobs:
       run: |
         PKG=tes3mp-linux-x86_64-${GITHUB_SHA::7}
         echo "PKG=$PKG" >> $GITHUB_ENV
-        CI/package_linux_tarball.sh build "dist/$PKG" deps/CoreScripts 2>&1 | tee build/package.log
+        DEBUG_OUT="dist/$PKG-debug" CI/package_linux_tarball.sh build "dist/$PKG" deps/CoreScripts 2>&1 | tee build/package.log
         printf "Ref ${{ github.ref }}\nCommit ${{ github.sha }}\nRun ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n" > "dist/$PKG/CI-ID.txt"
         tar -C dist -czf "dist/$PKG.tar.gz" "$PKG"
+        tar -C dist -czf "dist/$PKG-debug.tar.gz" "$PKG-debug"
         ls -l dist
 
     - name: Smoke test in a clean Ubuntu container
@@ -160,6 +161,13 @@ jobs:
       with:
         name: ${{ env.PKG }}
         path: dist/${{ env.PKG }}.tar.gz
+        compression-level: 0
+
+    - name: Store debug symbols
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ env.PKG }}-debug
+        path: dist/${{ env.PKG }}-debug.tar.gz
         compression-level: 0
 
     - name: Store logs
