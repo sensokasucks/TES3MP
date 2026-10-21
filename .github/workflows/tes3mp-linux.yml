@@ -36,11 +36,11 @@ jobs:
               libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
               libsdl2-dev libopenal-dev libunshield-dev libtinyxml-dev libbullet-dev liblz4-dev libpng-dev \
               libjpeg-dev libluajit-5.1-dev librecast-dev libsqlite3-dev libicu-dev libyaml-cpp-dev \
-              libopenscenegraph-dev libcollada-dom-dev libfreetype6-dev libgl-dev \
+              libopenscenegraph-dev libcollada-dom-dev libfreetype-dev libgl-dev \
             && break
             sleep 30
           done
-          dpkg -s ninja-build patchelf libopenscenegraph-dev libfreetype6-dev > /dev/null
+          dpkg -s ninja-build patchelf libopenscenegraph-dev libfreetype-dev > /dev/null
         } 2>&1 | tail -n 200 > build/deps.log; exit ${PIPESTATUS[0]}
 
     - name: Cache ccache
