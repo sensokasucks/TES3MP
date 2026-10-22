@@ -129,7 +129,7 @@ namespace MWLua
             if (actor.isEmpty())
                 return;
             if (auto* scripts = getLocalScripts(actor))
-                scripts->onJailTimeServed(event.mDays);
+                scripts->onJailTimeServed(event.mDays, event.mIgnoreSkillIncreases, event.mEndText);
         }
 
     private:

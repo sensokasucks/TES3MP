@@ -1655,6 +1655,8 @@ void RecordsDynamicFunctions::SetRecordEnchantmentIdByIndex(unsigned int index, 
 void RecordsDynamicFunctions::SetRecordEffectId(unsigned int effectId) noexcept
 {
     tempEffect.mEffectID = ESM::MagicEffect::indexToRefId(effectId);
+    if (tempEffect.mEffectID.empty())
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "Tried to set invalid effectId %u; clients will not be able to use this effect", effectId);
 }
 
 void RecordsDynamicFunctions::SetRecordEffectAttribute(int attributeId) noexcept

@@ -83,6 +83,9 @@ namespace MWLua
         {
             ESM::RefNum mActor;
             int mDays;
+            // tes3mp addition: PlayerJail overrides
+            bool mIgnoreSkillIncreases = false;
+            std::string mEndText;
         };
         using Event = std::variant<OnActive, OnInactive, OnConsume, OnActivate, OnUseItem, OnNewExterior, OnTeleported,
             OnAnimationTextKey, OnAnimationEnded, OnSkillUse, OnSkillLevelUp, OnJailTimeServed>;

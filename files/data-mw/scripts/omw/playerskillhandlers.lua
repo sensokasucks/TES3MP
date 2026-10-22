@@ -116,7 +116,8 @@ local function skillLevelUpHandler(skillid, source, params)
     end
 end
 
-local function jailTimeServed(days)
+-- tes3mp change: ignoreSkillIncreases and endText come from the server's PlayerJail packet
+local function jailTimeServed(days, ignoreSkillIncreases, endText)
     if not days or days <= 0 then
         return
     end
@@ -131,11 +132,20 @@ local function jailTimeServed(days)
     math.randomseed(core.getSimulationTime())
     for day=1,days do
         local skillid = skillByNumber[math.random(#skillByNumber)]
-        -- skillLevelUp() handles skill-based increase/decrease
-        I.SkillProgression.skillLevelUp(skillid, I.SkillProgression.SKILL_INCREASE_SOURCES.Jail)
+        if ignoreSkillIncreases and (skillid == 'security' or skillid == 'sneak') then
+            -- tes3mp: with ignoreJailSkillIncreases, Security and Sneak drop like every other skill
+            local skillStat = NPC.stats.skills[skillid](self)
+            skillStat.base = math.max(0, skillStat.base - 1)
+        else
+            -- skillLevelUp() handles skill-based increase/decrease
+            I.SkillProgression.skillLevelUp(skillid, I.SkillProgression.SKILL_INCREASE_SOURCES.Jail)
+        end
     end
 
     local message = mechanicsL10n('ReleasedFromPrison', { days = days })
+    if endText and endText ~= '' then
+        message = endText
+    end
     for skillid, skillStat in pairs(NPC.stats.skills) do
         local diff = skillStat(self).base - oldSkillLevels[skillid]
         if diff ~= 0 then

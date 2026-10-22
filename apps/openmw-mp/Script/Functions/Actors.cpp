@@ -1,4 +1,5 @@
 #include <components/esm3/loadmgef.hpp>
+#include <components/openmw-mp/TimedLog.hpp>
 #include <components/esm3/loadskil.hpp>
 #include <components/esm/attr.hpp>
 #include <components/openmw-mp/NetworkMessages.hpp>
@@ -517,6 +518,12 @@ void ActorFunctions::AddActorSpellActiveEffect(int effectId, double magnitude, d
 {
     ESM::ActiveEffect effect;
     effect.mEffectId = ESM::MagicEffect::indexToRefId(effectId);
+    if (effect.mEffectId.empty())
+    {
+        // An empty effect id would make the receiving clients fail to find the effect record
+        LOG_MESSAGE_SIMPLE(TimedLog::LOG_ERROR, "%s: ignoring invalid effectId %i", __func__, effectId);
+        return;
+    }
     effect.mMagnitude = magnitude;
     effect.mDuration = duration;
     effect.mTimeLeft = timeLeft;

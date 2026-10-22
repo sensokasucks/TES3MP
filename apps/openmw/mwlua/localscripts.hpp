@@ -108,7 +108,10 @@ namespace MWLua
         {
             callEngineHandlers(mOnSkillLevelUp, skillId, source);
         }
-        void onJailTimeServed(int days) { callEngineHandlers(mOnJailTimeServed, days); }
+        void onJailTimeServed(int days, bool ignoreSkillIncreases, std::string_view endText)
+        {
+            callEngineHandlers(mOnJailTimeServed, days, ignoreSkillIncreases, endText);
+        }
 
         void applyStatsCache();
 

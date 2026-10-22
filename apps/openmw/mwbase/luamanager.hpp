@@ -82,7 +82,17 @@ namespace MWBase
         virtual void animationEnded(const MWWorld::Ptr& actor, std::string_view groupname, float time, float completion,
             std::string_view startKey, std::string_view stopKey)
             = 0;
-        virtual void jailTimeServed(const MWWorld::Ptr& actor, int days) = 0;
+        /*
+            Start of tes3mp change (minor)
+
+            Carry the PlayerJail overrides to the Lua jail handler, which now does the skill changes and end message
+        */
+        virtual void jailTimeServed(const MWWorld::Ptr& actor, int days, bool ignoreSkillIncreases = false,
+            std::string_view endText = {})
+            = 0;
+        /*
+            End of tes3mp change (minor)
+        */
         virtual void skillLevelUp(const MWWorld::Ptr& actor, ESM::RefId skillId, std::string_view source) = 0;
         virtual void skillUse(const MWWorld::Ptr& actor, ESM::RefId skillId, int useType, float scale) = 0;
         virtual void onHit(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim, const MWWorld::Ptr& weapon,

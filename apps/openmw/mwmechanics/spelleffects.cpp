@@ -44,6 +44,7 @@
 #include "../mwmp/LocalPlayer.hpp"
 #include "../mwmp/ObjectList.hpp"
 #include "../mwmp/CellController.hpp"
+#include "../mwmp/PlayerList.hpp"
 #include "../mwmp/LocalActor.hpp"
 #include "../mwmp/MechanicsHelper.hpp"
 /*
@@ -1292,6 +1293,23 @@ namespace MWMechanics
             else if (!dt)
                 return { MagicApplicationResult::Type::APPLIED, receivedMagicDamage, affectedHealth };
         }
+        /*
+            Start of tes3mp addition
+
+            Lock and Open spells cast by a DedicatedPlayer or DedicatedActor also reach this client through their
+            replicated projectiles, but the client that owns the caster sends the ObjectLock packet for them, so
+            only send it here for our own casts; otherwise every onlooker sends a second lock packet with its own
+            magnitude roll, and an Open spell on an owned object counts as a crime by the onlooker
+        */
+        auto isDedicatedCaster = [&caster]() {
+            return !caster.isEmpty()
+                && (mwmp::PlayerList::isDedicatedPlayer(caster)
+                    || mwmp::Main::get().getCellController()->isDedicatedActor(caster));
+        };
+        /*
+            End of tes3mp addition
+        */
+
         if (effect.mEffectId == ESM::MagicEffect::Lock)
         {
             if (target.getClass().canLock(target))
@@ -1325,11 +1343,14 @@ namespace MWMechanics
 
                     Send an ID_OBJECT_LOCK packet every time an object is locked here
                 */
-                mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
-                objectList->reset();
-                objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                objectList->addObjectLock(target, magnitude);
-                objectList->sendObjectLock();
+                if (!isDedicatedCaster())
+                {
+                    mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
+                    objectList->reset();
+                    objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
+                    objectList->addObjectLock(target, magnitude);
+                    objectList->sendObjectLock();
+                }
                 /*
                     End of tes3mp addition
                 */
@@ -1343,7 +1364,16 @@ namespace MWMechanics
             if (target.getClass().canLock(target))
             {
                 // Use the player instead of the caster for vanilla crime compatibility
-                MWBase::Environment::get().getMechanicsManager()->unlockAttempted(getPlayer(), target);
+                /*
+                    Start of tes3mp change (minor)
+
+                    Don't make the local player a criminal for another player's or a dedicated actor's Open spell
+                */
+                if (!isDedicatedCaster())
+                    MWBase::Environment::get().getMechanicsManager()->unlockAttempted(getPlayer(), target);
+                /*
+                    End of tes3mp change (minor)
+                */
 
                 MWRender::Animation* animation = world->getAnimation(target);
                 if (animation)
@@ -1375,11 +1405,14 @@ namespace MWMechanics
 
                     Send an ID_OBJECT_LOCK packet every time an object is unlocked here
                 */
-                mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
-                objectList->reset();
-                objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
-                objectList->addObjectLock(target, 0);
-                objectList->sendObjectLock();
+                if (!isDedicatedCaster())
+                {
+                    mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
+                    objectList->reset();
+                    objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
+                    objectList->addObjectLock(target, 0);
+                    objectList->sendObjectLock();
+                }
                 /*
                     End of tes3mp addition
                 */

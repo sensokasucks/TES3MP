@@ -140,7 +140,24 @@ namespace MWGui
 
         // We should not worsen corprus when in prison
         player.getClass().getCreatureStats(player).getActiveSpells().skipWorsenings(mDays * 24);
-        MWBase::Environment::get().getLuaManager()->jailTimeServed(player, mDays);
+        /*
+            Start of tes3mp change (minor)
+
+            Pass the PlayerJail overrides to the Lua jail handler, which applies the skill changes and shows the end
+            message in 0.51; "%d" in a custom end text is replaced by the number of days, as in 0.8.1
+        */
+        std::string jailEndText = localPlayer->jailEndText;
+        for (size_t pos = jailEndText.find("%d"); pos != std::string::npos; pos = jailEndText.find("%d", pos))
+        {
+            const std::string days = std::to_string(mDays);
+            jailEndText.replace(pos, 2, days);
+            pos += days.size();
+        }
+        MWBase::Environment::get().getLuaManager()->jailTimeServed(
+            player, mDays, localPlayer->ignoreJailSkillIncreases, jailEndText);
+        /*
+            End of tes3mp change (minor)
+        */
 
         /*
             Start of tes3mp addition

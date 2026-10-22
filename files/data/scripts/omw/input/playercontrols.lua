@@ -6,6 +6,7 @@ local ui = require('openmw.ui')
 local async = require('openmw.async')
 local Actor = require('openmw.types').Actor
 local Player = require('openmw.types').Player
+local multiplayer = require('openmw.multiplayer') -- tes3mp addition
 
 local I = require('openmw.interfaces')
 
@@ -188,6 +189,8 @@ end
 
 input.registerTriggerHandler('Inventory', async:callback(function()
     if not uiAllowed() then return end
+    -- tes3mp addition: ignore attempts to open the inventory before the server has logged the player in
+    if multiplayer.isMultiplayer() and not multiplayer.isLoggedIn() then return end
 
     if I.UI.getMode() == nil then
         I.UI.setMode(I.UI.MODE.Interface)
