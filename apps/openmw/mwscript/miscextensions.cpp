@@ -78,6 +78,7 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/manualref.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwworld/player.hpp"
 
 #include "../mwmechanics/actorutil.hpp"
@@ -650,6 +651,11 @@ namespace MWScript
                 Interpreter::Type_Float time = runtime[0].mFloat;
                 runtime.pop();
 
+                // tes3mp addition: ToggleScriptOutput (TSO), with the vanilla wording
+                if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_ScriptOutput))
+                    MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("SCRIPT %s calls FadeIn over %f seconds",
+                        runtime.getContext().getCurrentScriptName().c_str(), time));
+
                 MWBase::Environment::get().getWindowManager()->fadeScreenIn(time, false);
             }
         };
@@ -661,6 +667,11 @@ namespace MWScript
             {
                 Interpreter::Type_Float time = runtime[0].mFloat;
                 runtime.pop();
+
+                // tes3mp addition: ToggleScriptOutput (TSO), with the vanilla wording
+                if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_ScriptOutput))
+                    MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("SCRIPT %s calls FadeOut over %f seconds",
+                        runtime.getContext().getCurrentScriptName().c_str(), time));
 
                 MWBase::Environment::get().getWindowManager()->fadeScreenOut(time, false);
             }
@@ -676,6 +687,12 @@ namespace MWScript
 
                 Interpreter::Type_Float time = runtime[0].mFloat;
                 runtime.pop();
+
+                // tes3mp addition: ToggleScriptOutput (TSO), with the vanilla wording
+                if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_ScriptOutput))
+                    MWWorld::VanillaDebug::print(
+                        MWWorld::VanillaDebug::format("SCRIPT %s calls FadeTo %d over %f seconds",
+                            runtime.getContext().getCurrentScriptName().c_str(), static_cast<int>(alpha), time));
 
                 MWBase::Environment::get().getWindowManager()->fadeScreenTo(static_cast<int>(alpha), time, false);
             }
@@ -1760,14 +1777,35 @@ namespace MWScript
                         msg << "Script: " << ptr.getClass().getScript(ptr) << std::endl;
                 }
 
+                /*
+                    Start of tes3mp change (minor)
+
+                    Keep the notes so that BetaComment can save them, as vanilla did
+                */
+                std::string comment;
                 while (arg0 > 0)
                 {
                     std::string_view notes = runtime.getStringLiteral(runtime[0].mInteger);
                     runtime.pop();
                     if (!notes.empty())
+                    {
                         msg << "Notes: " << notes << std::endl;
+                        if (!comment.empty())
+                            comment += ' ';
+                        comment += notes;
+                    }
                     --arg0;
                 }
+
+                // Vanilla appended BetaComment reports to its Beta Comment File; also send them to the server
+                if (!comment.empty())
+                {
+                    MWWorld::VanillaDebug::writeBetaComment(ptr, comment);
+                    msg << "Beta Comment added." << std::endl;
+                }
+                /*
+                    End of tes3mp change (minor)
+                */
 
                 Log(Debug::Warning) << "\n" << msg.str();
 

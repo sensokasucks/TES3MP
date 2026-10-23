@@ -7,6 +7,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/esm3/loadcrea.hpp>
 #include <components/esm3/loadgmst.hpp>
+#include <components/esm3/loadnpc.hpp>
 
 /*
     Start of tes3mp addition
@@ -258,9 +259,48 @@ namespace MWGui
         const ESM::ExteriorCellLocation posCell = ESM::positionToExteriorCellLocation(pos.pos[0], pos.pos[1]);
         ESM::RefId cellId = ESM::Cell::generateIdForCell(!interior, cellname, posCell.mX, posCell.mY);
 
+        /*
+            Start of tes3mp addition
+
+            [Map] Show Travel Lines: remember where the trip started, in world map space
+        */
+        osg::Vec3f travelFrom = player.getRefData().getPosition().asVec3();
+        if (!player.getCell()->isExterior())
+            MWBase::Environment::get().getWorld()->findInteriorPositionInWorldSpace(player.getCell(), travelFrom);
+        /*
+            End of tes3mp addition
+        */
+
         // Teleports any followers, too.
         MWWorld::ActionTeleport action(cellId, pos, true);
         action.execute(player);
+
+        /*
+            Start of tes3mp addition
+
+            [Map] Show Travel Lines: vanilla picks the colour from the travel NPC's class
+        */
+        {
+            const MWWorld::Ptr traveller = MWMechanics::getPlayer();
+            osg::Vec3f travelTo = traveller.getRefData().getPosition().asVec3();
+            if (!traveller.getCell()->isExterior())
+                MWBase::Environment::get().getWorld()->findInteriorPositionInWorldSpace(traveller.getCell(), travelTo);
+
+            int type = 0;
+            if (mPtr.getType() == ESM::NPC::sRecordId)
+            {
+                const ESM::RefId& npcClass = mPtr.get<ESM::NPC>()->mBase->mClass;
+                if (npcClass == ESM::RefId::stringRefId("Guild Guide"))
+                    type = 1;
+                else if (npcClass == ESM::RefId::stringRefId("Shipmaster"))
+                    type = 2;
+            }
+            MWBase::Environment::get().getWindowManager()->addTravelLine(
+                travelFrom.x(), travelFrom.y(), travelTo.x(), travelTo.y(), type);
+        }
+        /*
+            End of tes3mp addition
+        */
 
         MWBase::Environment::get().getWindowManager()->fadeScreenOut(0);
         MWBase::Environment::get().getWindowManager()->fadeScreenIn(1);

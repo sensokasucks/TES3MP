@@ -1,6 +1,7 @@
 #include "mechanicsmanagerimp.hpp"
 
 #include <cassert>
+#include <map>
 
 #include <osg/Stats>
 
@@ -30,6 +31,7 @@
 */
 
 #include "../mwworld/class.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/globals.hpp"
 #include "../mwworld/inventorystore.hpp"
@@ -1775,7 +1777,20 @@ namespace MWMechanics
         if (useCache)
             return observerStats.getAwarenessRoll() >= target;
         auto& prng = MWBase::Environment::get().getWorld()->getPrng();
-        return Misc::Rng::roll0to99(prng) >= target;
+        /*
+            Start of tes3mp change (minor)
+
+            ToggleCombatStats (TCS) logs sneak rolls, as vanilla did
+        */
+        const int roll = Misc::Rng::roll0to99(prng);
+        if (sneakTerm > 0 && MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_CombatStats))
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Sneak: %s (%.0f) vs. %s (%.0f). roll %i(%.1f) (%s)",
+                MWWorld::VanillaDebug::describe(ptr).c_str(), x, MWWorld::VanillaDebug::describe(observer).c_str(), y,
+                roll, target, roll >= target ? "detected" : "success"));
+        return roll >= target;
+        /*
+            End of tes3mp change (minor)
+        */
     }
 
     void MechanicsManager::startCombat(
@@ -2000,6 +2015,31 @@ namespace MWMechanics
                 fight += iWerewolfFightMod->mValue.getInteger();
             }
         }
+
+        /*
+            Start of tes3mp addition
+
+            ToggleDialogueStats (TDS) logs the attitude an actor works out towards its target, as vanilla
+            did. This runs every AI update, so only changes are printed.
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_DialogueStats))
+        {
+            static std::map<const void*, int> lastFight;
+            auto [it, inserted] = lastFight.try_emplace(ptr.getBase(), fight);
+            if (inserted || it->second != fight)
+            {
+                it->second = fight;
+                const float flee = static_cast<float>(
+                    ptr.getClass().getCreatureStats(ptr).getAiSetting(AiSetting::Flee).getModified());
+                MWWorld::VanillaDebug::print(
+                    MWWorld::VanillaDebug::format("> %s:  perm: %.2f  temp: %.2f  flee: %.2f  fight: %.2f",
+                        MWWorld::VanillaDebug::describe(ptr).c_str(), static_cast<float>(disposition), 0.f, flee,
+                        static_cast<float>(fight)));
+            }
+        }
+        /*
+            End of tes3mp addition
+        */
 
         return (fight >= 100);
     }

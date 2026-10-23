@@ -19,6 +19,7 @@
 #include "../mwmp/PlayerList.hpp"
 #include "../mwmp/CellController.hpp"
 #include "../mwmp/MechanicsHelper.hpp"
+#include "../mwworld/vanilladebug.hpp"
 /*
     End of tes3mp addition
 */
@@ -149,6 +150,18 @@ namespace MWMechanics
         static const int iBlockMaxChance = gmst.find("iBlockMaxChance")->mValue.getInteger();
         static const int iBlockMinChance = gmst.find("iBlockMinChance")->mValue.getInteger();
         int x = std::clamp(static_cast<int>(blockerTerm - attackerTerm), iBlockMinChance, iBlockMaxChance);
+
+        /*
+            Start of tes3mp addition
+
+            ToggleCombatStats (TCS), as vanilla printed it
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_CombatStats))
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Block Chance %d %s hit %s", x,
+                MWWorld::VanillaDebug::describe(attacker).c_str(), MWWorld::VanillaDebug::describe(blocker).c_str()));
+        /*
+            End of tes3mp addition
+        */
 
         auto& prng = MWBase::Environment::get().getWorld()->getPrng();
         mwmp::Attack *localAttack = MechanicsHelper::getLocalAttack(attacker);
@@ -442,7 +455,20 @@ namespace MWMechanics
         attackTerm += mageffects.getOrDefault(ESM::MagicEffect::FortifyAttack).getMagnitude()
             - mageffects.getOrDefault(ESM::MagicEffect::Blind).getMagnitude();
 
-        return round(attackTerm - defenseTerm);
+        /*
+            Start of tes3mp change (minor)
+
+            ToggleCombatStats (TCS), as vanilla printed it
+        */
+        const float hitChance = round(attackTerm - defenseTerm);
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_CombatStats))
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Attack Chance %d%%, for %s to hit %s",
+                static_cast<int>(hitChance), MWWorld::VanillaDebug::describe(attacker).c_str(),
+                MWWorld::VanillaDebug::describe(victim).c_str()));
+        return hitChance;
+        /*
+            End of tes3mp change (minor)
+        */
     }
 
     void applyElementalShields(const MWWorld::Ptr& attacker, const MWWorld::Ptr& victim)
@@ -495,10 +521,33 @@ namespace MWMechanics
                                                           ->get<ESM::GameSetting>()
                                                           .find("fElementalShieldMult")
                                                           ->mValue.getFloat();
+            /*
+                Start of tes3mp addition
+
+                Keep the resisted percentage for the ToggleCombatStats log
+            */
+            const float resisted = x;
+            /*
+                End of tes3mp addition
+            */
             x = fElementalShieldMult * magnitude * (1.f - 0.01f * x);
 
             // Note swapped victim and attacker, since the attacker takes the damage here.
             x = scaleDamage(x, victim, attacker);
+
+            /*
+                Start of tes3mp addition
+
+                ToggleCombatStats (TCS), as vanilla printed it
+            */
+            if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_CombatStats))
+                MWWorld::VanillaDebug::print(
+                    MWWorld::VanillaDebug::format("%s hit by %s's elemental shield for %f damage (resisted %f%%).",
+                        MWWorld::VanillaDebug::describe(attacker).c_str(),
+                        MWWorld::VanillaDebug::describe(victim).c_str(), x, resisted));
+            /*
+                End of tes3mp addition
+            */
 
             MWMechanics::DynamicStat<float> health = attackerStats.getHealth();
             health.setCurrent(health.getCurrent() - x);

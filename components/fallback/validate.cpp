@@ -16,7 +16,11 @@ static const std::set<std::string_view> allowedKeysInt
           "Weather_Clear_Using_Precip", "Weather_Cloudy_Using_Precip", "Weather_Foggy_Using_Precip",
           "Weather_Overcast_Using_Precip", "Weather_Rain_Using_Precip", "Weather_Thunderstorm_Using_Precip",
           "Weather_Ashstorm_Using_Precip", "Weather_Blight_Using_Precip", "Weather_Snow_Using_Precip",
-          "Weather_Blizzard_Using_Precip", "Weather_Rain_Ripples", "Weather_Snow_Ripples", "Weather_Timescale_Clouds" };
+          "Weather_Blizzard_Using_Precip", "Weather_Rain_Ripples", "Weather_Snow_Ripples", "Weather_Timescale_Clouds",
+          // tes3mp addition: vanilla map and debug settings used by the port
+          "Map_Show_Travel_Lines", "Map_Travel_Boat_Blue", "Map_Travel_Boat_Green", "Map_Travel_Boat_Red",
+          "Map_Travel_Magic_Blue", "Map_Travel_Magic_Green", "Map_Travel_Magic_Red", "Map_Travel_Siltstrider_Blue",
+          "Map_Travel_Siltstrider_Green", "Map_Travel_Siltstrider_Red", "General_Show_Door_Notes" };
 
 static const std::set<std::string_view> allowedKeysFloat = { "General_Werewolf_FOV", "Inventory_DirectionalAmbientB",
     "Inventory_DirectionalAmbientG", "Inventory_DirectionalAmbientR", "Inventory_DirectionalDiffuseB",
@@ -123,7 +127,8 @@ static const std::set<std::string_view> allowedKeysNonNumeric = { "Blood_Model_0
     "Question_7_Question", "Question_7_Sound", "Question_8_AnswerOne", "Question_8_AnswerThree", "Question_8_AnswerTwo",
     "Question_8_Question", "Question_8_Sound", "Question_9_AnswerOne", "Question_9_AnswerThree", "Question_9_AnswerTwo",
     "Question_9_Question", "Question_9_Sound", "Water_NearWaterIndoorID", "Water_NearWaterOutdoorID",
-    "Water_RippleTexture", "Water_SurfaceTexture", "Water_UnderwaterColor", "Weather_Blizzard_Ambient_Day_Color",
+    "Water_RippleTexture", "Water_SurfaceTexture", "Water_UnderwaterColor", "General_Beta_Comment_File",
+    "Weather_Blizzard_Ambient_Day_Color",
     "Weather_Blizzard_Ambient_Loop_Sound_ID", "Weather_Blizzard_Ambient_Night_Color",
     "Weather_Blizzard_Ambient_Sunrise_Color", "Weather_Blizzard_Ambient_Sunset_Color", "Weather_Blizzard_Cloud_Texture",
     "Weather_Blizzard_Fog_Day_Color", "Weather_Blizzard_Fog_Night_Color", "Weather_Blizzard_Fog_Sunrise_Color",
@@ -215,10 +220,8 @@ static const std::set<std::string_view> allowedKeysNonNumeric = { "Blood_Model_0
     "Weather_Blizzard_Thunder_Sound_ID_1", "Weather_Blizzard_Thunder_Sound_ID_2",
     "Weather_Blizzard_Thunder_Sound_ID_3" };
 
-static const std::set<std::string_view> allowedKeysUnused = { "Inventory_UniformScaling", "Map_Show_Travel_Lines",
-    "Map_Travel_Boat_Blue", "Map_Travel_Boat_Green", "Map_Travel_Boat_Red", "Map_Travel_Magic_Blue",
-    "Map_Travel_Magic_Green", "Map_Travel_Magic_Red", "Map_Travel_Siltstrider_Blue", "Map_Travel_Siltstrider_Green",
-    "Map_Travel_Siltstrider_Red", "Movies_Game_Logo", "PixelWater_Resolution", "PixelWater_SurfaceFPS",
+static const std::set<std::string_view> allowedKeysUnused = { "Inventory_UniformScaling", "Movies_Game_Logo",
+    "PixelWater_Resolution", "PixelWater_SurfaceFPS",
     "PixelWater_TileCount", "Movies_Loading", "Movies_Options_Menu", "Movies_Project_Logo",
     "Water_NearWaterUnderwaterFreq", "Water_NearWaterUnderwaterVolume", "Water_PSWaterReflectTerrain",
     "Water_PSWaterReflectUpdate", "Water_RippleAlphas", "Water_RippleScale", "Water_SurfaceTextureSize",

@@ -61,6 +61,7 @@
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/player.hpp"
 #include "../mwworld/spellcaststate.hpp"
@@ -2560,7 +2561,17 @@ namespace MWMechanics
             {
                 // Vanilla caps the played animation speed.
                 const float maxSpeedMult = 10.f;
-                const float speedMult = speed / mMovementAnimSpeed;
+                /*
+                    Start of tes3mp change (minor)
+
+                    MoveOneToOne (MOTO) plays movement animations at their own speed, as vanilla did
+                */
+                const float speedMult = MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_MoveOneToOne)
+                    ? 1.f
+                    : speed / mMovementAnimSpeed;
+                /*
+                    End of tes3mp change (minor)
+                */
                 mAnimation->adjustSpeedMult(mCurrentMovement, std::min(maxSpeedMult, speedMult));
                 // Make sure the actual speed is the "expected" speed even though the animation is slower
                 if (isMovementAnimationControlled())

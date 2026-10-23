@@ -2,9 +2,13 @@
 #define MWGUI_MAPWINDOW_H
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 
+#include <osg/Image>
+#include <osg/Texture2D>
 #include <osg/Vec2f>
+#include <osg/ref_ptr>
 
 #include <MyGUI_ITexture.h>
 
@@ -308,6 +312,11 @@ namespace MWGui
             in the code
         */
         void setGlobalMapImage(int cellX, int cellY, const std::vector<char>& imageData);
+
+        void exportWorldMap(const std::filesystem::path& directory);
+
+        // [Map] Show Travel Lines: vanilla draws the route of every paid trip on the world map
+        void addTravelLine(float fromX, float fromY, float toX, float toY, int type);
         /*
             End of tes3mp addition
         */
@@ -370,6 +379,29 @@ namespace MWGui
         MyGUI::ScrollView* mGlobalMap;
         std::unique_ptr<MyGUI::ITexture> mGlobalMapTexture;
         std::unique_ptr<MyGUI::ITexture> mGlobalMapOverlayTexture;
+
+        /*
+            Start of tes3mp addition
+
+            Travel lines layer, drawn on the CPU and shown above the explored overlay
+        */
+        struct TravelLine
+        {
+            float mFromX, mFromY, mToX, mToY;
+            int mType;
+        };
+        std::vector<TravelLine> mTravelLineList;
+        bool mTravelLinesLoaded = false;
+        osg::ref_ptr<osg::Image> mTravelLinesImage;
+        osg::ref_ptr<osg::Texture2D> mTravelLinesOsgTexture;
+        std::unique_ptr<MyGUI::ITexture> mTravelLinesTexture;
+        MyGUI::ImageBox* mTravelLines = nullptr;
+        void ensureTravelLines();
+        void drawTravelLine(const TravelLine& line);
+        std::filesystem::path getTravelLinesPath() const;
+        /*
+            End of tes3mp addition
+        */
         MyGUI::ImageBox* mGlobalMapImage;
         MyGUI::ImageBox* mGlobalMapOverlay;
         MyGUI::ImageBox* mPlayerArrowLocal;

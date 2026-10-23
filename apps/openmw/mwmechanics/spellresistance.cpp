@@ -3,12 +3,14 @@
 #include <components/misc/rng.hpp>
 
 #include <components/esm3/loadmgef.hpp>
+#include <components/esm3/loadspel.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwworld/vanilladebug.hpp"
 
 #include "creaturestats.hpp"
 #include "spellutil.hpp"
@@ -69,6 +71,28 @@ namespace MWMechanics
         }
 
         x = std::min(x + resistance, 100.f);
+
+        /*
+            Start of tes3mp addition
+
+            ToggleMagicStats (TMS), with the vanilla wording
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_MagicStats))
+        {
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Resist check: effect %s, spell %s",
+                effectId.toString().c_str(), spell != nullptr ? spell->mId.toString().c_str() : "none"));
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("            : Caster %s; Target %s",
+                MWWorld::VanillaDebug::describe(caster).c_str(), MWWorld::VanillaDebug::describe(actor).c_str()));
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format(
+                "           : Target Willpower: %f Luck: %f FatigueMult: %f EffectResist: %d", willpower, luck,
+                stats.getFatigueTerm(), static_cast<int>(resistance)));
+            MWWorld::VanillaDebug::print(
+                MWWorld::VanillaDebug::format("            : roll: %f resisted: %f%%", roll, x));
+        }
+        /*
+            End of tes3mp addition
+        */
+
         return x;
     }
 

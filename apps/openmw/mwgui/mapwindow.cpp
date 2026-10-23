@@ -28,6 +28,13 @@
 #include <components/esm3/esmwriter.hpp>
 #include <components/esm3/globalmap.hpp>
 #include <components/myguiplatform/myguitexture.hpp>
+#include <components/fallback/fallback.hpp>
+#include "../mwworld/class.hpp"
+#include "../mwworld/vanilladebug.hpp"
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <fstream>
 #include <components/settings/values.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -65,8 +72,9 @@ namespace
     {
         Global_CompassLayer = 0,
         Global_MarkerLayer = 1,
-        Global_ExploreOverlayLayer = 2,
-        Global_MapLayer = 3
+        Global_TravelLinesLayer = 2, // tes3mp addition
+        Global_ExploreOverlayLayer = 3,
+        Global_MapLayer = 4
     };
 }
 
@@ -1261,6 +1269,125 @@ namespace MWGui
     {
         mGlobalMapRender->setImage(cellX, cellY, imageData);
     }
+
+    void MapWindow::exportWorldMap(const std::filesystem::path& directory)
+    {
+        mGlobalMapRender->exportImage(directory);
+    }
+
+    std::filesystem::path MapWindow::getTravelLinesPath() const
+    {
+        // One file per character, since multiplayer characters have no savegame to keep them in
+        const MWWorld::Ptr player = MWBase::Environment::get().getWorld()->getPlayerPtr();
+        std::string name{ player.getClass().getName(player) };
+        for (char& c : name)
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+                c = '_';
+        return MWWorld::VanillaDebug::getUserDataPath() / "travellines" / (name + ".txt");
+    }
+
+    void MapWindow::ensureTravelLines()
+    {
+        if (mTravelLines != nullptr)
+            return;
+
+        ensureGlobalMapLoaded();
+        const int width = mGlobalMapRender->getWidth();
+        const int height = mGlobalMapRender->getHeight();
+        if (width <= 0 || height <= 0)
+            return;
+
+        mTravelLinesImage = new osg::Image;
+        mTravelLinesImage->allocateImage(width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+        std::memset(mTravelLinesImage->data(), 0, mTravelLinesImage->getTotalSizeInBytes());
+
+        mTravelLinesOsgTexture = new osg::Texture2D(mTravelLinesImage);
+        mTravelLinesOsgTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        mTravelLinesOsgTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+        mTravelLinesOsgTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        mTravelLinesOsgTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::NEAREST);
+        mTravelLinesOsgTexture->setResizeNonPowerOfTwoHint(false);
+        mTravelLinesOsgTexture->setUnRefImageDataAfterApply(false);
+
+        mTravelLines = mGlobalMapImage->createWidgetReal<MyGUI::ImageBox>(
+            "ImageBox", MyGUI::FloatCoord(0.f, 0.f, 1.f, 1.f), MyGUI::Align::Stretch);
+        mTravelLines->setDepth(Global_TravelLinesLayer);
+        mTravelLines->setNeedMouseFocus(false);
+        mTravelLinesTexture = std::make_unique<MyGUIPlatform::OSGTexture>(mTravelLinesOsgTexture);
+        mTravelLines->setRenderItemTexture(mTravelLinesTexture.get());
+        // Same Y-up convention as the other global map layers
+        mTravelLines->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 1.f, 1.f, 0.f));
+        mGlobalMap->getParent()->_updateChilds();
+
+        if (!mTravelLinesLoaded)
+        {
+            mTravelLinesLoaded = true;
+            std::ifstream file(getTravelLinesPath());
+            TravelLine line;
+            while (file >> line.mType >> line.mFromX >> line.mFromY >> line.mToX >> line.mToY)
+                mTravelLineList.push_back(line);
+        }
+        for (const TravelLine& line : mTravelLineList)
+            drawTravelLine(line);
+    }
+
+    void MapWindow::drawTravelLine(const TravelLine& line)
+    {
+        // Same Morrowind.ini colours as vanilla, which defaults all three to 238, 230, 30
+        static const char* const prefixes[] = { "Map_Travel_Siltstrider_", "Map_Travel_Magic_", "Map_Travel_Boat_" };
+        const std::string prefix = prefixes[std::clamp(line.mType, 0, 2)];
+        auto channel = [&](const char* name, int fallback) {
+            const auto& map = Fallback::Map::getIntFallbackMap();
+            const auto it = map.find(prefix + name);
+            return static_cast<unsigned char>(std::clamp(it == map.end() ? fallback : it->second, 0, 255));
+        };
+        const unsigned char red = channel("Red", 238);
+        const unsigned char green = channel("Green", 230);
+        const unsigned char blue = channel("Blue", 30);
+
+        float x0, y0, x1, y1;
+        mGlobalMapRender->worldPosToImageSpace(line.mFromX, line.mFromY, x0, y0);
+        mGlobalMapRender->worldPosToImageSpace(line.mToX, line.mToY, x1, y1);
+
+        const int width = mTravelLinesImage->s();
+        const int height = mTravelLinesImage->t();
+        const int steps = std::max(1, static_cast<int>(std::max(std::abs(x1 - x0), std::abs(y1 - y0))));
+        for (int i = 0; i <= steps; ++i)
+        {
+            const float t = static_cast<float>(i) / steps;
+            const int x = static_cast<int>(x0 + (x1 - x0) * t);
+            // worldPosToImageSpace has its origin at the top, the image at the bottom
+            const int y = height - 1 - static_cast<int>(y0 + (y1 - y0) * t);
+            if (x < 0 || y < 0 || x >= width || y >= height)
+                continue;
+            unsigned char* pixel = mTravelLinesImage->data(x, y);
+            pixel[0] = red;
+            pixel[1] = green;
+            pixel[2] = blue;
+            pixel[3] = 255;
+        }
+        mTravelLinesImage->dirty();
+    }
+
+    void MapWindow::addTravelLine(float fromX, float fromY, float toX, float toY, int type)
+    {
+        if (!Fallback::Map::getBool("Map_Show_Travel_Lines"))
+            return;
+
+        ensureTravelLines();
+        if (mTravelLines == nullptr)
+            return;
+
+        const TravelLine line{ fromX, fromY, toX, toY, type };
+        mTravelLineList.push_back(line);
+        drawTravelLine(line);
+
+        const std::filesystem::path path = getTravelLinesPath();
+        std::error_code ec;
+        std::filesystem::create_directories(path.parent_path(), ec);
+        std::ofstream file(path, std::ios::app);
+        file << type << ' ' << fromX << ' ' << fromY << ' ' << toX << ' ' << toY << '\n';
+    }
     /*
         End of tes3mp addition
     */
@@ -1357,6 +1484,10 @@ namespace MWGui
     {
         ensureGlobalMapLoaded();
 
+        // tes3mp addition: show the travel lines saved for this character
+        if (Fallback::Map::getBool("Map_Show_Travel_Lines"))
+            ensureTravelLines();
+
         globalMapUpdatePlayer();
     }
 
@@ -1431,6 +1562,18 @@ namespace MWGui
 
         mGlobalMapRender->clear();
         mActiveCell = nullptr;
+
+        // tes3mp addition: the travel lines belong to the character, so reload them for the next one
+        if (mTravelLines != nullptr)
+        {
+            MyGUI::Gui::getInstance().destroyWidget(mTravelLines);
+            mTravelLines = nullptr;
+        }
+        mTravelLinesTexture.reset();
+        mTravelLinesImage = nullptr;
+        mTravelLinesOsgTexture = nullptr;
+        mTravelLineList.clear();
+        mTravelLinesLoaded = false;
 
         for (auto& widgetPair : mGlobalMapMarkers)
             MyGUI::Gui::getInstance().destroyWidget(widgetPair.first.widget);

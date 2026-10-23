@@ -486,5 +486,29 @@ op 0x2000323: SetPCVisionBonus
 op 0x2000324: ModPCVisionBonus
 op 0x2000325: TestModels, T3D
 op 0x2000326: FillJournal
+op 0x2000327: ToggleCombatStats, tcs
+op 0x2000328: ToggleKillStats, tks
+op 0x2000329: ToggleMagicStats, tms
+op 0x200032a: ToggleDialogueStats, tds
+op 0x200032b: ToggleStats, tst
+op 0x200032c: ToggleDebugText, tdt
+op 0x200032d: ToggleTextureString, tts
+op 0x200032e: ToggleScriptOutput, tso
+op 0x200032f: MoveOneToOne, moto
+op 0x2000330: ToggleLoadFade, tlf
+op 0x2000331: PurgeTextures, pt
+op 0x2000332: ToggleGrid, tg
+op 0x2000333: ToggleLights, tl
+op 0x2000334: CreateMaps
+op 0x2000335: TestThreadCells
+op 0x2000336: StopCellTest, sct
+op 0x2000337: OutputObjCounts
+op 0x2000338: OutputRefCounts
+op 0x2000339: ShowTargets, st
+op 0x200033a: ShowTargets, explicit
+op 0x200033b: ShowGroup, sg
+op 0x200033c: ShowGroup, explicit
+op 0x200033d: ShowAnim, sa
+op 0x200033e: ShowAnim, explicit
 
-opcodes 0x2000327-0x3ffffff unused
+opcodes 0x200033f-0x3ffffff unused

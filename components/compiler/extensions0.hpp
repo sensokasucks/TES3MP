@@ -76,6 +76,13 @@ namespace Compiler
     {
         void registerExtensions(Extensions& extensions);
     }
+
+    // tes3mp addition: console commands from the original Morrowind.exe. The short names are only
+    // registered for the console, so that they can't clash with local variable names in scripts
+    namespace VanillaDebug
+    {
+        void registerExtensions(Extensions& extensions, bool consoleOnly);
+    }
 }
 
 #endif

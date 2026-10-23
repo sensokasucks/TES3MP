@@ -19,6 +19,7 @@ namespace Compiler
         Sound::registerExtensions(extensions);
         Stats::registerExtensions(extensions);
         Transformation::registerExtensions(extensions);
+        VanillaDebug::registerExtensions(extensions, consoleOnly); // tes3mp addition
 
         if (consoleOnly)
         {
@@ -549,4 +550,56 @@ namespace Compiler
             extensions.registerInstruction("user4", "", opcodeUser4, opcodeUser4);
         }
     }
+
+    /*
+        Start of tes3mp addition
+
+        Console commands from the original Morrowind.exe that OpenMW did not have
+    */
+    namespace VanillaDebug
+    {
+        void registerExtensions(Extensions& extensions, bool consoleOnly)
+        {
+            struct Command
+            {
+                const char* mName;
+                const char* mShortName;
+                int mOpcode;
+                int mOpcodeExplicit;
+            };
+            static const Command commands[] = {
+                { "togglecombatstats", "tcs", opcodeToggleCombatStats, -1 },
+                { "togglekillstats", "tks", opcodeToggleKillStats, -1 },
+                { "togglemagicstats", "tms", opcodeToggleMagicStats, -1 },
+                { "toggledialoguestats", "tds", opcodeToggleDialogueStats, -1 },
+                { "togglestats", "tst", opcodeToggleStats, -1 },
+                { "toggledebugtext", "tdt", opcodeToggleDebugText, -1 },
+                { "toggletexturestring", "tts", opcodeToggleTextureString, -1 },
+                { "togglescriptoutput", "tso", opcodeToggleScriptOutput, -1 },
+                { "moveonetoone", "moto", opcodeMoveOneToOne, -1 },
+                { "toggleloadfade", "tlf", opcodeToggleLoadFade, -1 },
+                { "purgetextures", "pt", opcodePurgeTextures, -1 },
+                { "togglegrid", "tg", opcodeToggleGrid, -1 },
+                { "togglelights", "tl", opcodeToggleLights, -1 },
+                { "createmaps", nullptr, opcodeCreateMaps, -1 },
+                { "testthreadcells", nullptr, opcodeTestThreadCells, -1 },
+                { "stopcelltest", "sct", opcodeStopCellTest, -1 },
+                { "outputobjcounts", nullptr, opcodeOutputObjCounts, -1 },
+                { "outputrefcounts", nullptr, opcodeOutputRefCounts, -1 },
+                { "showtargets", "st", opcodeShowTargets, opcodeShowTargetsExplicit },
+                { "showgroup", "sg", opcodeShowGroup, opcodeShowGroupExplicit },
+                { "showanim", "sa", opcodeShowAnim, opcodeShowAnimExplicit },
+            };
+
+            for (const Command& command : commands)
+            {
+                extensions.registerInstruction(command.mName, "", command.mOpcode, command.mOpcodeExplicit);
+                if (consoleOnly && command.mShortName != nullptr)
+                    extensions.registerInstruction(command.mShortName, "", command.mOpcode, command.mOpcodeExplicit);
+            }
+        }
+    }
+    /*
+        End of tes3mp addition
+    */
 }

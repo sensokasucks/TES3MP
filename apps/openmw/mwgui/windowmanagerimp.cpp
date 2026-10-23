@@ -1745,6 +1745,25 @@ namespace MWGui
     {
         mConsole->execute(command);
     }
+
+    void WindowManager::exportWorldMap(const std::filesystem::path& directory)
+    {
+        mMap->exportWorldMap(directory);
+    }
+
+    void WindowManager::addTravelLine(float fromX, float fromY, float toX, float toY, int type)
+    {
+        mMap->addTravelLine(fromX, fromY, toX, toY, type);
+    }
+
+    std::vector<std::string> WindowManager::getMapNotes(const ESM::RefId& cellId) const
+    {
+        std::vector<std::string> notes;
+        CustomMarkerCollection::RangeType markers = mCustomMarkers.getMarkers(cellId);
+        for (auto it = markers.first; it != markers.second; ++it)
+            notes.push_back(it->second.mNote);
+        return notes;
+    }
     /*
         End of tes3mp addition
     */

@@ -18,6 +18,7 @@
 #include <components/esm3/doorstate.hpp>
 #include <components/esm3/loaddoor.hpp>
 #include <components/esm3/loadmgef.hpp>
+#include <components/fallback/fallback.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -349,6 +350,28 @@ namespace MWClass
         {
             text += "\n#{sTo}";
             text += "\n" + getDestination(*ref);
+
+            /*
+                Start of tes3mp addition
+
+                [General] Show Door Notes: list the map notes placed in the destination cell, cut at the
+                first line break and at 64 characters as vanilla did
+            */
+            if (Fallback::Map::getBool("General_Show_Door_Notes"))
+            {
+                for (std::string note :
+                    MWBase::Environment::get().getWindowManager()->getMapNotes(ptr.getCellRef().getDestCell()))
+                {
+                    note = note.substr(0, note.find('\n'));
+                    if (note.size() > 64)
+                        note = note.substr(0, 64) + "...";
+                    if (!note.empty())
+                        text += "\n" + MyGUI::TextIterator::toTagsString(MyGUI::UString(note)).asUTF8();
+                }
+            }
+            /*
+                End of tes3mp addition
+            */
         }
 
         int lockLevel = ptr.getCellRef().getLockLevel();

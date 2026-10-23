@@ -268,6 +268,9 @@ MwIniImporter::MwIniImporter()
         // werewolf (Bloodmoon)
         "General:Werewolf FOV",
 
+        // tes3mp addition: vanilla settings for the map and BetaComment
+        "General:Show Door Notes", "General:Beta Comment File",
+
         0
     };
 

@@ -59,6 +59,7 @@
     Include additional headers for multiplayer purposes
 */
 #include "../mwmp/Main.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwmp/CellController.hpp"
 #include "../mwmp/LocalPlayer.hpp"
 #include "../mwmp/LocalActor.hpp"
@@ -195,6 +196,22 @@ namespace MWDialogue
         mChoices.clear();
 
         mActor = actor;
+
+        /*
+            Start of tes3mp addition
+
+            ToggleDialogueStats (TDS), as vanilla printed it
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_DialogueStats) && actor.getClass().isNpc())
+        {
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format(
+                "Perm Disp: %i   Temp Disp: %i", actor.getClass().getNpcStats(actor).getBaseDisposition(), 0));
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Disposition with modifiers: %i",
+                MWBase::Environment::get().getMechanicsManager()->getDerivedDisposition(actor)));
+        }
+        /*
+            End of tes3mp addition
+        */
 
         MWMechanics::CreatureStats& creatureStats = actor.getClass().getCreatureStats(actor);
         mTalkedTo = creatureStats.hasTalkedToPlayer();
@@ -594,6 +611,18 @@ namespace MWDialogue
         mCurrentDisposition += temp;
         mActor.getClass().getNpcStats(mActor).setBaseDisposition(mCurrentDisposition);
         mPermanentDispositionChange += perm;
+
+        /*
+            Start of tes3mp addition
+
+            ToggleDialogueStats (TDS), as vanilla printed it
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_DialogueStats))
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("Perm Disp: %i   Temp Disp: %i",
+                mOriginalDisposition + mPermanentDispositionChange, mCurrentDisposition - mOriginalDisposition));
+        /*
+            End of tes3mp addition
+        */
 
         MWWorld::Ptr player = MWMechanics::getPlayer();
         player.getClass().skillUsageSucceeded(

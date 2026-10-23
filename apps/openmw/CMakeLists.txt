@@ -55,7 +55,7 @@ add_openmw_dir (mwscript
     locals scriptmanagerimp compilercontext interpretercontext cellextensions miscextensions
     guiextensions soundextensions skyextensions statsextensions containerextensions
     aiextensions controlextensions extensions globalscripts ref dialogueextensions
-    animationextensions transformationextensions consoleextensions userextensions
+    animationextensions transformationextensions consoleextensions userextensions vanilladebugextensions
     )
 
 add_openmw_dir (mwlua
@@ -83,7 +83,7 @@ add_openmw_dir (mwworld
     store esmstore fallback actionrepair actionsoulgem livecellref actiondoor
     contentloader esmloader actiontrap cellreflist cellref weather projectilemanager
     cellpreloader datetimemanager groundcoverstore magiceffects cell ptrregistry
-    positioncellgrid
+    positioncellgrid vanilladebug
     )
 
 add_openmw_dir (mwphysics

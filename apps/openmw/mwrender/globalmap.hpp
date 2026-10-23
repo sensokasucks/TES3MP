@@ -1,6 +1,7 @@
 #ifndef GAME_RENDER_GLOBALMAP_H
 #define GAME_RENDER_GLOBALMAP_H
 
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -66,6 +67,10 @@ namespace MWRender
             in the code
         */
         void setImage(int cellX, int cellY, const std::vector<char>& imageData);
+
+        // CreateMaps: writes the explored overlay drawn over the base map to <directory>/world.png, and the
+        // cell bounds needed to place it to <directory>/world.json
+        void exportImage(const std::filesystem::path& directory);
         /*
             End of tes3mp addition
         */

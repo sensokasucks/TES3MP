@@ -15,6 +15,15 @@
 #include "../mwmp/Networking.hpp"
 #include "../mwmp/ObjectList.hpp"
 #include "../mwworld/cellstore.hpp"
+#include "../mwworld/vanilladebug.hpp"
+#include <algorithm>
+#include <iomanip>
+#include <MyGUI_TextIterator.h>
+#include <osg/Math>
+#include <osg/NodeVisitor>
+#include <osg/Texture>
+#include <sstream>
+#include <components/sceneutil/positionattitudetransform.hpp>
 /*
     End of tes3mp addition
 */
@@ -323,9 +332,127 @@ namespace MWGui
         }
     }
 
+    /*
+        Start of tes3mp addition
+
+        ToggleDebugText (TDT) and ToggleTextureString (TTS), which vanilla drew in the top left corner
+    */
+    namespace
+    {
+        struct TextureNameVisitor : osg::NodeVisitor
+        {
+            std::vector<std::string> mNames;
+
+            TextureNameVisitor()
+                : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+            {
+            }
+
+            void apply(osg::Node& node) override
+            {
+                if (const osg::StateSet* stateset = node.getStateSet())
+                {
+                    const auto& attributes = stateset->getTextureAttributeList();
+                    for (unsigned i = 0; i < static_cast<unsigned>(attributes.size()); ++i)
+                    {
+                        const osg::StateAttribute* attr = stateset->getTextureAttribute(i, osg::StateAttribute::TEXTURE);
+                        const osg::Texture* texture = attr ? attr->asTexture() : nullptr;
+                        const osg::Image* image = texture ? texture->getImage(0) : nullptr;
+                        if (image && !image->getFileName().empty()
+                            && std::find(mNames.begin(), mNames.end(), image->getFileName()) == mNames.end())
+                            mNames.push_back(image->getFileName());
+                    }
+                }
+                traverse(node);
+            }
+        };
+    }
+
+    void HUD::updateDebugText(float dt)
+    {
+        using namespace MWWorld::VanillaDebug;
+        const bool debugText = isEnabled(Flag_DebugText);
+        const bool textureString = isEnabled(Flag_TextureString);
+        if (!debugText && !textureString)
+        {
+            if (mDebugText)
+                mDebugText->setVisible(false);
+            return;
+        }
+
+        if (!mDebugText)
+        {
+            mDebugText = mMainWidget->createWidget<MyGUI::TextBox>(
+                "SandText", MyGUI::IntCoord(10, 10, 1000, 200), MyGUI::Align::Left | MyGUI::Align::Top);
+            mDebugText->setTextShadow(true);
+            mDebugText->setTextShadowColour(MyGUI::Colour::Black);
+            mDebugText->setNeedMouseFocus(false);
+        }
+        mDebugText->setVisible(true);
+
+        // A few updates a second are enough to read, and keep the texture search cheap
+        mDebugTextTimer -= dt;
+        if (mDebugTextTimer > 0.f)
+            return;
+        mDebugTextTimer = 0.25f;
+
+        MWBase::World* world = MWBase::Environment::get().getWorld();
+        std::ostringstream text;
+        text << std::fixed << std::setprecision(2);
+
+        if (debugText)
+        {
+            const MWWorld::Ptr player = world->getPlayerPtr();
+            const ESM::Position& pos = player.getRefData().getPosition();
+            const MWWorld::TimeStamp time = world->getTimeStamp();
+            const float hour = time.getHour();
+            const int minutes = static_cast<int>((hour - static_cast<int>(hour)) * 60.f);
+            text << "FT: " << std::setprecision(1) << dt * 1000.f << " ms (" << std::setprecision(0)
+                 << (dt > 0.f ? 1.f / dt : 0.f) << " fps)   X: " << std::setprecision(2) << pos.pos[0]
+                 << " Y: " << pos.pos[1] << " Z: " << pos.pos[2] << "   Heading: " << std::setprecision(0)
+                 << osg::RadiansToDegrees(pos.rot[2]) << "   Day " << time.getDay() << " "
+                 << static_cast<int>(hour) << ":" << std::setw(2) << std::setfill('0') << minutes
+                 << std::setfill(' ') << "\n";
+            if (player.isInCell())
+            {
+                const MWWorld::CellStore* cell = player.getCell();
+                text << "Cell: " << world->getCellName(cell);
+                if (cell->getCell()->isExterior())
+                    text << " (" << cell->getCell()->getGridX() << ", " << cell->getCell()->getGridY() << ")";
+                text << "\n";
+            }
+        }
+
+        if (textureString)
+        {
+            const MWWorld::Ptr target = world->getFocusObject();
+            if (target.isEmpty())
+                text << "Texture: none\n";
+            else
+            {
+                text << target.getCellRef().getRefId().toString() << ": "
+                     << target.getClass().getCorrectedModel(target).value() << "\n";
+                if (SceneUtil::PositionAttitudeTransform* node = target.getRefData().getBaseNode())
+                {
+                    TextureNameVisitor visitor;
+                    node->accept(visitor);
+                    for (std::size_t i = 0; i < visitor.mNames.size() && i < 6; ++i)
+                        text << "  " << visitor.mNames[i] << "\n";
+                }
+            }
+        }
+
+        mDebugText->setCaption(MyGUI::TextIterator::toTagsString(text.str()));
+    }
+    /*
+        End of tes3mp addition
+    */
+
     void HUD::onFrame(float dt)
     {
         LocalMapBase::onFrame(dt);
+
+        updateDebugText(dt); // tes3mp addition
 
         mCellNameTimer -= dt;
         mWeaponSpellTimer -= dt;

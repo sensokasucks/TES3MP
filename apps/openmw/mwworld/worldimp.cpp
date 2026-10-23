@@ -123,6 +123,7 @@
 #include "inventorystore.hpp"
 #include "manualref.hpp"
 #include "player.hpp"
+#include "vanilladebug.hpp"
 #include "projectilemanager.hpp"
 #include "weather.hpp"
 
@@ -256,6 +257,16 @@ namespace MWWorld
         SceneUtil::WorkQueue* workQueue, SceneUtil::UnrefQueue& unrefQueue)
     {
         mPhysics = std::make_unique<MWPhysics::PhysicsSystem>(mResourceSystem, rootNode);
+
+        /*
+            Start of tes3mp addition
+
+            BetaComment and CreateMaps write their files under the user data directory
+        */
+        VanillaDebug::setUserDataPath(mUserDataPath);
+        /*
+            End of tes3mp addition
+        */
 
         if (Settings::navigator().mEnable)
         {
@@ -1841,6 +1852,16 @@ namespace MWWorld
         mPhysics->debugDraw();
 
         mWorldScene->update(duration);
+
+        /*
+            Start of tes3mp addition
+
+            Step the CreateMaps / TestThreadCells cell walk
+        */
+        VanillaDebug::update(duration);
+        /*
+            End of tes3mp addition
+        */
 
         mRendering->update(duration, paused);
 

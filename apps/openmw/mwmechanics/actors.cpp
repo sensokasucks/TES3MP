@@ -39,6 +39,7 @@
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwworld/datetimemanager.hpp"
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/inventorystore.hpp"
@@ -1917,6 +1918,23 @@ namespace MWMechanics
             End of tes3mp change (major)
         */
 
+        /*
+            Start of tes3mp addition
+
+            ToggleKillStats (TKS), as vanilla printed it. The total is what this client knows so far; the
+            server sends the new count separately.
+        */
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_KillStats))
+        {
+            const MWWorld::Ptr player = getPlayer();
+            MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("%s killed, total kills %d, werewolf kills %d.",
+                MWWorld::VanillaDebug::describe(actor).c_str(), countDeaths(actor.getCellRef().getRefId()),
+                player.getClass().getNpcStats(player).getWerewolfKills()));
+        }
+        /*
+            End of tes3mp addition
+        */
+
         MWBase::Environment::get().getLuaManager()->actorDied(actor);
     }
 
@@ -2238,6 +2256,10 @@ namespace MWMechanics
     void Actors::setDeaths(const std::string& refId, int number)
     {
         mDeathCount[ESM::RefId::stringRefId(refId)] = number;
+
+        if (MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_KillStats))
+            MWWorld::VanillaDebug::print(
+                MWWorld::VanillaDebug::format("Server set the kill count of %s to %d.", refId.c_str(), number));
     }
     /*
         End of tes3mp addition

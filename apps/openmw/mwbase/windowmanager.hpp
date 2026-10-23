@@ -377,6 +377,15 @@ namespace MWBase
                 Allow the execution of console commands from elsewhere in the code
             */
             virtual void executeCommandInConsole(const std::string& command) = 0;
+
+            // Writes the world map (explored overlay over the base map) as world.png and world.json
+            virtual void exportWorldMap(const std::filesystem::path& directory) = 0;
+
+            // [Map] Show Travel Lines; type 0 = silt strider, 1 = guild guide, 2 = boat
+            virtual void addTravelLine(float fromX, float fromY, float toX, float toY, int type) = 0;
+
+            // The notes of the map markers placed in a cell, for [General] Show Door Notes
+            virtual std::vector<std::string> getMapNotes(const ESM::RefId& cellId) const = 0;
             /*
                 End of tes3mp addition
             */

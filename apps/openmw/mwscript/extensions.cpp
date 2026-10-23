@@ -17,6 +17,7 @@
 #include "statsextensions.hpp"
 #include "transformationextensions.hpp"
 #include "userextensions.hpp"
+#include "vanilladebugextensions.hpp"
 
 namespace MWScript
 {
@@ -35,6 +36,7 @@ namespace MWScript
         Dialogue::installOpcodes(interpreter);
         Animation::installOpcodes(interpreter);
         Transformation::installOpcodes(interpreter);
+        VanillaDebug::installOpcodes(interpreter); // tes3mp addition
 
         if (consoleOnly)
         {

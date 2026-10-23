@@ -555,6 +555,42 @@ namespace Compiler
         const int opcodeUser4 = 0x2000170;
         const int opcodeUser4Explicit = 0x2000171;
     }
+
+    /*
+        Start of tes3mp addition
+
+        Console commands from the original Morrowind.exe that OpenMW did not have
+    */
+    namespace VanillaDebug
+    {
+        const int opcodeToggleCombatStats = 0x2000327;
+        const int opcodeToggleKillStats = 0x2000328;
+        const int opcodeToggleMagicStats = 0x2000329;
+        const int opcodeToggleDialogueStats = 0x200032a;
+        const int opcodeToggleStats = 0x200032b;
+        const int opcodeToggleDebugText = 0x200032c;
+        const int opcodeToggleTextureString = 0x200032d;
+        const int opcodeToggleScriptOutput = 0x200032e;
+        const int opcodeMoveOneToOne = 0x200032f;
+        const int opcodeToggleLoadFade = 0x2000330;
+        const int opcodePurgeTextures = 0x2000331;
+        const int opcodeToggleGrid = 0x2000332;
+        const int opcodeToggleLights = 0x2000333;
+        const int opcodeCreateMaps = 0x2000334;
+        const int opcodeTestThreadCells = 0x2000335;
+        const int opcodeStopCellTest = 0x2000336;
+        const int opcodeOutputObjCounts = 0x2000337;
+        const int opcodeOutputRefCounts = 0x2000338;
+        const int opcodeShowTargets = 0x2000339;
+        const int opcodeShowTargetsExplicit = 0x200033a;
+        const int opcodeShowGroup = 0x200033b;
+        const int opcodeShowGroupExplicit = 0x200033c;
+        const int opcodeShowAnim = 0x200033d;
+        const int opcodeShowAnimExplicit = 0x200033e;
+    }
+    /*
+        End of tes3mp addition
+    */
 }
 
 #endif

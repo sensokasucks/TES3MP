@@ -392,6 +392,12 @@ namespace MWGui
         Allow the execution of console commands from elsewhere in the code
     */
     virtual void executeCommandInConsole(const std::string& command);
+
+    void exportWorldMap(const std::filesystem::path& directory) override;
+
+    void addTravelLine(float fromX, float fromY, float toX, float toY, int type) override;
+
+    std::vector<std::string> getMapNotes(const ESM::RefId& cellId) const override;
     /*
         End of tes3mp addition
     */

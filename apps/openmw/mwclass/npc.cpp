@@ -65,6 +65,7 @@
 #include "../mwmechanics/weapontype.hpp"
 
 #include "../mwworld/actionopen.hpp"
+#include "../mwworld/vanilladebug.hpp"
 #include "../mwworld/actiontalk.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/customdata.hpp"
@@ -810,6 +811,28 @@ namespace MWClass
     {
         MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
         bool wasDead = stats.isDead();
+
+        /*
+            Start of tes3mp addition
+
+            ToggleCombatStats (TCS), as vanilla printed it: victim, damage / health before the hit, attacker
+        */
+        if (successful && MWWorld::VanillaDebug::isEnabled(MWWorld::VanillaDebug::Flag_CombatStats))
+        {
+            const auto health = damages.find("health");
+            const auto fatigue = damages.find("fatigue");
+            if (health == damages.end() && fatigue != damages.end())
+                MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("%s hit (Fatigue: %.0f/%.0f) %s",
+                    MWWorld::VanillaDebug::describe(ptr).c_str(), fatigue->second, stats.getFatigue().getCurrent(),
+                    MWWorld::VanillaDebug::describe(attacker).c_str()));
+            else
+                MWWorld::VanillaDebug::print(MWWorld::VanillaDebug::format("%s hit (%.0f/%.0f) %s",
+                    MWWorld::VanillaDebug::describe(ptr).c_str(), health != damages.end() ? health->second : 0.f,
+                    stats.getHealth().getCurrent(), MWWorld::VanillaDebug::describe(attacker).c_str()));
+        }
+        /*
+            End of tes3mp addition
+        */
 
         bool setOnPcHitMe = true;
 

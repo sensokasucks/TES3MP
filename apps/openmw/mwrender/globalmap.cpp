@@ -32,6 +32,8 @@
 #include "../mwmp/Main.hpp"
 #include "../mwmp/Networking.hpp"
 #include "../mwmp/Worldstate.hpp"
+#include "../mwworld/vanilladebug.hpp"
+#include <fstream>
 /*
     End of tes3mp addition
 */
@@ -642,6 +644,20 @@ namespace MWRender
             /*
                 Start of tes3mp addition
 
+                CreateMaps writes every tile it explores to disk, as vanilla Morrowind did with
+                "Create Maps Enable = 2"
+            */
+            if (MWWorld::VanillaDebug::isExportingMaps() && originToCellX.count(imageDest.mX) > 0
+                && originToCellY.count(imageDest.mY) > 0)
+                MWWorld::VanillaDebug::writeMapTile(
+                    originToCellX.at(imageDest.mX), originToCellY.at(imageDest.mY), *imageDest.mImage);
+            /*
+                End of tes3mp addition
+            */
+
+            /*
+                Start of tes3mp addition
+
                 Send an ID_PLAYER_MAP packet with this map tile to the server, but only if:
                 1) We have recorded the exterior cell corresponding to this tile's coordinates
                 2) The tile has not previously been marked as explored in this client's mwmp::Worldstate
@@ -766,6 +782,41 @@ namespace MWRender
         texture->setResizeNonPowerOfTwoHint(false);
 
         requestOverlayTextureUpdate(posX, mHeight - posY, Settings::map().mGlobalMapCellSize, Settings::map().mGlobalMapCellSize, texture, true, false);
+    }
+
+    void GlobalMap::exportImage(const std::filesystem::path& directory)
+    {
+        ensureLoaded();
+
+        const osg::Image* base = mBaseTexture ? mBaseTexture->getImage() : nullptr;
+        if (base == nullptr || mOverlayImage == nullptr)
+            return;
+
+        // Explored areas show the local map renders; unexplored ones the generated base map
+        osg::ref_ptr<osg::Image> image = new osg::Image;
+        image->allocateImage(mWidth, mHeight, 1, GL_RGB, GL_UNSIGNED_BYTE);
+        for (int y = 0; y < mHeight; ++y)
+        {
+            for (int x = 0; x < mWidth; ++x)
+            {
+                const osg::Vec4 under = base->getColor(x, y);
+                const osg::Vec4 over = mOverlayImage->getColor(x, y);
+                const float alpha = over.a();
+                image->setColor(under * (1.f - alpha) + over * alpha, x, y);
+            }
+        }
+
+        const std::vector<char> png = writePng(*image);
+        if (!png.empty())
+        {
+            std::ofstream file(directory / "world.png", std::ios::binary);
+            file.write(png.data(), static_cast<std::streamsize>(png.size()));
+        }
+
+        std::ofstream json(directory / "world.json");
+        json << "{\"minX\":" << mMinX << ",\"maxX\":" << mMaxX << ",\"minY\":" << mMinY << ",\"maxY\":" << mMaxY
+             << ",\"cellSize\":" << Settings::map().mGlobalMapCellSize << ",\"width\":" << mWidth
+             << ",\"height\":" << mHeight << "}\n";
     }
     /*
         End of tes3mp addition

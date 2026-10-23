@@ -77,6 +77,17 @@ namespace MWGui
         MyGUI::ImageBox* mCrosshair = nullptr;
         MyGUI::TextBox* mCellNameBox = nullptr;
         MyGUI::TextBox* mWeaponSpellBox = nullptr;
+        /*
+            Start of tes3mp addition
+
+            ToggleDebugText (TDT) / ToggleTextureString (TTS) overlay, created when first needed
+        */
+        MyGUI::TextBox* mDebugText = nullptr;
+        float mDebugTextTimer = 0.f;
+        void updateDebugText(float dt);
+        /*
+            End of tes3mp addition
+        */
         MyGUI::Widget *mDrowningBar = nullptr, *mDrowningFrame = nullptr, *mDrowningFlash = nullptr;
         DragAndDrop* mDragAndDrop;
         std::string mCellName;

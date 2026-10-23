@@ -61,6 +61,7 @@
 #include "esmstore.hpp"
 #include "localscripts.hpp"
 #include "player.hpp"
+#include "vanilladebug.hpp"
 #include "worldimp.hpp"
 
 namespace
@@ -993,7 +994,8 @@ namespace MWWorld
         CellStore& cell = mWorld.getWorldModel().getInterior(cellName);
         bool useFading = (mCurrentCell != nullptr);
         if (useFading)
-            MWBase::Environment::get().getWindowManager()->fadeScreenOut(0.5);
+            if (!VanillaDebug::isEnabled(VanillaDebug::Flag_NoLoadFade)) // tes3mp: ToggleLoadFade (TLF)
+                MWBase::Environment::get().getWindowManager()->fadeScreenOut(0.5);
 
         Loading::Listener* loadingListener = MWBase::Environment::get().getWindowManager()->getLoadingScreen();
         loadingListener->setLabel("#{OMWEngine:LoadingInterior}");
@@ -1006,7 +1008,8 @@ namespace MWWorld
 
             if (adjustPlayerPos)
                 mWorld.getPlayerPtr().getClass().adjustPosition(mWorld.getPlayerPtr(), true);
-            MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
+            if (!VanillaDebug::isEnabled(VanillaDebug::Flag_NoLoadFade)) // tes3mp: ToggleLoadFade (TLF)
+                MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
             return;
         }
 
@@ -1062,7 +1065,8 @@ namespace MWWorld
         mCellLoaded = true;
 
         if (useFading)
-            MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
+            if (!VanillaDebug::isEnabled(VanillaDebug::Flag_NoLoadFade)) // tes3mp: ToggleLoadFade (TLF)
+                MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
 
         MWBase::Environment::get().getWindowManager()->changeCell(mCurrentCell);
 
@@ -1074,7 +1078,8 @@ namespace MWWorld
     {
 
         if (changeEvent)
-            MWBase::Environment::get().getWindowManager()->fadeScreenOut(0.5);
+            if (!VanillaDebug::isEnabled(VanillaDebug::Flag_NoLoadFade)) // tes3mp: ToggleLoadFade (TLF)
+                MWBase::Environment::get().getWindowManager()->fadeScreenOut(0.5);
         CellStore& current = mWorld.getWorldModel().getCell(extCellId);
 
         const osg::Vec2i cellIndex(current.getCell()->getGridX(), current.getCell()->getGridY());
@@ -1086,7 +1091,8 @@ namespace MWWorld
         changePlayerCell(current, position, adjustPlayerPos);
 
         if (changeEvent)
-            MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
+            if (!VanillaDebug::isEnabled(VanillaDebug::Flag_NoLoadFade)) // tes3mp: ToggleLoadFade (TLF)
+                MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
 
         MWBase::Environment::get().getWorld()->getPostProcessor()->setExteriorFlag(true);
     }
