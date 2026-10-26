@@ -261,6 +261,9 @@ namespace mwmp
         std::string chatMessage;
         std::vector<ChatCommand> chatCommands;
         std::string menu; // Name of the open menu, empty when none is open
+        // The actor this player is in dialogue with (refNum + mpNum), both 0 when none
+        unsigned int menuTargetRefNum = 0;
+        unsigned int menuTargetMpNum = 0;
         std::string luaEventName;
         std::string luaEventPayload;
         CharGenState charGenState;

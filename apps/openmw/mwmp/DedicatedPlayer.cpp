@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <boost/algorithm/clamp.hpp>
 #include <components/openmw-mp/TimedLog.hpp>
 #include <apps/openmw/mwmechanics/steering.hpp>
@@ -124,7 +125,8 @@ void DedicatedPlayer::move(float dt)
 
     ESM::Position refPos = ptr.getRefData().getPosition();
     MWBase::World *world = MWBase::Environment::get().getWorld();
-    const int maxInterpolationDistance = 80;
+    // Beyond this the player was moved (teleport, cell change), not walking: jump straight there
+    const int maxInterpolationDistance = 128;
 
     // Apply interpolation only if the position hasn't changed too much from last time
     bool shouldInterpolate =
@@ -135,14 +137,25 @@ void DedicatedPlayer::move(float dt)
     if (shouldInterpolate)
     {
         static const int timeMultiplier = 15;
-        osg::Vec3f lerp = MechanicsHelper::getLinearInterpolation(refPos.asVec3(), position.asVec3(), dt * timeMultiplier);
+        osg::Vec3f lerp = MechanicsHelper::getLinearInterpolation(refPos.asVec3(), position.asVec3(),
+            std::min(1.f, dt * timeMultiplier));
 
         world->moveObject(ptr, lerp);
     }
     else
         world->moveObject(ptr, position.asVec3());
 
-    world->rotateObject(ptr, osg::Vec3f(position.rot[0], 0, position.rot[2]));
+    /*
+        Start of tes3mp change (minor)
+
+        Turn towards the received facing over a few frames instead of snapping to it
+    */
+    static const float rotationMultiplier = 12.f;
+    world->rotateObject(ptr, MechanicsHelper::getAngleInterpolation(osg::Vec3f(refPos.rot[0], 0, refPos.rot[2]),
+        osg::Vec3f(position.rot[0], 0, position.rot[2]), std::min(1.f, dt * rotationMultiplier)));
+    /*
+        End of tes3mp change (minor)
+    */
 
     MWMechanics::Movement *move = &ptr.getClass().getMovementSettings(ptr);
     move->mPosition[0] = direction.pos[0];

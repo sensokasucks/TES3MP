@@ -55,6 +55,9 @@ namespace MWBase
 
         virtual bool startDialogue(const MWWorld::Ptr& actor, ResponseCallback* callback) = 0;
 
+        // tes3mp addition: the actor the local player is talking to (empty outside dialogue)
+        virtual MWWorld::Ptr getActor() const = 0;
+
         virtual bool inJournal(const ESM::RefId& topicId, const ESM::RefId& infoId) const = 0;
 
         virtual void addTopic(const ESM::RefId& topic) = 0;

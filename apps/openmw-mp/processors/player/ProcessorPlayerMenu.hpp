@@ -21,6 +21,9 @@ namespace mwmp
             Hooks::markActive(player);
 
             Script::Call<Script::CallbackIdentity("OnPlayerMenu")>(player.getId(), player.menu.c_str());
+
+            // Other players in the area need to know who is talking to which NPC
+            player.sendToLoaded(&packet);
         }
     };
 }

@@ -193,9 +193,25 @@ void LocalPlayer::updateMenu()
 
     std::string newMenu = windowManager->isConsoleMode() ? "console" : getMenuName(windowManager->getMode());
 
-    if (newMenu != menu)
+    // Also say who we are talking to, so that whoever runs that NPC can hold it still and facing us,
+    // as the paused world did in the original game
+    unsigned int newTargetRefNum = 0;
+    unsigned int newTargetMpNum = 0;
+    if (windowManager->containsMode(MWGui::GM_Dialogue))
+    {
+        const MWWorld::Ptr partner = MWBase::Environment::get().getDialogueManager()->getActor();
+        if (!partner.isEmpty())
+        {
+            newTargetRefNum = partner.getCellRef().getMpRefNum();
+            newTargetMpNum = partner.getCellRef().getMpNum();
+        }
+    }
+
+    if (newMenu != menu || newTargetRefNum != menuTargetRefNum || newTargetMpNum != menuTargetMpNum)
     {
         menu = newMenu;
+        menuTargetRefNum = newTargetRefNum;
+        menuTargetMpNum = newTargetMpNum;
 
         getNetworking()->getPlayerPacket(ID_PLAYER_MENU)->setPlayer(this);
         getNetworking()->getPlayerPacket(ID_PLAYER_MENU)->Send();

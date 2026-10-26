@@ -89,6 +89,8 @@ namespace MWDialogue
 
         bool startDialogue(const MWWorld::Ptr& actor, ResponseCallback* callback) override;
 
+        MWWorld::Ptr getActor() const override { return mActor; } // tes3mp addition
+
         std::list<std::string> getAvailableTopics() override;
         int getTopicFlag(const ESM::RefId& topicId) const override;
 

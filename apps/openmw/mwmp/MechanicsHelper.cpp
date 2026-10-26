@@ -7,6 +7,9 @@
 #include <components/esm3/loadmgef.hpp>
 #include "../mwworld/esmstore.hpp"
 
+#include <limits>
+#include <components/misc/mathutil.hpp>
+#include "../mwbase/dialoguemanager.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/world.hpp"
@@ -43,6 +46,15 @@ osg::Vec3f MechanicsHelper::getLinearInterpolation(osg::Vec3f start, osg::Vec3f 
     osg::Vec3f position(percent, percent, percent);
 
     return (start + osg::componentMultiply(position, (end - start)));
+}
+
+osg::Vec3f MechanicsHelper::getAngleInterpolation(osg::Vec3f start, osg::Vec3f end, float percent)
+{
+    osg::Vec3f result;
+    for (int i = 0; i < 3; ++i)
+        result[i] = static_cast<float>(
+            Misc::normalizeAngle(start[i] + Misc::normalizeAngle(end[i] - start[i]) * percent));
+    return result;
 }
 
 ESM::Position MechanicsHelper::getPositionFromVector(osg::Vec3f vector)
@@ -343,6 +355,61 @@ void MechanicsHelper::resetCast(Cast* cast)
 bool MechanicsHelper::getSpellSuccess(std::string spellId, const MWWorld::Ptr& caster)
 {
     return Misc::Rng::roll0to99() < MWMechanics::getSpellSuccessChance(ESM::RefId::stringRefId(spellId), caster, nullptr, true, false);
+}
+
+MWWorld::Ptr MechanicsHelper::getDialoguePartner(const MWWorld::Ptr& actor)
+{
+    if (actor.isEmpty() || !actor.isInCell())
+        return MWWorld::Ptr();
+
+    LocalPlayer* localPlayer = mwmp::Main::get().getLocalPlayer();
+    if (localPlayer->menu == "dialogue" && MWBase::Environment::get().getDialogueManager()->getActor() == actor)
+        return MWMechanics::getPlayer();
+
+    const unsigned int refNum = actor.getCellRef().getMpRefNum();
+    const unsigned int mpNum = actor.getCellRef().getMpNum();
+    if (refNum == 0 && mpNum == 0)
+        return MWWorld::Ptr();
+
+    for (const auto& [guid, player] : PlayerList::getPlayers())
+    {
+        if (player == nullptr || player->menu != "dialogue" || player->menuTargetRefNum != refNum
+            || player->menuTargetMpNum != mpNum)
+            continue;
+
+        MWWorld::Ptr playerPtr = player->getPtr();
+        if (!playerPtr.isEmpty() && playerPtr.isInCell() && playerPtr.getCell() == actor.getCell())
+            return playerPtr;
+    }
+    return MWWorld::Ptr();
+}
+
+MWWorld::Ptr MechanicsHelper::getNearestPlayer(const MWWorld::Ptr& actor)
+{
+    MWWorld::Ptr nearest = MWMechanics::getPlayer();
+    if (actor.isEmpty() || !actor.isInCell())
+        return nearest;
+
+    const osg::Vec3f actorPos = actor.getRefData().getPosition().asVec3();
+    float nearestDistance = (nearest.getRefData().getPosition().asVec3() - actorPos).length2();
+    if (!nearest.isInCell() || nearest.getCell() != actor.getCell())
+        nearestDistance = std::numeric_limits<float>::max();
+
+    for (const auto& [guid, player] : PlayerList::getPlayers())
+    {
+        if (player == nullptr)
+            continue;
+        MWWorld::Ptr playerPtr = player->getPtr();
+        if (playerPtr.isEmpty() || !playerPtr.isInCell() || playerPtr.getCell() != actor.getCell())
+            continue;
+        const float distance = (playerPtr.getRefData().getPosition().asVec3() - actorPos).length2();
+        if (distance < nearestDistance)
+        {
+            nearestDistance = distance;
+            nearest = playerPtr;
+        }
+    }
+    return nearest;
 }
 
 bool MechanicsHelper::isTeamMember(const MWWorld::Ptr& playerChecked, const MWWorld::Ptr& playerWithTeam)

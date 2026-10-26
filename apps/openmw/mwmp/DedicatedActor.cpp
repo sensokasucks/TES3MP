@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <components/openmw-mp/TimedLog.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -80,7 +81,8 @@ void DedicatedActor::move(float dt)
 {
     ESM::Position refPos = ptr.getRefData().getPosition();
     MWBase::World *world = MWBase::Environment::get().getWorld();
-    const int maxInterpolationDistance = 40;
+    // Beyond this the actor was moved (teleport, cell change), not walking: jump straight there
+    const int maxInterpolationDistance = 128;
 
     // Apply interpolation only if the position hasn't changed too much from last time
     bool shouldInterpolate = abs(position.pos[0] - refPos.pos[0]) < maxInterpolationDistance && abs(position.pos[1] - refPos.pos[1]) < maxInterpolationDistance && abs(position.pos[2] - refPos.pos[2]) < maxInterpolationDistance;
@@ -90,7 +92,8 @@ void DedicatedActor::move(float dt)
     if (shouldInterpolate && !hasChangedCell)
     {
         static const int timeMultiplier = 15;
-        osg::Vec3f lerp = MechanicsHelper::getLinearInterpolation(refPos.asVec3(), position.asVec3(), dt * timeMultiplier);
+        osg::Vec3f lerp = MechanicsHelper::getLinearInterpolation(refPos.asVec3(), position.asVec3(),
+            std::min(1.f, dt * timeMultiplier));
         refPos.pos[0] = lerp.x();
         refPos.pos[1] = lerp.y();
         refPos.pos[2] = lerp.z();
@@ -104,7 +107,19 @@ void DedicatedActor::move(float dt)
     }
 
     setMovementSettings();
-    world->rotateObject(ptr, position.asRotationVec3());
+
+    /*
+        Start of tes3mp change (minor)
+
+        Turn towards the received facing over a few frames instead of snapping to it, so turns look like the
+        original game's instead of jumping from one facing to the next
+    */
+    static const float rotationMultiplier = 12.f;
+    world->rotateObject(ptr, MechanicsHelper::getAngleInterpolation(refPos.asRotationVec3(),
+        position.asRotationVec3(), std::min(1.f, dt * rotationMultiplier)));
+    /*
+        End of tes3mp change (minor)
+    */
 }
 
 void DedicatedActor::setMovementSettings()

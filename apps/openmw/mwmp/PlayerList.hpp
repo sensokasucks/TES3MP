@@ -43,6 +43,8 @@ namespace mwmp
 
         static void clearHitAttemptActor(const ESM::RefNum& refNum);
 
+        static const std::map<RakNet::RakNetGUID, DedicatedPlayer *>& getPlayers() { return playerList; }
+
     private:
 
         static std::map<RakNet::RakNetGUID, DedicatedPlayer *> playerList;

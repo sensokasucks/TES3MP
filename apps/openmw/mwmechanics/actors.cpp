@@ -303,6 +303,27 @@ namespace MWMechanics
             return (distanceToNextPathPoint - package.getNextPathPointTolerance(speed, duration, halfExtents)) / speed;
         }
 
+        /*
+            Start of tes3mp addition
+
+            The original game pauses the world during dialogue, so the NPC you talk to stays where it is.
+            Multiplayer can't pause, so whoever runs the NPC holds it still and turns it to face the talker
+        */
+        void holdForDialogue(const MWWorld::Ptr& actor, const MWWorld::Ptr& partner)
+        {
+            auto& movement = actor.getClass().getMovementSettings(actor);
+            movement.mPosition[0] = 0;
+            movement.mPosition[1] = 0;
+            movement.mPosition[2] = 0;
+
+            const osg::Vec3f dir
+                = partner.getRefData().getPosition().asVec3() - actor.getRefData().getPosition().asVec3();
+            MWMechanics::zTurn(actor, std::atan2(dir.x(), dir.y()), osg::DegreesToRadians(5.f));
+        }
+        /*
+            End of tes3mp addition
+        */
+
         void updateHeadTracking(const MWWorld::Ptr& actor, const MWWorld::Ptr& targetActor,
             MWWorld::Ptr& headTrackTarget, float& sqrHeadTrackDistance, bool inCombatOrPursue)
         {
@@ -560,7 +581,15 @@ namespace MWMechanics
         const float helloDistance
             = static_cast<float>(actorStats.getAiSetting(AiSetting::Hello).getModified() * iGreetDistanceMultiplier);
 
-        const MWWorld::Ptr player = getPlayer();
+        /*
+            Start of tes3mp change (major)
+
+            Greet whichever player is nearest, so NPCs run by another client still turn to you
+        */
+        const MWWorld::Ptr player = MechanicsHelper::getNearestPlayer(actor);
+        /*
+            End of tes3mp change (major)
+        */
         const osg::Vec3f playerPos(player.getRefData().getPosition().asVec3());
         const osg::Vec3f actorPos(actor.getRefData().getPosition().asVec3());
         const osg::Vec3f dir = playerPos - actorPos;
@@ -1763,9 +1792,25 @@ namespace MWMechanics
                             CreatureStats& stats = actor.getPtr().getClass().getCreatureStats(actor.getPtr());
                             if (isConscious(actor.getPtr()) && !(luaControls && luaControls->mDisableAI))
                             {
-                                stats.getAiSequence().execute(actor.getPtr(), ctrl, duration);
-                                updateGreetingState(actor.getPtr(), actor, mTimerUpdateHello > 0);
-                                playIdleDialogue(actor.getPtr());
+                                /*
+                                    Start of tes3mp change (major)
+
+                                    Hold an NPC that a player is talking to, instead of running its AI
+                                */
+                                const MWWorld::Ptr dialoguePartner = stats.getAiSequence().isInCombat()
+                                    ? MWWorld::Ptr()
+                                    : MechanicsHelper::getDialoguePartner(actor.getPtr());
+                                if (!dialoguePartner.isEmpty())
+                                    holdForDialogue(actor.getPtr(), dialoguePartner);
+                                else
+                                {
+                                    stats.getAiSequence().execute(actor.getPtr(), ctrl, duration);
+                                    updateGreetingState(actor.getPtr(), actor, mTimerUpdateHello > 0);
+                                    playIdleDialogue(actor.getPtr());
+                                }
+                                /*
+                                    End of tes3mp change (major)
+                                */
                                 updateMovementSpeed(actor.getPtr());
                             }
                         }

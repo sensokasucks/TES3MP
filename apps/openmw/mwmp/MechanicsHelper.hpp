@@ -12,6 +12,9 @@
 namespace MechanicsHelper
 {
     osg::Vec3f getLinearInterpolation(osg::Vec3f start, osg::Vec3f end, float percent);
+
+    // Like getLinearInterpolation, for rotations in radians: each axis turns the short way round
+    osg::Vec3f getAngleInterpolation(osg::Vec3f start, osg::Vec3f end, float percent);
     ESM::Position getPositionFromVector(osg::Vec3f vector);
 
     void spawnLeveledCreatures(MWWorld::CellStore* cellStore);
@@ -44,6 +47,12 @@ namespace MechanicsHelper
     //       team, because it should technically be possible to be allied to someone
     //       who isn't mutually allied to you
     bool isTeamMember(const MWWorld::Ptr& playerChecked, const MWWorld::Ptr& playerWithTeam);
+
+    // The player (this client's or another client's) who is in dialogue with this actor, or an empty Ptr
+    MWWorld::Ptr getDialoguePartner(const MWWorld::Ptr& actor);
+
+    // The nearest player (this client's or another client's) in the actor's cell, or an empty Ptr
+    MWWorld::Ptr getNearestPlayer(const MWWorld::Ptr& actor);
 
     bool getSpellSuccess(std::string spellId, const MWWorld::Ptr& caster);
 
