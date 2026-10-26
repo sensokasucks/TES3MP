@@ -1,3 +1,4 @@
+#include <components/openmw-mp/FlightRecorder.hpp>
 #include "Player.hpp"
 #include "processors/ProcessorInitializer.hpp"
 #include <RakPeer.h>
@@ -66,10 +67,14 @@ Networking::Networking(RakNet::RakPeerInterface *peer) : mclient(nullptr)
     serverPassword = TES3MP_DEFAULT_PASSW;
 
     ProcessorInitializer();
+
+    mwmp::Flight::init("tes3mp-server", true); // records packets when TES3MP_FLIGHT_DIR is set
 }
 
 Networking::~Networking()
 {
+    mwmp::Flight::dump("exit");
+
     Script::Call<Script::CallbackIdentity("OnServerExit")>(false);
 
     CellController::destroy();
@@ -535,6 +540,8 @@ int Networking::mainLoop()
         {
             if (getMasterClient()->Process(packet))
                 continue;
+
+            mwmp::Flight::netIn(*packet);
 
             switch (packet->data[0])
             {

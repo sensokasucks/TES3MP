@@ -1,3 +1,4 @@
+#include <components/openmw-mp/FlightRecorder.hpp>
 #include <filesystem>
 #include <stdexcept>
 #include <iostream>
@@ -234,10 +235,13 @@ Networking::Networking(): peer(RakNet::RakPeerInterface::GetInstance()), systemP
 
     connected = 0;
     ProcessorInitializer();
+
+    mwmp::Flight::init("tes3mp-client", false); // records packets when TES3MP_FLIGHT_DIR is set
 }
 
 Networking::~Networking()
 {
+    mwmp::Flight::dump("exit");
     peer->Shutdown(100);
     peer->CloseConnection(peer->GetSystemAddressFromIndex(0), true, 0);
     RakNet::RakPeerInterface::DestroyInstance(peer);
@@ -250,6 +254,8 @@ void Networking::update()
 
     for (packet=peer->Receive(); packet; peer->DeallocatePacket(packet), packet=peer->Receive())
     {
+        mwmp::Flight::netIn(*packet);
+
         switch (packet->data[0])
         {
             case ID_REMOTE_DISCONNECTION_NOTIFICATION:
@@ -272,9 +278,11 @@ void Networking::update()
                 break;
             case ID_DISCONNECTION_NOTIFICATION:
                 errmsg = "We have been disconnected.";
+                mwmp::Flight::dump("disconnect");
                 break;
             case ID_CONNECTION_LOST:
                 errmsg = "Connection lost.";
+                mwmp::Flight::dump("connection lost");
                 break;
             default:
                 receiveMessage(packet);

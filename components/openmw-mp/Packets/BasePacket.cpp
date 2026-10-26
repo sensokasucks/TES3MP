@@ -2,6 +2,7 @@
 #include <PacketPriority.h>
 #include <RakPeer.h>
 #include "BasePacket.hpp"
+#include "../FlightRecorder.hpp"
 
 using namespace mwmp;
 
@@ -49,6 +50,7 @@ uint32_t BasePacket::RequestData(RakNet::RakNetGUID targetGuid)
     bsSend->ResetWritePointer();
     bsSend->Write(packetID);
     bsSend->Write(targetGuid);
+    Flight::netOut(targetGuid, false, *bsSend, orderChannel);
     return peer->Send(bsSend, HIGH_PRIORITY, RELIABLE_ORDERED, orderChannel, targetGuid, false);
 }
 
@@ -56,6 +58,7 @@ uint32_t BasePacket::Send(RakNet::AddressOrGUID destination)
 {
     bsSend->ResetWritePointer();
     Packet(bsSend, true);
+    Flight::netOut(destination.rakNetGuid, false, *bsSend, orderChannel);
     return peer->Send(bsSend, priority, reliability, orderChannel, destination, false);
 }
 
@@ -63,6 +66,7 @@ uint32_t BasePacket::Send(bool toOther)
 {
     bsSend->ResetWritePointer();
     Packet(bsSend, true);
+    Flight::netOut(guid, toOther, *bsSend, orderChannel);
     return peer->Send(bsSend, priority, reliability, orderChannel, guid, toOther);
 }
 

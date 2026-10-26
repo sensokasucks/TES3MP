@@ -413,7 +413,12 @@ add_component_dir (version
     )
 
 add_component_dir (openmw-mp
-        TimedLog Utils ErrorMessages NetworkMessages Version
+        TimedLog Utils ErrorMessages NetworkMessages Version FlightRecorder
+        )
+
+# Co-op flight recorder from github.com/cranebeaker/coop-anything (MIT, see Flight/LICENSE)
+add_component_dir (openmw-mp/Flight
+        cofr
         )
 
 add_component_dir (openmw-mp/Base
