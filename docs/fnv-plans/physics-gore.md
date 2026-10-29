@@ -46,3 +46,18 @@ Morrowind ships no gib or severed-limb meshes, so the engine generates them from
 - **FNV keeps its own data first.** When BPTD gore data and vanilla gib meshes exist, those are used. The generic path is the fallback for actors with no gore data.
 
 Order: the body-part hide and the Morrowind NPC limb drop first, since they need no physics. Then the bone-weight cutter. Explosion gibbing comes after F3.
+
+## Bleeding
+
+Added 2026-10-29. Opt-in in both games, like the other gore settings.
+
+- **Health over time.** A bleed is a timed damage-health effect on the existing active effects system (FNV I.FNVEffects, Morrowind magic effects). Each wound adds its own stack. Strength comes from the hit: damage, weapon type (blades and big guns bleed more), and the hit body part. Stimpaks, bandages and doctor's bags stop it in FNV, and healing spells and potions in Morrowind. Bleeding never fires on essential NPCs and never kills during a quest scene.
+- **AI reaction.** Under the modern brain, a badly bleeding NPC retreats to heal, slows down or limps (ties into B3 and B6 in [modern-ai.md](modern-ai.md)). The original brain only gets the health loss.
+- **Drips.** Particles fall from the wound bone. Where one lands (a short raycast), it leaves a small splat.
+- **Trails.** A moving bleeder drops a splat every few steps, so a wounded animal can be tracked by its blood.
+- **Spray and pools.** A hit sprays onto walls and floors behind the target along the shot direction. A body leaves a pool that grows for a few seconds.
+- **Decal system.** OpenMW has none for this today. New work: projected decals (or terrain-hugging quads) on terrain and statics, with a budget of about 200 to 300 splats. The oldest fade out first, and a cell's splats are dropped when it unloads.
+- **Textures.** FNV uses its own blood decals and impact data. Morrowind uses the actor's blood type, so skeletons drop dust and ghosts ectoplasm.
+- **Multiplayer.** The bleed effect is game state and replicates with effects. The splats are cosmetic: each machine places them from the wound event plus a seed, so they are never sent.
+
+Order: the bleed effect first (small, effects already exist), then drips, trails and pools once the decal system is in.
