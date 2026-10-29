@@ -26,7 +26,8 @@ Script packages, packages with quest-stage conditions, Dialogue, Escort and Foll
 | B2 Daily life | Utility scoring inside Sandbox and Wander: needs (hunger, rest, social) that decay over game time, energy, time of day, ownership, who is nearby. Weather and gunfire reactions. | A2 packages, A3 off-screen life |
 | B3 Tactics | More planner actions (suppressive fire, flanks, retreat to allies, heal allies), squad roles, shared last-known position, precomputed cover points. A per-base group brain after MGSV's command post: alert phase Battle, Search, Guard, back to routine. | A5 combat |
 | B4 Companions | Formation following out of doorways and lines of fire, better waiting spots, stealth mirroring | A6 followers |
-| B5 Civilians | Opt-in population layer that adds generic townsfolk from FalloutNV.esm's 769 generic NPC records | B1, B2, A3 abstract tier |
+| B5 Civilians | Opt-in population layer that adds generic townsfolk from FalloutNV.esm's 769 generic NPC records. Far tiers drawn with vertex animation textures. | B1, B2, A3 abstract tier |
+| B6 Physical reactions | Active ragdoll staggers, limping on crippled legs, better explosion knockdown. See [physics-gore.md](physics-gore.md). | Ragdolls (F3) |
 
 ## Civilian population (B5) in short
 
@@ -34,6 +35,10 @@ Script packages, packages with quest-stage conditions, Dialogue, Escort and Foll
 - **Flow-field steering** for the lower tiers: one grid per town cell, one field per destination, computed once and cached. Each civilian reads a direction, adds a separation push, and steps at a fixed 10 Hz.
 - **Regenerated from a seed.** A town's civilians come from (town, day, seed). A save stores only the seed, the deaths and a few flags.
 - **Rough budget:** about 40 realized NPCs, 80 to 100 rendered, a few hundred abstract per worldspace. Goodsprings gets 15 to 20 more people, Freeside 60 to 100, the Strip 80 to 120.
+
+## Performance
+
+GPU skinning, ragdoll sleep, AI level of detail and VAT crowds are planned in [physics-gore.md](physics-gore.md#scaling-to-many-ragdolls-and-ais).
 
 ## Multiplayer rules
 
