@@ -6,7 +6,7 @@ These plans move the multiplayer-side work for OpenNV (Fallout: New Vegas on Ope
 |------|----------------|
 | [mounts.md](mounts.md) | Animal riding, then vehicles and bikes, as an engine feature with multiplayer sync built in |
 | [modern-ai.md](modern-ai.md) | Path 2, the optional modern NPC AI: crowds, utility daily life, squad tactics, civilian population |
-| [physics-gore.md](physics-gore.md) | Collision, ragdolls, scaling to many ragdolls and AIs (GPU skinning, ragdoll sleep, VAT crowds), and generic gore that also works in Morrowind |
+| [physics-gore.md](physics-gore.md) | Collision, ragdolls, scaling to many ragdolls and AIs (GPU skinning, ragdoll sleep, VAT crowds), generic gore that also works in Morrowind, and bleeding (damage over time plus blood trails and pools) |
 | [server-ai.md](server-ai.md) | Which AI work the tes3mp-server can take off the players' PCs, and which must stay on a client |
 | [launcher.md](launcher.md) | One launcher for single player and co-op, so nothing is locked behind multiplayer |
 
