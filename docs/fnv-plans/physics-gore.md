@@ -2,6 +2,17 @@
 
 Planned with Sen on 2026-10-29 (thread "P0 Plan the modern AI option"). This covers engine work that both games share. Basic physics and ragdolls belong to the faithful path, because the original FNV has them. The extras are opt-in, like the modern AI.
 
+## Schedule (Sen, 2026-10-29)
+
+Physics and ragdolls run **next to the AI work, not after it**, because stumbling, knockdown and dismemberment change how NPCs move and fight. The two meet at one shared seam:
+
+- **Actor physical state**, written by physics and gore and read by the AI and executor: standing, staggering, knocked down, getting up, ragdoll (dead or unconscious), per-limb state (healthy, crippled, severed) and bleeding level.
+- **Movement:** a crippled or severed leg means limping, a lower speed and no running. Both legs gone means crawling or down. The executor picks the locomotion set, and pathing uses the lower speed.
+- **Combat:** a severed or crippled weapon arm means dropping the weapon, switching to one-handed or unarmed, or fleeing. Knockdown cancels the current action, and the planner re-plans after get-up.
+- **Original brain:** it reads only what vanilla FNV has (crippled limbs, knockdown, the KnockState byte). The extra reactions (stumbles, bracing, crawling) belong to the modern brain (B6).
+
+Suggested order alongside AI Path 1: the physical state seam and crippled-limb movement first, then F1 collision and F2 actor bodies, then F3 ragdolls with knockdown and get-up.
+
 ## Where things stand (openmw-fnv integration, 2026-10-29)
 
 - No ragdolls. Death plays a creature's Death.KF, a get-up animation run backwards, or `deathpose1/2.kf`. Placed corpses ignore their saved XRGD/XRGB poses.
